@@ -1,4 +1,4 @@
-const ACCEPTABLE_DIFFERENCE = 0.2
+const ACCEPTABLE_DIFFERENCE = 0.1
 
 function roundPercentage(percentage: number) {
     return Math.round(percentage * 10000) / 100
@@ -6,12 +6,14 @@ function roundPercentage(percentage: number) {
 
 interface AbstractSecurity {
     tick: string
+    exchange?: string
     price: number
     percentage: number
 }
 
 class Security implements AbstractSecurity {
     public tick: string
+    public exchange?: string
     public price: number
     public percentage: number
     private _shares: number = NaN
@@ -24,12 +26,13 @@ class Security implements AbstractSecurity {
         this._shares = sh
     }
 
-    constructor(options: {tick: string, price: number, percentage: number, shares?: number}) {
-        const {tick, price, percentage, shares} = options
+    constructor(options: AbstractSecurity) {
+        const {tick, exchange, price, percentage} = options
         if (!tick) {
             throw('Tick can\'t be empty')
         }
         this.tick = tick
+        this.exchange = exchange
 
         if (price < 0) {
             throw('Price can\'t be < 0 or > 1')
@@ -40,8 +43,6 @@ class Security implements AbstractSecurity {
             throw('Percentage can\'t be < 0 or > 1 ')
         }
         this.percentage = percentage
-
-        this.shares = shares ?? NaN
     }
 
     public get isValid(): boolean {
@@ -57,7 +58,7 @@ class Security implements AbstractSecurity {
     }
 
     public log(actualPrice?: number): void {
-        console.log(`------------------------ ${this.tick} ------------------------`)
+        console.log(`------------------------ ${this.tick}${this.exchange ? ` @ ${this.exchange}` : ''} ------------------------`)
         console.log(`Price: ${this.price}`)
         console.log(`Shares: ${this.shares}`)
         console.log(`Total Price: ${this.totalPrice}`)
@@ -70,18 +71,27 @@ class Security implements AbstractSecurity {
 
 const abstractSecurities: AbstractSecurity[] = [
     {
-        tick: 'FTEC',
-        price: 92.17,
+        tick: 'QDVE',
+        exchange: 'IBIS2',
+        price: 15.82,
         percentage: 0.4,
     },
     {
-        tick: 'HDV',
-        price:  92.28,
-        percentage: 0.4,
+        tick: 'SPYD',
+        exchange: 'IBIS2',
+        price:  64.76,
+        percentage: 0.2,
     },
     {
-        tick: 'GLDM',
-        price: 33.14,
+        tick: 'HDLV',
+        exchange: 'SBF',
+        price:  30.615,
+        percentage: 0.2,
+    },
+    {
+        tick: 'GOLD', // GLDA @ SWB
+        exchange: 'SBF',
+        price: 68.97,
         percentage: 0.2,
     }
 ]
