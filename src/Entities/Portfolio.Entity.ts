@@ -7,7 +7,6 @@ export class Portfolio {
     public securities: PortfolioSecurity[]
     // TODO: Add currency
 
-
     constructor(securities: PortfolioSecurity[]) {
         const totalPercentage = securities.reduce((acc, sec) => acc + sec.targetPercentage, 0)
         if (totalPercentage != 1) {

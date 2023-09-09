@@ -1,4 +1,5 @@
 import { DEFAULT_ACCEPTABLE_PERCESION, GetPortfolioWithMinimumShares } from '@/UseCases/GetPortfolioWithMinimumShares.UseCase';
+import { GetPortfolioWithPrice } from '@/UseCases/GetPortfolioWithPrice.UseCase';
 import { Command } from 'commander';
 import { PortfolioCli_Presenter } from './Presenters/PortfolioCli.Presenter';
 
@@ -14,6 +15,15 @@ program.command('minimum-shares')
     .option('-p, --percision <percision>', 'how much can your securities percentage deviate from target', String(DEFAULT_ACCEPTABLE_PERCESION))
     .action(async (options) => {
         const useCase = new GetPortfolioWithMinimumShares(Number(options.percision))
+        const portfolio = await useCase.handler()
+        PortfolioCli_Presenter.present(portfolio)
+    });
+
+program.command('target-price')
+    .description('Calculates the number of shares you need to buy to satisfy your portfolio with a limited budget')
+    .argument('<price>', 'target portfolio price')
+    .action(async (targetPrice) => {
+        const useCase = new GetPortfolioWithPrice(Number(targetPrice))
         const portfolio = await useCase.handler()
         PortfolioCli_Presenter.present(portfolio)
     });
