@@ -1,3 +1,4 @@
+import { validateClassErrors } from "@/Shared/utils"
 import { IsNotEmpty, Min } from "class-validator"
 
 
@@ -28,5 +29,7 @@ export class Security {
         this.price = price
         this.exchange = exchange
         this.currency = currency
+
+        validateClassErrors(this, Security)
     }
 }

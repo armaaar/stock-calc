@@ -15,6 +15,6 @@ export class PortfolioCli_Presenter
         })
 
         console.log("")
-        console.log(`Portfolio Price: ${portfolio.totalPrice}`)
+        console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`)
     }
 }

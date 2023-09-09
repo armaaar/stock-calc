@@ -1,11 +1,15 @@
-import { Min } from "class-validator"
+import { validateClassErrors } from "@/Shared/utils"
+import { ArrayNotEmpty, IsArray, ValidateNested } from "class-validator"
 import { PortfolioSecurity } from "./PortfolioSecurity.Entity"
 
 
 export class Portfolio {
-    @Min(1)
+
+    @IsArray()
+    @ArrayNotEmpty()
+    @ValidateNested()
     public securities: PortfolioSecurity[]
-    // TODO: Add currency
+    public currency?: string
 
     constructor(securities: PortfolioSecurity[]) {
         const totalPercentage = securities.reduce((acc, sec) => acc + sec.targetPercentage, 0)
@@ -13,9 +17,14 @@ export class Portfolio {
             throw('Portfolio percentage don\'t add up to 1')
         }
 
-        // TODO: Add test that all currencies are the same
+        if (!securities.every((sec) => sec.currency === securities[0].currency)) {
+            throw('Portfolio have securities with different currencies')
+        }
 
         this.securities = securities
+        this.currency = securities[0].currency
+
+        validateClassErrors(this, Portfolio)
     }
     
     public get totalPrice(): number {

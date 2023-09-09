@@ -1,7 +1,7 @@
 import { Portfolio_Repository } from "@/Repositories/Portfolio.Repository"
 
 
-export class GetPortfolioWithPrice {
+export class GetPortfolioWithPrice_UseCase {
     
     private _targetPrice: number
     private _portfolioRepo = new Portfolio_Repository()

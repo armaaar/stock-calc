@@ -1,32 +1,15 @@
-import { DEFAULT_ACCEPTABLE_PERCESION, GetPortfolioWithMinimumShares } from '@/UseCases/GetPortfolioWithMinimumShares.UseCase';
-import { GetPortfolioWithPrice } from '@/UseCases/GetPortfolioWithPrice.UseCase';
 import { Command } from 'commander';
-import { PortfolioCli_Presenter } from './Presenters/PortfolioCli.Presenter';
+import { minimumSharesCli } from './CliCommands/minimumShares.CliCommand';
+import { targetPriceCli } from './CliCommands/targetPrice.CliCommand';
 
-const program = new Command();
+const cli = new Command();
 
-program
+cli
     .name('portfolio-helper')
-    .description('CLI to help you calculate shares in your portfolio')
+    .description('CLI tool to help you calculate shares in your portfolio')
     .version('0.1.0');
 
-program.command('minimum-shares')
-    .description('Calculates the minimum number of shares you need to buy to satisfy your portfolio')
-    .option('-p, --percision <percision>', 'how much can your securities percentage deviate from target', String(DEFAULT_ACCEPTABLE_PERCESION))
-    .action(async (options) => {
-        const useCase = new GetPortfolioWithMinimumShares(Number(options.percision))
-        const portfolio = await useCase.handler()
-        PortfolioCli_Presenter.present(portfolio)
-    });
+cli.addCommand(minimumSharesCli)
+cli.addCommand(targetPriceCli)
 
-program.command('target-price')
-    .description('Calculates the number of shares you need to buy to satisfy your portfolio with a limited budget')
-    .argument('<price>', 'target portfolio price')
-    .action(async (targetPrice) => {
-        const useCase = new GetPortfolioWithPrice(Number(targetPrice))
-        const portfolio = await useCase.handler()
-        PortfolioCli_Presenter.present(portfolio)
-    });
-
-
-program.parse();
+cli.parse();
