@@ -4,14 +4,17 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "cli": "ts-node src/CliApp/app.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "class-validator": "^0.14.0",
+    "commander": "^11.0.0",
     "puppeteer": "^21.1.1",
     "ts-node": "^10.9.1",
-    "typescript": "^4.8.4"
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.2.2"
   }
 }
