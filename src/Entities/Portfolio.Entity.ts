@@ -1,5 +1,5 @@
 import { ArrayNotEmpty, IsArray, ValidateNested } from 'class-validator'
-import { validateClassErrors } from '@/Shared/utils'
+import { validateClassErrors } from '@/Shared/classValidatorError'
 import { PortfolioSecurity } from './PortfolioSecurity.Entity'
 
 export class Portfolio {

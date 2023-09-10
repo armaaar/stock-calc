@@ -1,5 +1,5 @@
 import { IsNotEmpty, Min } from 'class-validator'
-import { validateClassErrors } from '@/Shared/utils'
+import { validateClassErrors } from '@/Shared/classValidatorError'
 
 export interface ISecurety {
   tick: string

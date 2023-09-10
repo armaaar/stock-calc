@@ -1,5 +1,5 @@
 import { IsInt, Max, Min } from 'class-validator'
-import { validateClassErrors } from '@/Shared/utils'
+import { validateClassErrors } from '@/Shared/classValidatorError'
 import { ISecurety, Security } from './Security.Entity'
 
 interface IPortfolioSecurity extends ISecurety {

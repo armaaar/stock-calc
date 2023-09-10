@@ -1,7 +1,8 @@
 import { IsInt, Max, Min } from 'class-validator'
 import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
 import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
-import { roundToClosestMultiply, validateClassErrors } from '@/Shared/utils'
+import { roundToClosestMultiply } from '@/Shared/utils'
+import { validateClassErrors } from '@/Shared/classValidatorError'
 
 export const DEFAULT_ACCEPTABLE_PERCESION = 0.01
 export const DEFAULT_SHARES_STEP = 1
