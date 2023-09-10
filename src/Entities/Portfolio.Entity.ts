@@ -1,5 +1,6 @@
 import { ArrayNotEmpty, IsArray, ValidateNested } from 'class-validator'
-import { validateClassErrors } from '@/Shared/classValidatorError'
+import Decimal from 'decimal.js'
+import { validateClassErrors } from '@/Shared/ClassValidatorError'
 import { PortfolioSecurity } from './PortfolioSecurity.Entity'
 
 export class Portfolio {
@@ -11,8 +12,11 @@ export class Portfolio {
   public currency?: string
 
   constructor(securities: PortfolioSecurity[]) {
-    const totalPercentage = securities.reduce((acc, sec) => acc + sec.targetPercentage, 0)
-    if (totalPercentage !== 1) {
+    const totalPercentage = securities.reduce(
+      (acc, sec) => acc.plus(sec.targetPercentage),
+      new Decimal(0),
+    )
+    if (!totalPercentage.equals(1)) {
       throw Error('Portfolio percentage don\'t add up to 1')
     }
 
@@ -26,7 +30,10 @@ export class Portfolio {
     validateClassErrors(this, Portfolio)
   }
 
-  public get totalPrice(): number {
-    return this.securities.reduce((acc, sec) => acc + sec.totalPrice, 0)
+  public get totalPrice(): Decimal {
+    return this.securities.reduce(
+      (acc, sec) => acc.plus(sec.totalPrice),
+      new Decimal(0),
+    )
   }
 }

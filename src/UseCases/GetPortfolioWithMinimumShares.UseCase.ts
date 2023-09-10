@@ -1,8 +1,9 @@
 import { IsInt, Max, Min } from 'class-validator'
+import Decimal from 'decimal.js'
 import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
 import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
 import { roundToClosestMultiply } from '@/Shared/utils'
-import { validateClassErrors } from '@/Shared/classValidatorError'
+import { validateClassErrors } from '@/Shared/ClassValidatorError'
 
 export const DEFAULT_ACCEPTABLE_PERCESION = 0.01
 export const DEFAULT_SHARES_STEP = 1
@@ -46,15 +47,19 @@ export class GetPortfolioWithMinimumSharesUseCase {
   }
 
   private calcShares(knownTick: PortfolioSecurity, targetTick: PortfolioSecurity): number {
-    return Math.round(
-      ((knownTick.price * knownTick.shares) / knownTick.targetPercentage)
-      / (targetTick.price / targetTick.targetPercentage),
-    )
+    return knownTick.price
+      .times(knownTick.shares)
+      .dividedBy(knownTick.targetPercentage)
+      .times(targetTick.targetPercentage)
+      .dividedBy(targetTick.price)
+      .round()
+      .toNumber()
   }
 
-  private areSharesPercise(sec: PortfolioSecurity, totalPrice: number): boolean {
-    return Math.abs(
-      sec.calcActualPercentage(totalPrice) - sec.targetPercentage,
-    ) <= this.acceptablePercision
+  private areSharesPercise(sec: PortfolioSecurity, totalPrice: Decimal): boolean {
+    return sec.calcActualPercentage(totalPrice)
+      .minus(sec.targetPercentage)
+      .abs()
+      .lessThanOrEqualTo(this.acceptablePercision)
   }
 }

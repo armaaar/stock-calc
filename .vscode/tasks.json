@@ -12,12 +12,6 @@
       "script": "cli:minimum-shares",
       "problemMatcher": ["$tsc"],
       "label": "cli: minimum-shares"
-    },
-    {
-      "type": "npm",
-      "script": "cli:target-price",
-      "problemMatcher": ["$tsc"],
-      "label": "cli: target-price"
     }
   ]
 }

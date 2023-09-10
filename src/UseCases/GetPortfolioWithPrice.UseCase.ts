@@ -1,12 +1,13 @@
+import Decimal from 'decimal.js'
 import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
 
 export class GetPortfolioWithPriceUseCase {
-  private targetPrice: number
+  private targetPrice: Decimal
 
   private portfolioRepo = new PortfolioRepository()
 
   constructor(targetPrice: number) {
-    this.targetPrice = targetPrice
+    this.targetPrice = new Decimal(targetPrice)
   }
 
   public async handler() {
@@ -14,8 +15,8 @@ export class GetPortfolioWithPriceUseCase {
 
     for (let i = 0; i < portfolio.securities.length; i++) {
       const sec = portfolio.securities[i]
-      const secTargetPrice = this.targetPrice * sec.targetPercentage
-      sec.shares = Math.round(secTargetPrice / sec.price)
+      const secTargetPrice = this.targetPrice.times(sec.targetPercentage)
+      sec.shares = secTargetPrice.dividedBy(sec.price).round().toNumber()
     }
 
     return portfolio

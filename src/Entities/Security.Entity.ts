@@ -1,5 +1,6 @@
 import { IsNotEmpty, Min } from 'class-validator'
-import { validateClassErrors } from '@/Shared/classValidatorError'
+import Decimal from 'decimal.js'
+import { validateClassErrors } from '@/Shared/ClassValidatorError'
 
 export interface ISecurety {
   tick: string
@@ -16,8 +17,12 @@ export class Security {
   @IsNotEmpty()
   public isin: string
 
+  public price: Decimal
+
   @Min(0)
-  public price: number
+  private get priceValue(): number {
+    return this.price.toNumber()
+  }
 
   public exchange?: string
 
@@ -28,7 +33,7 @@ export class Security {
   }: ISecurety) {
     this.tick = tick
     this.isin = isin
-    this.price = price
+    this.price = new Decimal(price)
     this.exchange = exchange
     this.currency = currency
 

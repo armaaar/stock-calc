@@ -19,11 +19,11 @@ export class PortfolioCliPresenter {
       Tick: sec.tick,
       Exchange: sec.exchange ?? 'Unknown',
       Currency: sec.currency ?? 'Unknown',
-      Price: sec.price,
+      Price: sec.price.toNumber(),
       Shares: sec.shares,
-      'Total Price': sec.totalPrice,
-      'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice)),
-      'Target Percentage %': roundPercentage(sec.targetPercentage),
+      'Total Price': sec.totalPrice.toNumber(),
+      'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
+      'Target Percentage %': roundPercentage(sec.targetPercentage.toNumber()),
     }))
 
     console.table(tableData)

@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import chalk from 'chalk'
 import { ValidationError } from 'class-validator'
-import { ClassValidatorError } from '@/Shared/classValidatorError'
+import { ClassValidatorError } from '@/Shared/ClassValidatorError'
 
 export class ErrorCliPresenter {
   public static present(error: unknown): void {
