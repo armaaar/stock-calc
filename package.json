@@ -5,6 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "cli": "ts-node src/CliApp/app.ts",
+    "get-portfolio": "npx ts-node src/CliApp/app.ts get-portfolio",
     "minimum-shares": "npx ts-node src/CliApp/app.ts minimum-shares",
     "target-price": "npx ts-node src/CliApp/app.ts target-price",
     "test": "echo \"Error: no test specified\" && exit 1"

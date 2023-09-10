@@ -8,10 +8,11 @@ export class PortfolioCli_Presenter
             console.log(`------------------------ ${sec.tick}${sec.exchange ? ` @ ${sec.exchange}` : ''} ------------------------`)
             console.log(`Price: ${sec.price} ${sec.currency ?? ''}`)
             console.log(`Shares: ${sec.shares}`)
-            console.log(`Total Price: ${sec.totalPrice}`)
+            console.log(`Total Price: ${sec.totalPrice} ${sec.currency ?? ''}`)
             if (![undefined, NaN, 0].includes(portfolio.totalPrice)) {
-                console.log(`Percentage: ${roundPercentage(sec.calcActualPercentage(portfolio.totalPrice))}`)
+                console.log(`Percentage: ${roundPercentage(sec.calcActualPercentage(portfolio.totalPrice))}%`)
             }
+            console.log(`Target Percentage: ${roundPercentage(sec.targetPercentage)}%`)
         })
 
         console.log("")

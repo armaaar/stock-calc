@@ -17,7 +17,8 @@ export class Portfolio_Repository {
                 tick: p.tick,
                 isin: p.isin,
                 price: prices[p.isin].price,
-                targetPercentage: p.percentage,
+                shares: p.shares,
+                targetPercentage: p.targetPercentage,
                 exchange: p.exchange,
                 currency: prices[p.isin].currency,
             }))

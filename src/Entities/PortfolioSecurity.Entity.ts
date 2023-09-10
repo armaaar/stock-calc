@@ -3,6 +3,7 @@ import { IsInt, Max, Min } from "class-validator"
 import { ISecurety, Security } from "./Security.Entity"
 
 interface IPortfolioSecurity extends ISecurety {
+    shares: number
     targetPercentage: number
 }
 
@@ -13,10 +14,11 @@ export class PortfolioSecurity extends Security {
 
     @IsInt()
     @Min(0)
-    public shares: number = 0
+    public shares: number
 
     constructor(args: IPortfolioSecurity) {
         super(args)
+        this.shares = args.shares
         this.targetPercentage = args.targetPercentage
 
         validateClassErrors(this, PortfolioSecurity)
