@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    // General
+    "EditorConfig.EditorConfig",
+    "streetsidesoftware.code-spell-checker",
+
+    // Code
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode"
+  ]
+}

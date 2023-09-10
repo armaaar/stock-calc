@@ -1,35 +1,37 @@
-import { validateClassErrors } from "@/Shared/utils"
-import { IsNotEmpty, Min } from "class-validator"
-
+import { IsNotEmpty, Min } from 'class-validator';
+import { validateClassErrors } from '@/Shared/utils';
 
 export interface ISecurety {
-    tick: string
-    isin: string
-    price: number
-    exchange?: string
-    currency?: string
+  tick: string
+  isin: string
+  price: number
+  exchange?: string
+  currency?: string
 }
 
 export class Security {
-    @IsNotEmpty()
-    public tick: string
+  @IsNotEmpty()
+  public tick: string;
 
-    @IsNotEmpty()
-    public isin: string
+  @IsNotEmpty()
+  public isin: string;
 
-    @Min(0)
-    public price: number
+  @Min(0)
+  public price: number;
 
-    public exchange?: string
-    public currency?: string
+  public exchange?: string;
 
-    constructor({tick, isin , price, exchange, currency}: ISecurety) {
-        this.tick = tick
-        this.isin = isin
-        this.price = price
-        this.exchange = exchange
-        this.currency = currency
+  public currency?: string;
 
-        validateClassErrors(this, Security)
-    }
+  constructor({
+    tick, isin, price, exchange, currency,
+  }: ISecurety) {
+    this.tick = tick;
+    this.isin = isin;
+    this.price = price;
+    this.exchange = exchange;
+    this.currency = currency;
+
+    validateClassErrors(this, Security);
+  }
 }

@@ -1,11 +1,9 @@
-import { Portfolio_Repository } from "@/Repositories/Portfolio.Repository"
+import { PortfolioRepository } from '@/Repositories/Portfolio.Repository';
 
+export class GetCurrentPortfolioUseCase {
+  private portfolioRepo = new PortfolioRepository();
 
-export class GetCurrentPortfolio_UseCase {
-    
-    private _portfolioRepo = new Portfolio_Repository()
-
-    public async handler() {
-        return await this._portfolioRepo.getPortfolio()
-    }
+  public async handler() {
+    return this.portfolioRepo.getPortfolio();
+  }
 }

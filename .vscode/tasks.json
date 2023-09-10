@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "cli:get-portfolio",
+      "problemMatcher": ["$tsc"],
+      "label": "cli: get-portfolio"
+    },
+    {
+      "type": "npm",
+      "script": "cli:minimum-shares",
+      "problemMatcher": ["$tsc"],
+      "label": "cli: minimum-shares"
+    },
+    {
+      "type": "npm",
+      "script": "cli:target-price",
+      "problemMatcher": ["$tsc"],
+      "label": "cli: target-price"
+    }
+  ]
+}
