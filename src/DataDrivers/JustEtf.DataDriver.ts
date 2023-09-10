@@ -14,25 +14,33 @@ export class JustEtfDataDriver {
 
     const pricedSecurities: SecurityPriceDto = {}
 
-    const promises = isin_array.map(async (isin) => {
-      const page = await browser.newPage()
-      await page.goto(`https://www.justetf.com/en/etf-profile.html?isin=${isin}`)
+    try {
+      await Promise.all(isin_array.map(async (isin) => {
+        if (!isin) {
+          throw Error('No ISIN provided to get price')
+        }
+        const page = await browser.newPage()
+        await page.goto(`https://www.justetf.com/en/etf-profile.html?isin=${isin}`)
 
-      // Locate the full title with a unique string
-      const priceSelect = await page.waitForSelector('#realtime-quotes .val')
-      const fullPrice = await priceSelect?.evaluate((el) => el.textContent)
+        // Locate the full title with a unique string
 
-      const [currency, price] = fullPrice?.split(' ') ?? []
+        try {
+          const priceSelect = await page.waitForSelector('#realtime-quotes .val', { timeout: 1000 })
+          const fullPrice = await priceSelect?.evaluate((el) => el.textContent)
 
-      pricedSecurities[isin] = {
-        price: Number(price),
-        currency,
-      }
-    })
+          const [currency, price] = fullPrice?.split(' ') ?? []
 
-    await Promise.all(promises)
-
-    await browser.close()
+          pricedSecurities[isin] = {
+            price: Number(price),
+            currency,
+          }
+        } catch (e) {
+          throw Error(`ISIN '${isin}' is not registered in justetf.com`)
+        }
+      }))
+    } finally {
+      await browser.close()
+    }
 
     return pricedSecurities
   }
