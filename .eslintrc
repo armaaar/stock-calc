@@ -7,8 +7,8 @@
   "plugins": ["@typescript-eslint"],
   "root": true,
   "rules": {
-    "semi": "off",
-    "@typescript-eslint/semi": "off",
+    "semi": ["error", "never"],
+    "@typescript-eslint/semi": ["error", "never"],
     "import/prefer-default-export": "off",
     "no-plusplus": "off",
     "import/extensions": "off",

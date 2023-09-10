@@ -1,4 +1,4 @@
-import settings from './data/_settings.json';
+import settings from './data/_settings.json'
 
 export interface SettingsDto {
   tick: string;
@@ -10,6 +10,6 @@ export interface SettingsDto {
 
 export class SettingsDataDriver {
   public async getPortfolio(): Promise<SettingsDto[]> {
-    return settings;
+    return settings
   }
 }

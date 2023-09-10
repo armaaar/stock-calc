@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
-import { Portfolio } from '@/Entities/Portfolio.Entity';
-import { roundPercentage } from '@/Shared/utils';
+import { Portfolio } from '@/Entities/Portfolio.Entity'
+import { roundPercentage } from '@/Shared/utils'
 
 interface PortfolioSecurityTableData {
   Tick: string
@@ -27,6 +27,6 @@ export class PortfolioCliPresenter {
     }))
 
     console.table(tableData)
-    console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`);
+    console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`)
   }
 }

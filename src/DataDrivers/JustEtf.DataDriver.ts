@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer'
 
 interface SecurityPriceDto {
   [key: string]: {
@@ -10,30 +10,30 @@ interface SecurityPriceDto {
 export class JustEtfDataDriver {
   public async getPrices(isin_array: string[]): Promise<SecurityPriceDto> {
     // Launch the browser and open a new blank page
-    const browser = await puppeteer.launch({ headless: 'new' });
+    const browser = await puppeteer.launch({ headless: 'new' })
 
-    const pricedSecurities: SecurityPriceDto = {};
+    const pricedSecurities: SecurityPriceDto = {}
 
     const promises = isin_array.map(async (isin) => {
-      const page = await browser.newPage();
-      await page.goto(`https://www.justetf.com/en/etf-profile.html?isin=${isin}`);
+      const page = await browser.newPage()
+      await page.goto(`https://www.justetf.com/en/etf-profile.html?isin=${isin}`)
 
       // Locate the full title with a unique string
-      const priceSelect = await page.waitForSelector('#realtime-quotes .val');
-      const fullPrice = await priceSelect?.evaluate((el) => el.textContent);
+      const priceSelect = await page.waitForSelector('#realtime-quotes .val')
+      const fullPrice = await priceSelect?.evaluate((el) => el.textContent)
 
       const [currency, price] = fullPrice?.split(' ') ?? []
 
       pricedSecurities[isin] = {
         price: Number(price),
         currency,
-      };
-    });
+      }
+    })
 
-    await Promise.all(promises);
+    await Promise.all(promises)
 
-    await browser.close();
+    await browser.close()
 
-    return pricedSecurities;
+    return pricedSecurities
   }
 }

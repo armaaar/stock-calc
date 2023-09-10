@@ -1,6 +1,6 @@
-import { IsInt, Max, Min } from 'class-validator';
-import { validateClassErrors } from '@/Shared/utils';
-import { ISecurety, Security } from './Security.Entity';
+import { IsInt, Max, Min } from 'class-validator'
+import { validateClassErrors } from '@/Shared/utils'
+import { ISecurety, Security } from './Security.Entity'
 
 interface IPortfolioSecurity extends ISecurety {
   shares: number
@@ -10,25 +10,25 @@ interface IPortfolioSecurity extends ISecurety {
 export class PortfolioSecurity extends Security {
   @Min(0)
   @Max(1)
-  public targetPercentage: number;
+  public targetPercentage: number
 
   @IsInt()
   @Min(0)
-  public shares: number;
+  public shares: number
 
   constructor(args: IPortfolioSecurity) {
-    super(args);
-    this.shares = args.shares;
-    this.targetPercentage = args.targetPercentage;
+    super(args)
+    this.shares = args.shares
+    this.targetPercentage = args.targetPercentage
 
-    validateClassErrors(this, PortfolioSecurity);
+    validateClassErrors(this, PortfolioSecurity)
   }
 
   public get totalPrice(): number {
-    return this.price * this.shares;
+    return this.price * this.shares
   }
 
   public calcActualPercentage(actualPrice: number) {
-    return this.totalPrice / actualPrice;
+    return this.totalPrice / actualPrice
   }
 }
