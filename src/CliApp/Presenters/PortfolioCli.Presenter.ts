@@ -2,20 +2,31 @@
 import { Portfolio } from '@/Entities/Portfolio.Entity';
 import { roundPercentage } from '@/Shared/utils';
 
+interface PortfolioSecurityTableData {
+  Tick: string
+  Exchange: string
+  Currency: string
+  Price: number
+  Shares: number
+  'Total Price': number
+  'Percentage %': number
+  'Target Percentage %': number
+}
+
 export class PortfolioCliPresenter {
   public static present(portfolio: Portfolio): void {
-    portfolio.securities.forEach((sec) => {
-      console.log(`------------------------ ${sec.tick}${sec.exchange ? ` @ ${sec.exchange}` : ''} ------------------------`);
-      console.log(`Price: ${sec.price} ${sec.currency ?? ''}`);
-      console.log(`Shares: ${sec.shares}`);
-      console.log(`Total Price: ${sec.totalPrice} ${sec.currency ?? ''}`);
-      if (![undefined, NaN, 0].includes(portfolio.totalPrice)) {
-        console.log(`Percentage: ${roundPercentage(sec.calcActualPercentage(portfolio.totalPrice))}%`);
-      }
-      console.log(`Target Percentage: ${roundPercentage(sec.targetPercentage)}%`);
-    });
+    const tableData = portfolio.securities.map<PortfolioSecurityTableData>((sec) => ({
+      Tick: sec.tick,
+      Exchange: sec.exchange ?? 'Unknown',
+      Currency: sec.currency ?? 'Unknown',
+      Price: sec.price,
+      Shares: sec.shares,
+      'Total Price': sec.totalPrice,
+      'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice)),
+      'Target Percentage %': roundPercentage(sec.targetPercentage),
+    }))
 
-    console.log('');
+    console.table(tableData)
     console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`);
   }
 }
