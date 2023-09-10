@@ -1,4 +1,4 @@
-import { Command } from 'commander'
+import { Command } from '@commander-js/extra-typings'
 import { getPortfolioCli } from './CliCommands/getPortfolio.CliCommand'
 import { minimumSharesCli } from './CliCommands/minimumShares.CliCommand'
 import { targetPriceCli } from './CliCommands/targetPrice.CliCommand'
