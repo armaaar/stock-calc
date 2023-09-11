@@ -1,6 +1,7 @@
 import { Command } from '@commander-js/extra-typings'
 import { getPortfolioCli } from './CliCommands/getPortfolio.CliCommand'
 import { minimumSharesCli } from './CliCommands/minimumShares.CliCommand'
+import { rebalancePortfolioCli } from './CliCommands/rebalancePortfolio.CliCommand'
 import { targetPriceCli } from './CliCommands/targetPrice.CliCommand'
 
 const cli = new Command()
@@ -13,5 +14,6 @@ cli
 cli.addCommand(getPortfolioCli)
 cli.addCommand(minimumSharesCli)
 cli.addCommand(targetPriceCli)
+cli.addCommand(rebalancePortfolioCli)
 
 cli.parse()

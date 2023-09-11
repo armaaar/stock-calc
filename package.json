@@ -8,6 +8,7 @@
     "cli:get-portfolio": "npx ts-node src/CliApp/app.ts get-portfolio",
     "cli:minimum-shares": "npx ts-node src/CliApp/app.ts minimum-shares",
     "cli:target-price": "npx ts-node src/CliApp/app.ts target-price",
+    "cli:rebalance-portfolio": "npx ts-node src/CliApp/app.ts rebalance-portfolio",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -12,6 +12,12 @@
       "script": "cli:minimum-shares",
       "problemMatcher": ["$tsc"],
       "label": "cli: minimum-shares"
+    },
+    {
+      "type": "npm",
+      "script": "cli:rebalance-portfolio",
+      "problemMatcher": ["$tsc"],
+      "label": "cli: rebalance-portfolio"
     }
   ]
 }
