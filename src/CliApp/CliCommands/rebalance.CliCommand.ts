@@ -3,9 +3,9 @@ import { PortfolioCliPresenter } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
 import { GetRebalancedPortfolioUseCase } from '@/UseCases/GetRebalancedPortfolio.UseCase'
 
-export const rebalancePortfolioCli = new Command()
+export const rebalanceCli = new Command()
 
-rebalancePortfolioCli.name('rebalance-portfolio')
+rebalanceCli.name('rebalance')
   .description('Rebalance the current portfolio')
   .action(async () => {
     try {

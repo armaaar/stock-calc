@@ -3,21 +3,21 @@
   "tasks": [
     {
       "type": "npm",
-      "script": "cli:get-portfolio",
+      "script": "cli:show",
       "problemMatcher": ["$tsc"],
-      "label": "cli: get-portfolio"
+      "label": "cli: show"
     },
     {
       "type": "npm",
-      "script": "cli:minimum-shares",
+      "script": "cli:minimal",
       "problemMatcher": ["$tsc"],
-      "label": "cli: minimum-shares"
+      "label": "cli: minimal"
     },
     {
       "type": "npm",
-      "script": "cli:rebalance-portfolio",
+      "script": "cli:rebalance",
       "problemMatcher": ["$tsc"],
-      "label": "cli: rebalance-portfolio"
+      "label": "cli: rebalance"
     }
   ]
 }

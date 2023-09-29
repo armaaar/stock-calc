@@ -5,10 +5,10 @@
   "main": "src/CliApp/app.ts",
   "scripts": {
     "cli": "ts-node src/CliApp/app.ts",
-    "cli:get-portfolio": "npx ts-node src/CliApp/app.ts get-portfolio",
-    "cli:minimum-shares": "npx ts-node src/CliApp/app.ts minimum-shares",
-    "cli:target-price": "npx ts-node src/CliApp/app.ts target-price",
-    "cli:rebalance-portfolio": "npx ts-node src/CliApp/app.ts rebalance-portfolio",
+    "cli:show": "npx ts-node src/CliApp/app.ts show",
+    "cli:minimum": "npx ts-node src/CliApp/app.ts minimal",
+    "cli:target": "npx ts-node src/CliApp/app.ts target",
+    "cli:rebalance": "npx ts-node src/CliApp/app.ts rebalance",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "test": "echo \"Error: no test specified\" && exit 1"

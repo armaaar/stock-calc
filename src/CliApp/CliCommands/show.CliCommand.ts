@@ -3,9 +3,9 @@ import { GetCurrentPortfolioUseCase } from '@/UseCases/GetCurrentPortfolio.UseCa
 import { PortfolioCliPresenter } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
 
-export const getPortfolioCli = new Command()
+export const showCli = new Command()
 
-getPortfolioCli.name('get-portfolio')
+showCli.name('show')
   .description('Show information about the current portfolio')
   .action(async () => {
     try {
