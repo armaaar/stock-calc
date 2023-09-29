@@ -36,4 +36,8 @@ export class Portfolio {
       new Decimal(0),
     )
   }
+
+  public clone(): Portfolio {
+    return new Portfolio(this.securities.map((sec) => sec.clone()))
+  }
 }

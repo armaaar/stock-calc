@@ -8,6 +8,7 @@
     "cli:show": "npx ts-node src/CliApp/app.ts show",
     "cli:minimum": "npx ts-node src/CliApp/app.ts minimal",
     "cli:target": "npx ts-node src/CliApp/app.ts target",
+    "cli:invest": "npx ts-node src/CliApp/app.ts invest",
     "cli:rebalance": "npx ts-node src/CliApp/app.ts rebalance",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",

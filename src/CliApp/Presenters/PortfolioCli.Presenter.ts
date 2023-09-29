@@ -14,7 +14,7 @@ interface PortfolioSecurityTableData {
 }
 
 export class PortfolioCliPresenter {
-  public static present(portfolio: Portfolio): void {
+  public static present(portfolio: Portfolio, title?: string): void {
     const tableData = portfolio.securities.map<PortfolioSecurityTableData>((sec) => ({
       Tick: sec.tick,
       Exchange: sec.exchange ?? 'Unknown',
@@ -26,7 +26,9 @@ export class PortfolioCliPresenter {
       'Target Percentage %': roundPercentage(sec.targetPercentage.toNumber()),
     }))
 
+    if (title) console.log(title)
     console.table(tableData)
     console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`)
+    console.log()
   }
 }

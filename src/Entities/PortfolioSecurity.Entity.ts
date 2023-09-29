@@ -36,4 +36,16 @@ export class PortfolioSecurity extends Security {
   public calcActualPercentage(actualPrice: Decimal) {
     return this.totalPrice.dividedBy(actualPrice)
   }
+
+  public clone(): PortfolioSecurity {
+    return new PortfolioSecurity({
+      tick: this.tick,
+      isin: this.isin,
+      price: this.price.toNumber(),
+      exchange: this.exchange,
+      currency: this.currency,
+      shares: this.shares,
+      targetPercentage: this.targetPercentage.toNumber(),
+    })
+  }
 }

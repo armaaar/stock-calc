@@ -3,6 +3,7 @@ import { showCli } from './CliCommands/show.CliCommand'
 import { minimalCli } from './CliCommands/minimal.CliCommand'
 import { rebalanceCli } from './CliCommands/rebalance.CliCommand'
 import { targetCli } from './CliCommands/target.CliCommand'
+import { investCli } from './CliCommands/invest.CliCommand'
 
 const cli = new Command()
 
@@ -15,5 +16,6 @@ cli.addCommand(showCli)
 cli.addCommand(minimalCli)
 cli.addCommand(targetCli)
 cli.addCommand(rebalanceCli)
+cli.addCommand(investCli)
 
 cli.parse()
