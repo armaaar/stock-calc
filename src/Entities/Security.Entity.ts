@@ -4,7 +4,7 @@ import { validateClassErrors } from '@/Shared/ClassValidatorError'
 
 export interface ISecurety {
   tick: string
-  isin: string
+  isin?: string
   price: number
   exchange?: string
   currency?: string
@@ -14,8 +14,7 @@ export class Security {
   @IsNotEmpty()
   public tick: string
 
-  @IsNotEmpty()
-  public isin: string
+  public isin?: string
 
   public price: Decimal
 

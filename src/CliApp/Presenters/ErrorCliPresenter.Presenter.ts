@@ -5,7 +5,9 @@ import { ClassValidatorError } from '@/Shared/ClassValidatorError'
 
 export class ErrorCliPresenter {
   public static present(error: unknown): void {
-    if (error instanceof ClassValidatorError) {
+    if (error instanceof AggregateError) {
+      error.errors.forEach((e) => this.present(e), this)
+    } else if (error instanceof ClassValidatorError) {
       console.error(chalk.red(`${error.name}: ${error.message}`))
       error.errors.forEach((e) => this.presentClassValidatorError(e), this)
     } else if (error instanceof Error) {
