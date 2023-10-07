@@ -1,0 +1,14 @@
+[
+  {
+    "tick": "ETEL",
+    "exchange": "EGX",
+    "shares": 32,
+    "targetPercentage": 0.8
+  },
+  {
+    "tick": "ESRS",
+    "exchange": "EGX",
+    "shares": 5,
+    "targetPercentage": 0.2
+  }
+]

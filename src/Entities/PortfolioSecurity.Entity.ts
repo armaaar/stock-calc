@@ -34,7 +34,8 @@ export class PortfolioSecurity extends Security {
   }
 
   public calcActualPercentage(actualPrice: Decimal) {
-    return this.totalPrice.dividedBy(actualPrice)
+    const actualPercentage = this.totalPrice.dividedBy(actualPrice)
+    return actualPercentage.isNaN() ? new Decimal(0) : actualPercentage
   }
 
   public clone(): PortfolioSecurity {
