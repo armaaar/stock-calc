@@ -8,8 +8,8 @@ export class PortfolioRepository {
 
   private settingsDD = new SettingsDataDriver()
 
-  public async getPortfolio(): Promise<Portfolio> {
-    const settings = await this.settingsDD.getPortfolioSettings()
+  public async getPortfolio(type: string): Promise<Portfolio> {
+    const settings = await this.settingsDD.getPortfolioSettings(type)
 
     const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
       settings.map(async (p) => {

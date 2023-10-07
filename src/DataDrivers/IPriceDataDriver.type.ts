@@ -1,7 +1,7 @@
 export interface SettingsDto {
   tick: string;
-  exchange?: string;
-  isin: string;
+  exchange: string;
+  isin?: string;
   shares: number;
   targetPercentage: number;
 }

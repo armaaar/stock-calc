@@ -1,10 +1,8 @@
-import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
+import { PortfolioUserCase } from './PortfolioUseCase.abstract'
 
-export class GetRebalancedPortfolioUseCase {
-  private portfolioRepo = new PortfolioRepository()
-
+export class GetRebalancedPortfolioUseCase extends PortfolioUserCase {
   public async handler() {
-    const portfolio = await this.portfolioRepo.getPortfolio()
+    const portfolio = await this.getSourcePortfolio()
     const targetPrice = portfolio.totalPrice
 
     for (let i = 0; i < portfolio.securities.length; i++) {

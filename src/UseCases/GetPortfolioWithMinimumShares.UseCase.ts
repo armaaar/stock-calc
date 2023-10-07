@@ -1,14 +1,14 @@
 import { IsInt, Max, Min } from 'class-validator'
 import Decimal from 'decimal.js'
 import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
-import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
 import { roundToClosestMultiply } from '@/Shared/utils'
 import { validateClassErrors } from '@/Shared/ClassValidatorError'
+import { PortfolioUserCase } from './PortfolioUseCase.abstract'
 
 export const DEFAULT_ACCEPTABLE_PERCESION = 0.01
 export const DEFAULT_SHARES_STEP = 1
 
-export class GetPortfolioWithMinimumSharesUseCase {
+export class GetPortfolioWithMinimumSharesUseCase extends PortfolioUserCase {
   @Min(0)
   @Max(1)
   private acceptablePercision: number = DEFAULT_ACCEPTABLE_PERCESION
@@ -17,9 +17,8 @@ export class GetPortfolioWithMinimumSharesUseCase {
   @Min(1)
   private sharesStep: number = DEFAULT_SHARES_STEP
 
-  private portfolioRepo = new PortfolioRepository()
-
-  constructor(acceptablePercision?: number, sharesStep?: number) {
+  constructor(portfolioType: string, acceptablePercision?: number, sharesStep?: number) {
+    super(portfolioType)
     if (acceptablePercision) this.acceptablePercision = acceptablePercision
     if (sharesStep) this.sharesStep = sharesStep
 
@@ -27,7 +26,7 @@ export class GetPortfolioWithMinimumSharesUseCase {
   }
 
   public async handler() {
-    const portfolio = await this.portfolioRepo.getPortfolio()
+    const portfolio = await this.getSourcePortfolio()
 
     let initialNumberOfTShares = this.sharesStep
 

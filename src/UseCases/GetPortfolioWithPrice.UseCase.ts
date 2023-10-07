@@ -1,17 +1,16 @@
 import Decimal from 'decimal.js'
-import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
+import { PortfolioUserCase } from './PortfolioUseCase.abstract'
 
-export class GetPortfolioWithPriceUseCase {
+export class GetPortfolioWithPriceUseCase extends PortfolioUserCase {
   private targetPrice: Decimal
 
-  private portfolioRepo = new PortfolioRepository()
-
-  constructor(targetPrice: number) {
+  constructor(portfolioType: string, targetPrice: number) {
+    super(portfolioType)
     this.targetPrice = new Decimal(targetPrice)
   }
 
   public async handler() {
-    const portfolio = await this.portfolioRepo.getPortfolio()
+    const portfolio = await this.getSourcePortfolio()
 
     for (let i = 0; i < portfolio.securities.length; i++) {
       const sec = portfolio.securities[i]
