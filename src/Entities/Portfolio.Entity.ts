@@ -17,7 +17,7 @@ export class Portfolio {
       new Decimal(0),
     )
     if (!totalPercentage.equals(1)) {
-      throw Error('Portfolio percentage don\'t add up to 1')
+      throw Error(`Portfolio percentage don't add up to 1 (${totalPercentage})`)
     }
 
     if (!securities.every((sec) => sec.currency === securities[0].currency)) {

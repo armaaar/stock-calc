@@ -13,27 +13,35 @@ export class PortfolioRepository {
   private settingsDD = new SettingsDataDriver()
 
   public async getPortfolio(type: string): Promise<Portfolio> {
-    const settings = await this.settingsDD.getPortfolioSettings(type)
+    try {
+      const settings = await this.settingsDD.getPortfolioSettings(type)
 
-    const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
-      settings.map(async (setting) => {
-        const {
-          tick, isin, shares, targetPercentage, exchange,
-        } = setting
-        const { price, currency } = await this.getPrice(setting)
-        return {
-          tick,
-          isin,
-          price,
-          shares,
-          targetPercentage,
-          exchange,
-          currency,
-        } as IPortfolioSecurity
-      }),
-    )
+      await this.justEtfDD.launchBrowser()
+      await this.tradingViewDD.launchBrowser()
 
-    return new Portfolio(PortfolioSecurities.map((s) => new PortfolioSecurity(s)))
+      const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
+        settings.map(async (setting) => {
+          const {
+            tick, isin, shares, targetPercentage, exchange,
+          } = setting
+          const { price, currency } = await this.getPrice(setting)
+          return {
+            tick,
+            isin,
+            price,
+            shares,
+            targetPercentage,
+            exchange,
+            currency,
+          } as IPortfolioSecurity
+        }),
+      )
+
+      return new Portfolio(PortfolioSecurities.map((s) => new PortfolioSecurity(s)))
+    } finally {
+      this.justEtfDD.closeBrowser()
+      this.tradingViewDD.closeBrowser()
+    }
   }
 
   private async getPrice(setting: SettingsDto): Promise<SecurityPriceDto> {
