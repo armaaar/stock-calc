@@ -1,15 +1,8 @@
 import settings from './data/_settings.json'
-
-export interface SettingsDto {
-  tick: string;
-  exchange?: string;
-  isin: string;
-  shares: number;
-  targetPercentage: number;
-}
+import { SettingsDto } from './IPriceDataDriver.type'
 
 export class SettingsDataDriver {
-  public async getPortfolio(): Promise<SettingsDto[]> {
+  public async getPortfolioSettings(): Promise<SettingsDto[]> {
     return settings
   }
 }

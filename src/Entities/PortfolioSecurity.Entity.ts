@@ -3,7 +3,7 @@ import Decimal from 'decimal.js'
 import { validateClassErrors } from '@/Shared/ClassValidatorError'
 import { ISecurety, Security } from './Security.Entity'
 
-interface IPortfolioSecurity extends ISecurety {
+export interface IPortfolioSecurity extends ISecurety {
   shares: number
   targetPercentage: number
 }
