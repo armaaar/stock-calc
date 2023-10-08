@@ -10,28 +10,11 @@ export class GetPortfolioWithInvestmentUseCase extends PortfolioUserCase {
   }
 
   public async handler() {
-    const originalPortfolio = await this.getSourcePortfolio()
-    const deltaPortfolio = originalPortfolio.clone()
+    const portfolio = await this.getSourcePortfolio()
 
-    const newPortfolio = originalPortfolio.clone()
-    const newTargetPrice = newPortfolio.totalPrice.add(this.investment)
+    const newTargetPrice = portfolio.totalPrice.add(this.investment)
+    portfolio.balanceForPrice(newTargetPrice)
 
-    for (let i = 0; i < originalPortfolio.securities.length; i++) {
-      // Update new portfolio
-      const newSec = newPortfolio.securities[i]
-      const secTargetPrice = newTargetPrice.times(newSec.targetPercentage)
-      newSec.shares = secTargetPrice.dividedBy(newSec.price).round().toNumber()
-
-      // Calculate delta portfolio
-      const originalSec = originalPortfolio.securities[i]
-      const deltaSec = deltaPortfolio.securities[i]
-      deltaSec.shares = newSec.shares - originalSec.shares
-    }
-
-    return {
-      originalPortfolio,
-      deltaPortfolio,
-      newPortfolio,
-    }
+    return portfolio
   }
 }

@@ -1,6 +1,6 @@
 import { Command } from '@commander-js/extra-typings'
 import { GetPortfolioWithPriceUseCase } from '@/UseCases/GetPortfolioWithPrice.UseCase'
-import { PortfolioCliPresenter } from '../Presenters/PortfolioCli.Presenter'
+import { PortfolioCliPresenter, PresentMode } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
 import { protfolioOption } from '../cliOptions'
 
@@ -14,7 +14,7 @@ targetCli.name('target')
     try {
       const useCase = new GetPortfolioWithPriceUseCase(portfolioType, Number(targetPrice))
       const portfolio = await useCase.handler()
-      PortfolioCliPresenter.present(portfolio)
+      PortfolioCliPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       ErrorCliPresenter.present(e)
     }

@@ -37,6 +37,21 @@ export class Portfolio {
     )
   }
 
+  public get initialTotalPrice(): Decimal {
+    return this.securities.reduce(
+      (acc, sec) => acc.plus(sec.initialTotalPrice),
+      new Decimal(0),
+    )
+  }
+
+  public balanceForPrice(price: Decimal) {
+    for (let i = 0; i < this.securities.length; i++) {
+      const sec = this.securities[i]
+      const secTargetPrice = price.times(sec.targetPercentage)
+      sec.shares = secTargetPrice.dividedBy(sec.price).round().toNumber()
+    }
+  }
+
   public clone(): Portfolio {
     return new Portfolio(this.securities.map((sec) => sec.clone()))
   }

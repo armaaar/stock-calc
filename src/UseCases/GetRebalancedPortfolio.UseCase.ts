@@ -3,13 +3,8 @@ import { PortfolioUserCase } from './PortfolioUseCase.abstract'
 export class GetRebalancedPortfolioUseCase extends PortfolioUserCase {
   public async handler() {
     const portfolio = await this.getSourcePortfolio()
-    const targetPrice = portfolio.totalPrice
 
-    for (let i = 0; i < portfolio.securities.length; i++) {
-      const sec = portfolio.securities[i]
-      const secTargetPrice = targetPrice.times(sec.targetPercentage)
-      sec.shares = secTargetPrice.dividedBy(sec.price).round().toNumber()
-    }
+    portfolio.balanceForPrice(portfolio.totalPrice)
 
     return portfolio
   }

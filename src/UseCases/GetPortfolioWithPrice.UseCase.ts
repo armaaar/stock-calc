@@ -12,11 +12,7 @@ export class GetPortfolioWithPriceUseCase extends PortfolioUserCase {
   public async handler() {
     const portfolio = await this.getSourcePortfolio()
 
-    for (let i = 0; i < portfolio.securities.length; i++) {
-      const sec = portfolio.securities[i]
-      const secTargetPrice = this.targetPrice.times(sec.targetPercentage)
-      sec.shares = secTargetPrice.dividedBy(sec.price).round().toNumber()
-    }
+    portfolio.balanceForPrice(this.targetPrice)
 
     return portfolio
   }

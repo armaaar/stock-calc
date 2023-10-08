@@ -1,5 +1,5 @@
 import { Command } from '@commander-js/extra-typings'
-import { PortfolioCliPresenter } from '../Presenters/PortfolioCli.Presenter'
+import { PortfolioCliPresenter, PresentMode } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
 import { GetPortfolioWithInvestmentUseCase } from '@/UseCases/GetPortfolioWithInvestment.UseCase'
 import { protfolioOption } from '../cliOptions'
@@ -13,11 +13,9 @@ investCli.name('invest')
   .action(async (investment, { portfolio: portfolioType }) => {
     try {
       const useCase = new GetPortfolioWithInvestmentUseCase(portfolioType, Number(investment))
-      const { originalPortfolio, deltaPortfolio, newPortfolio } = await useCase.handler()
+      const portfolio = await useCase.handler()
 
-      PortfolioCliPresenter.present(originalPortfolio, 'Original portfolio')
-      PortfolioCliPresenter.present(deltaPortfolio, 'Changes to shares')
-      PortfolioCliPresenter.present(newPortfolio, 'New portfolio')
+      PortfolioCliPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       ErrorCliPresenter.present(e)
     }
