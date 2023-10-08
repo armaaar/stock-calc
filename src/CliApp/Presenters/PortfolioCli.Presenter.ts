@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { roundPercentage } from '@/Shared/utils'
+import { roundPercentage, sortObjectByKey } from '@/Shared/utils'
 
 interface StaticTableData {
   Tick: string
@@ -60,7 +60,9 @@ export class PortfolioCliPresenter {
     portfolio: Portfolio,
     mode: PresentMode = PresentMode.ONLY_NEW,
   ): PortfolioSecurityTableData[] {
-    return portfolio.securities.map<PortfolioSecurityTableData>((sec) => {
+    return portfolio.securities
+      .filter((sec) => (mode === PresentMode.ONLY_DELTA ? sec.isBeingTraded : true))
+      .map<PortfolioSecurityTableData>((sec) => {
       const infoData: StaticTableData = {
         Tick: sec.tick,
         Exchange: sec.exchange ?? 'Unknown',
@@ -104,10 +106,22 @@ export class PortfolioCliPresenter {
         throw Error(`Unknown present mode '${mode}`)
       }
 
-      return ({
+      return sortObjectByKey<PortfolioSecurityTableData>({
         ...infoData,
         ...portfolioData,
-      })
+      }, [
+        'Tick',
+        'Exchange',
+        'Currency',
+        'Price',
+        'Shares',
+        'Total Price',
+        'Percentage %',
+        'Target Percentage %',
+        'Traded Shares',
+        'Trading Price',
+        'Trading Fee',
+      ])
     })
   }
 }
