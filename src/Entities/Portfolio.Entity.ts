@@ -1,7 +1,13 @@
-import { ArrayNotEmpty, IsArray, ValidateNested } from 'class-validator'
+import {
+  ArrayNotEmpty, IsArray, ValidateNested,
+} from 'class-validator'
 import Decimal from 'decimal.js'
 import { validateClassErrors } from '@/Shared/ClassValidatorError'
 import { PortfolioSecurity } from './PortfolioSecurity.Entity'
+
+export interface IPortfolio {
+  securities: PortfolioSecurity[]
+}
 
 export class Portfolio {
   @IsArray()
@@ -11,7 +17,9 @@ export class Portfolio {
 
   public currency?: string
 
-  constructor(securities: PortfolioSecurity[]) {
+  constructor({
+    securities,
+  }: IPortfolio) {
     const totalPercentage = securities.reduce(
       (acc, sec) => acc.plus(sec.targetPercentage),
       new Decimal(0),
@@ -44,6 +52,17 @@ export class Portfolio {
     )
   }
 
+  public get totalTradedPrice(): Decimal {
+    return this.totalPrice.minus(this.initialTotalPrice)
+  }
+
+  public get totalTradingFee(): Decimal {
+    return this.securities.reduce(
+      (acc, sec) => acc.plus(sec.tradingFee),
+      new Decimal(0),
+    )
+  }
+
   public balanceForPrice(price: Decimal) {
     for (let i = 0; i < this.securities.length; i++) {
       const sec = this.securities[i]
@@ -53,6 +72,8 @@ export class Portfolio {
   }
 
   public clone(): Portfolio {
-    return new Portfolio(this.securities.map((sec) => sec.clone()))
+    return new Portfolio({
+      securities: this.securities.map((sec) => sec.clone()),
+    })
   }
 }

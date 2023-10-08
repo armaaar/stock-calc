@@ -19,7 +19,7 @@ export class Security {
   public price: Decimal
 
   @Min(0)
-  private get priceValue(): number {
+  protected get priceValue(): number {
     return this.price.toNumber()
   }
 

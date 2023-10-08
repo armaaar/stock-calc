@@ -1,8 +1,8 @@
 import { BrowserController } from '@/Shared/BrowserController.abstract'
-import { IPriceDataDriver, SettingsDto, SecurityPriceDto } from './IPriceDataDriver.type'
+import { IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto } from './IPriceDataDriver.type'
 
 export class TradingViewDataDriver extends BrowserController implements IPriceDataDriver {
-  public async getPrice({ tick, exchange }: SettingsDto): Promise<SecurityPriceDto> {
+  public async getPrice({ tick, exchange }: SettingsSecurityDto): Promise<SecurityPriceDto> {
     // Launch the browser
     const browser = this.getBrowser()
 

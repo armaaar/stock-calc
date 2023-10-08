@@ -1,14 +1,19 @@
-[
-  {
-    "tick": "ETEL",
-    "exchange": "EGX",
-    "shares": 32,
-    "targetPercentage": 0.8
-  },
-  {
-    "tick": "ESRS",
-    "exchange": "EGX",
-    "shares": 5,
-    "targetPercentage": 0.2
-  }
-]
+{
+  "brokerageFeeFlat": 2,
+  "tradingFeePercentage": 0.002,
+  "minimumTradingFeeFlat": 10,
+  "securities": [
+    {
+      "tick": "ETEL",
+      "exchange": "EGX",
+      "shares": 32,
+      "targetPercentage": 0.8
+    },
+    {
+      "tick": "ESRS",
+      "exchange": "EGX",
+      "shares": 5,
+      "targetPercentage": 0.2
+    }
+  ]
+}

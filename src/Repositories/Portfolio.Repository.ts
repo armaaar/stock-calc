@@ -1,4 +1,4 @@
-import { IPriceDataDriver, SecurityPriceDto, SettingsDto } from '@/DataDrivers/IPriceDataDriver.type'
+import { IPriceDataDriver, SecurityPriceDto, SettingsSecurityDto } from '@/DataDrivers/IPriceDataDriver.type'
 import { JustEtfDataDriver } from '@/DataDrivers/JustEtf.DataDriver'
 import { SettingsDataDriver } from '@/DataDrivers/Settings.DataDriver'
 import { TradingViewDataDriver } from '@/DataDrivers/TradingView.DataDriver'
@@ -14,17 +14,19 @@ export class PortfolioRepository {
 
   public async getPortfolio(type: string): Promise<Portfolio> {
     try {
-      const settings = await this.settingsDD.getPortfolioSettings(type)
+      const {
+        brokerageFeeFlat, tradingFeePercentage, minimumTradingFeeFlat, securities,
+      } = await this.settingsDD.getPortfolioSettings(type)
 
       await this.justEtfDD.launchBrowser()
       await this.tradingViewDD.launchBrowser()
 
       const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
-        settings.map(async (setting) => {
+        securities.map(async (security) => {
           const {
             tick, isin, shares, targetPercentage, exchange,
-          } = setting
-          const { price, currency } = await this.getPrice(setting)
+          } = security
+          const { price, currency } = await this.getPrice(security)
           return {
             tick,
             isin,
@@ -33,18 +35,23 @@ export class PortfolioRepository {
             targetPercentage,
             exchange,
             currency,
+            brokerageFeeFlat,
+            tradingFeePercentage,
+            minimumTradingFeeFlat,
           } as IPortfolioSecurity
         }),
       )
 
-      return new Portfolio(PortfolioSecurities.map((s) => new PortfolioSecurity(s)))
+      return new Portfolio({
+        securities: PortfolioSecurities.map((s) => new PortfolioSecurity(s)),
+      })
     } finally {
       this.justEtfDD.closeBrowser()
       this.tradingViewDD.closeBrowser()
     }
   }
 
-  private async getPrice(setting: SettingsDto): Promise<SecurityPriceDto> {
+  private async getPrice(setting: SettingsSecurityDto): Promise<SecurityPriceDto> {
     const priceDataDrivers: IPriceDataDriver[] = [
       this.justEtfDD,
       this.tradingViewDD,

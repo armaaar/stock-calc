@@ -16,6 +16,7 @@ interface PerPortfolioTableData {
   'Percentage %': number
   'Traded Shares'?: number
   'Trading Price'?: number
+  'Trading Fee'?: number
 }
 
 interface PortfolioSecurityTableData extends StaticTableData, PerPortfolioTableData {}
@@ -43,9 +44,11 @@ export class PortfolioCliPresenter {
     } else if (mode === PresentMode.ONLY_INITIAL) {
       console.log(`Portfolio Price: ${portfolio.initialTotalPrice} ${portfolio.currency ?? ''}`)
     } else if (mode === PresentMode.ONLY_DELTA) {
-      console.log(`Trading Price: ${portfolio.totalPrice.minus(portfolio.initialTotalPrice)} ${portfolio.currency ?? ''}`)
+      console.log(`Trading Fee: ${portfolio.totalTradingFee} ${portfolio.currency ?? ''}`)
+      console.log(`Trading Price: ${portfolio.totalTradedPrice} ${portfolio.currency ?? ''}`)
     } else if (mode === PresentMode.WITH_DELTA) {
-      console.log(`Trading Price: ${portfolio.totalPrice.minus(portfolio.initialTotalPrice)} ${portfolio.currency ?? ''}`)
+      console.log(`Trading Fee: ${portfolio.totalTradingFee} ${portfolio.currency ?? ''}`)
+      console.log(`Trading Price: ${portfolio.totalTradedPrice} ${portfolio.currency ?? ''}`)
       console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`)
     } else {
       throw Error(`Unknown present mode '${mode}`)
@@ -77,18 +80,16 @@ export class PortfolioCliPresenter {
         portfolioData = {
           Shares: sec.initialShares,
           'Total Price': sec.initialTotalPrice.toNumber(),
-          'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.initialTotalPrice).toNumber()),
+          'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.initialTotalPrice, sec.initialTotalPrice).toNumber()),
         }
       } else if (mode === PresentMode.ONLY_DELTA) {
         portfolioData = {
           Shares: sec.shares - sec.initialShares,
           'Total Price': sec.totalPrice.minus(sec.initialTotalPrice).toNumber(),
           'Percentage %': roundPercentage(
-            sec.calcActualPercentage(
-              portfolio.totalPrice.minus(portfolio.initialTotalPrice),
-              sec.totalPrice.minus(sec.initialTotalPrice),
-            ).toNumber(),
+            sec.calcActualPercentage(portfolio.totalTradedPrice, sec.tradedPrice).toNumber(),
           ),
+          'Trading Fee': sec.tradingFee.toNumber(),
         }
       } else if (mode === PresentMode.WITH_DELTA) {
         portfolioData = {
@@ -96,7 +97,8 @@ export class PortfolioCliPresenter {
           'Total Price': sec.totalPrice.toNumber(),
           'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
           'Traded Shares': sec.shares - sec.initialShares,
-          'Trading Price': sec.totalPrice.minus(sec.initialTotalPrice).toNumber(),
+          'Trading Price': sec.tradedPrice.toNumber(),
+          'Trading Fee': sec.tradingFee.toNumber(),
         }
       } else {
         throw Error(`Unknown present mode '${mode}`)

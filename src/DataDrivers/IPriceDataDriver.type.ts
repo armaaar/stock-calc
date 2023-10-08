@@ -1,9 +1,16 @@
-export interface SettingsDto {
+export interface SettingsSecurityDto {
   tick: string;
   exchange: string;
   isin?: string;
   shares: number;
   targetPercentage: number;
+}
+
+export interface SettingsDto {
+  brokerageFeeFlat: number
+  tradingFeePercentage: number
+  minimumTradingFeeFlat: number
+  securities: SettingsSecurityDto[]
 }
 
 export interface SecurityPriceDto {
@@ -12,5 +19,5 @@ export interface SecurityPriceDto {
 }
 
 export interface IPriceDataDriver {
-  getPrice(setting: SettingsDto): Promise<SecurityPriceDto>
+  getPrice(setting: SettingsSecurityDto): Promise<SecurityPriceDto>
 }

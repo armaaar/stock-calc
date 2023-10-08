@@ -7,6 +7,9 @@ export interface IPortfolioSecurity extends ISecurety {
   shares: number
   initialShares?: number
   targetPercentage: number
+  brokerageFeeFlat?: number
+  tradingFeePercentage?: number
+  minimumTradingFeeFlat?: number
 }
 
 export class PortfolioSecurity extends Security {
@@ -14,8 +17,30 @@ export class PortfolioSecurity extends Security {
 
   @Min(0)
   @Max(1)
-  private get targetPercentageValue(): number {
+  protected get targetPercentageValue(): number {
     return this.targetPercentage.toNumber()
+  }
+
+  public brokerageFeeFlat: Decimal
+
+  @Min(0)
+  protected get brokerageFeeFlatValue(): number {
+    return this.brokerageFeeFlat.toNumber()
+  }
+
+  public tradingFeePercentage: Decimal
+
+  @Min(0)
+  @Max(1)
+  protected get tradingFeePercentageValue(): number {
+    return this.tradingFeePercentage.toNumber()
+  }
+
+  public minimumTradingFeeFlat: Decimal
+
+  @Min(0)
+  protected get minimumTradingFeeFlatValue(): number {
+    return this.minimumTradingFeeFlat.toNumber()
   }
 
   @IsInt()
@@ -31,6 +56,10 @@ export class PortfolioSecurity extends Security {
     this.shares = args.shares
     this.initialShares = args.initialShares ?? args.shares
     this.targetPercentage = new Decimal(args.targetPercentage)
+
+    this.brokerageFeeFlat = new Decimal(args.brokerageFeeFlat ?? 0)
+    this.tradingFeePercentage = new Decimal(args.tradingFeePercentage ?? 0)
+    this.minimumTradingFeeFlat = new Decimal(args.minimumTradingFeeFlat ?? 0)
 
     validateClassErrors(this, PortfolioSecurity)
   }
@@ -51,6 +80,17 @@ export class PortfolioSecurity extends Security {
     return this.totalPrice.minus(this.initialTotalPrice)
   }
 
+  public get tradingFee(): Decimal {
+    if (!this.isBeingTraded) return new Decimal(0)
+
+    const percentageFee = this.tradingFeePercentage.times(this.tradedPrice)
+    const variableFee = percentageFee.greaterThan(this.minimumTradingFeeFlat)
+      ? percentageFee
+      : this.minimumTradingFeeFlat
+
+    return this.brokerageFeeFlat.add(variableFee)
+  }
+
   public calcActualPercentage(portfolioPrice: Decimal, securityPrice?: Decimal) {
     const price = securityPrice ?? this.totalPrice
     const actualPercentage = price.dividedBy(portfolioPrice)
@@ -61,12 +101,15 @@ export class PortfolioSecurity extends Security {
     return new PortfolioSecurity({
       tick: this.tick,
       isin: this.isin,
-      price: this.price.toNumber(),
+      price: this.priceValue,
       exchange: this.exchange,
       currency: this.currency,
       shares: this.shares,
       initialShares: this.initialShares,
-      targetPercentage: this.targetPercentage.toNumber(),
+      targetPercentage: this.targetPercentageValue,
+      brokerageFeeFlat: this.brokerageFeeFlatValue,
+      tradingFeePercentage: this.tradingFeePercentageValue,
+      minimumTradingFeeFlat: this.minimumTradingFeeFlatValue,
     })
   }
 }
