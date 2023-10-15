@@ -26,10 +26,6 @@ export class TradingViewDataDriver extends BrowserController implements IPriceDa
       } as SecurityPriceDto
     } catch (e) {
       throw Error(`Tick '${tick}' at '${exchange}' is not registered in tradingview.com`)
-    } finally {
-      if (!page.isClosed()) {
-        page.close()
-      }
     }
   }
 }

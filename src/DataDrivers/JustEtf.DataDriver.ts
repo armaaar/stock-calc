@@ -27,10 +27,6 @@ export class JustEtfDataDriver extends BrowserController implements IPriceDataDr
       } as SecurityPriceDto
     } catch (e) {
       throw Error(`ISIN '${isin}' is not registered in justetf.com`)
-    } finally {
-      if (!page.isClosed()) {
-        page.close()
-      }
     }
   }
 }
