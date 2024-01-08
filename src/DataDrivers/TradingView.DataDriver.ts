@@ -9,7 +9,7 @@ export class TradingViewDataDriver extends BrowserController implements IPriceDa
     // Open a new blank page
     const page = await browser.newPage()
     await page.goto(`https://www.tradingview.com/symbols/${exchange}-${tick}/`)
-    page.setDefaultTimeout(5000)
+    page.setDefaultTimeout(30000)
 
     try {
       // Locate the price

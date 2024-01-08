@@ -5,7 +5,7 @@ export abstract class BrowserController {
 
   public async launchBrowser(): Promise<void> {
     if (!this.browser) {
-      this.browser = await launch({ headless: 'new' })
+      this.browser = await launch({ headless: true })
     }
   }
 
