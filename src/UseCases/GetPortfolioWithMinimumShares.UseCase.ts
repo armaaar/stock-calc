@@ -5,21 +5,21 @@ import { roundToClosestMultiply } from '@/Shared/utils'
 import { validateClassErrors } from '@/Shared/ClassValidatorError'
 import { PortfolioUserCase } from './PortfolioUseCase.abstract'
 
-export const DEFAULT_ACCEPTABLE_PERCESION = 0.01
+export const DEFAULT_ACCEPTABLE_PRECESION = 0.01
 export const DEFAULT_SHARES_STEP = 1
 
 export class GetPortfolioWithMinimumSharesUseCase extends PortfolioUserCase {
   @Min(0)
   @Max(1)
-  private acceptablePercision: number = DEFAULT_ACCEPTABLE_PERCESION
+  private acceptablePrecision: number = DEFAULT_ACCEPTABLE_PRECESION
 
   @IsInt()
   @Min(1)
   private sharesStep: number = DEFAULT_SHARES_STEP
 
-  constructor(portfolioType: string, acceptablePercision?: number, sharesStep?: number) {
+  constructor(portfolioType: string, acceptablePrecision?: number, sharesStep?: number) {
     super(portfolioType)
-    if (acceptablePercision) this.acceptablePercision = acceptablePercision
+    if (acceptablePrecision) this.acceptablePrecision = acceptablePrecision
     if (sharesStep) this.sharesStep = sharesStep
 
     validateClassErrors(this, GetPortfolioWithMinimumSharesUseCase)
@@ -59,6 +59,6 @@ export class GetPortfolioWithMinimumSharesUseCase extends PortfolioUserCase {
     return sec.calcActualPercentage(totalPrice)
       .minus(sec.targetPercentage)
       .abs()
-      .lessThanOrEqualTo(this.acceptablePercision)
+      .lessThanOrEqualTo(this.acceptablePrecision)
   }
 }
