@@ -1,5 +1,6 @@
 import { IPriceDataDriver, SecurityPriceDto, SettingsSecurityDto } from '@/DataDrivers/IPriceDataDriver.type'
 import { JustEtfDataDriver } from '@/DataDrivers/JustEtf.DataDriver'
+import { OverridesDataDriver } from '@/DataDrivers/Overrides.DataDriver'
 import { SettingsDataDriver } from '@/DataDrivers/Settings.DataDriver'
 import { TradingViewDataDriver } from '@/DataDrivers/TradingView.DataDriver'
 import { Portfolio } from '@/Entities/Portfolio.Entity'
@@ -11,12 +12,14 @@ export class PortfolioRepository {
   private tradingViewDD = new TradingViewDataDriver()
 
   private settingsDD = new SettingsDataDriver()
+  private overridesDD = new OverridesDataDriver()
 
   public async getPortfolio(type: string): Promise<Portfolio> {
     try {
       const {
         brokerageFeeFlat, tradingFeePercentage, minimumTradingFeeFlat, securities,
       } = await this.settingsDD.getPortfolioSettings(type)
+      const overrides = await this.overridesDD.getPortfolioOverrides(type)
 
       await this.justEtfDD.launchBrowser()
       await this.tradingViewDD.launchBrowser()
@@ -26,7 +29,7 @@ export class PortfolioRepository {
           const {
             tick, isin, shares, targetPercentage, exchange,
           } = security
-          const { price, currency } = await this.getPrice(security)
+          const { price, currency } = await this.getPrice(security, overrides)
           return {
             tick,
             isin,
@@ -51,7 +54,10 @@ export class PortfolioRepository {
     }
   }
 
-  private async getPrice(setting: SettingsSecurityDto): Promise<SecurityPriceDto> {
+  private async getPrice(setting: SettingsSecurityDto, overrides: Record<string, SecurityPriceDto>): Promise<SecurityPriceDto> {
+
+    if (setting.tick in overrides) return overrides[setting.tick]
+
     const priceDataDrivers: IPriceDataDriver[] = [
       this.justEtfDD,
       this.tradingViewDD,
