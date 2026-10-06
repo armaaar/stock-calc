@@ -12,7 +12,8 @@ export function createMcpServer(): McpServer {
     version: '0.1.0',
   }, {
     instructions: 'Tools to calculate shares in a stock portfolio. Every tool takes a `portfolio` '
-      + 'name (default "EUR") that selects src/data/_settings.<portfolio>.jsonc. Results are '
+      + 'name (default "EUR") that selects _settings.<portfolio>.jsonc in the data folder '
+      + '(STOCK_CALC_DATA_DIR, or src/data in the repository). Results are '
       + 'plans only: nothing is traded and no file is changed. Percentages are in percent; '
       + 'negative traded shares or prices mean selling.',
   })

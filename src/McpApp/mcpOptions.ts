@@ -6,7 +6,7 @@ export const portfolioInput = {
   portfolio: z.string()
     .regex(PORTFOLIO_NAME_PATTERN, 'Invalid portfolio name: use letters, digits, \'_\' or \'-\'')
     .default('EUR')
-    .describe('The portfolio to use: selects src/data/_settings.<portfolio>.jsonc. '
+    .describe('The portfolio to use: selects _settings.<portfolio>.jsonc in the data folder. '
       + 'Letters, digits, \'_\' or \'-\' only'),
 }
 

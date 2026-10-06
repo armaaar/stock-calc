@@ -1,7 +1,7 @@
 {
   "name": "stock-calc",
   "version": "1.0.0",
-  "description": "CLI tool to help you calculate shares in your portfolio",
+  "description": "Portfolio share calculator: a CLI and an MCP server",
   "type": "module",
   "main": "src/CliApp/app.ts",
   "engines": {
@@ -33,6 +33,7 @@
     "decimal.js": "^10.6.0",
     "jsonc-parser": "^3.3.1",
     "puppeteer": "^25.12.0",
+    "tsx": "^4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -42,9 +43,24 @@
     "@vitest/coverage-v8": "^5.0.3",
     "eslint": "^10.12.0",
     "eslint-plugin-import-x": "^4.17.1",
-    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.1",
     "vitest": "^5.0.3"
-  }
+  },
+  "bin": {
+    "stock-calc-mcp": "bin/stock-calc-mcp.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/armaaar/stock-calc.git"
+  },
+  "files": [
+    "bin",
+    "src",
+    "tsconfig.json",
+    "!src/**/__tests__",
+    "!src/__fixtures__",
+    "!src/**/CLAUDE.md",
+    "!src/data/_*.jsonc"
+  ]
 }

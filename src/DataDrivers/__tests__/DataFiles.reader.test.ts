@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import os from 'os'
+import path from 'path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EUR_SETTINGS, EUR_SETTINGS_JSONC } from '@/__fixtures__/dataFiles'
 import {
-  assertPortfolioName, dataFilePath, isBlankJsonc, parseJsonc,
+  assertPortfolioName, DATA_DIR_ENV, dataDirectory, dataFilePath, isBlankJsonc, parseJsonc,
 } from '../DataFiles.reader'
 import { PORTFOLIO_NAME_PATTERN } from '@/Shared/portfolioName'
 
@@ -30,6 +32,46 @@ describe('assertPortfolioName', () => {
     expect(() => assertPortfolioName(name)).toThrow(
       `Invalid portfolio name '${name}': use letters, digits, '_' or '-'`,
     )
+  })
+})
+
+describe('dataDirectory', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it.each([
+    ['unset', undefined],
+    ['empty', ''],
+    ['blank', '   '],
+  ])('defaults to src/data when %s', (_, value) => {
+    vi.stubEnv(DATA_DIR_ENV, value)
+
+    expect(toPosix(dataDirectory())).toMatch(/\/src\/data$/)
+  })
+
+  it('uses the folder from STOCK_CALC_DATA_DIR', () => {
+    const folder = path.join(os.tmpdir(), 'portfolios')
+    vi.stubEnv(DATA_DIR_ENV, ` ${folder} `)
+
+    expect(dataDirectory()).toBe(path.resolve(folder))
+    expect(dataFilePath('_settings', 'EUR')).toBe(path.join(folder, '_settings.EUR.jsonc'))
+  })
+
+  it.each([
+    ['~', ''],
+    ['~/portfolios', 'portfolios'],
+    ['~\\portfolios', 'portfolios'],
+  ])('expands a leading ~ in %s to the home folder', (value, rest) => {
+    vi.stubEnv(DATA_DIR_ENV, value)
+
+    expect(dataDirectory()).toBe(path.resolve(os.homedir(), rest))
+  })
+
+  it('keeps a ~ that is part of a folder name', () => {
+    vi.stubEnv(DATA_DIR_ENV, '~portfolios')
+
+    expect(dataDirectory()).toBe(path.resolve('~portfolios'))
   })
 })
 

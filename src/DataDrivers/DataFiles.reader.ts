@@ -1,3 +1,4 @@
+import os from 'os'
 import path from 'path'
 import { parse, ParseError, printParseErrorCode, stripComments } from 'jsonc-parser'
 import { PORTFOLIO_NAME_PATTERN } from '@/Shared/portfolioName'
@@ -11,10 +12,24 @@ export function assertPortfolioName(type: string): void {
   }
 }
 
-/** `src/data/<prefix>.<type>.jsonc`, after checking that `type` is a valid portfolio name. */
+/** Environment variable pointing at the folder that holds the portfolio files. */
+export const DATA_DIR_ENV = 'STOCK_CALC_DATA_DIR'
+
+/**
+ * The folder holding the portfolio files: `$STOCK_CALC_DATA_DIR` (a leading `~` means the home
+ * folder), or `src/data` in this repository when it isn't set.
+ */
+export function dataDirectory(): string {
+  const configured = process.env[DATA_DIR_ENV]?.trim()
+  if (!configured) return path.resolve(import.meta.dirname, '../data')
+
+  return path.resolve(configured.replace(/^~(?=$|[\\/])/, os.homedir()))
+}
+
+/** `<data folder>/<prefix>.<type>.jsonc`, after checking that `type` is a valid portfolio name. */
 export function dataFilePath(prefix: '_settings' | '_overrides', type: string): string {
   assertPortfolioName(type)
-  return path.resolve(import.meta.dirname, '../data', `${prefix}.${type}.jsonc`)
+  return path.resolve(dataDirectory(), `${prefix}.${type}.jsonc`)
 }
 
 /** True when the text holds nothing but whitespace and comments. */
