@@ -4,55 +4,65 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-TypeScript CLI that calculates share counts for a stock/ETF portfolio (show, rebalance, invest an amount, hit a target value, find the minimal share set). It reads live prices by scraping justetf.com and tradingview.com with Puppeteer. See README.md for the user-facing command reference and the portfolio settings format.
+TypeScript portfolio calculator (show, rebalance, invest an amount, hit a target value, find the minimal share set), with two interfaces over the same use cases: a CLI (`src/CliApp`) and an MCP server (`src/McpApp`, registered for this repo in `.mcp.json`). It gets live prices by scraping justetf.com and tradingview.com with Puppeteer. README.md has the user-facing command reference and the portfolio file format.
 
 ## Commands
 
 ```sh
-npm install                          # also runs `ts-patch install` (postinstall); required for typia
-npm run cli -- <command> [options]   # run via ts-node, e.g. `npm run cli -- rebalance -pt EGP`
-npx tsc                              # type-check only (tsconfig has noEmit; there is no build step)
-npm run lint                         # eslint (airbnb-base + airbnb-typescript)
-npm run lint:fix
+npm run cli -- <command> [options]   # tsx, e.g. `npm run cli -- rebalance --pt EGP`
+npm run mcp                          # MCP server on stdio (clients should use the .mcp.json command instead)
+npm run typecheck                    # tsc, type-check only. tsx does NOT type-check
+npm run lint                         # ESLint 10 flat config (eslint.config.js)
+npm test                             # vitest run
+npm run test:coverage                # fails below 95% statements/branches/functions/lines
+npx vitest run src/Entities/__tests__/Portfolio.Entity.test.ts   # one file
+npx vitest run -t "rebalance"                          # tests whose name matches
 ```
 
-- There are no tests. `npm test` is a placeholder that exits 1.
-- `.nvmrc` pins Node v16.16.0. The code relies on `Promise.any`/`AggregateError`, so Node 15+ is required.
-- Running any command launches two headless Chromium instances. It only skips network access when every security has a price override. To run end to end offline, copy `src/data/_settings.EUR.jsonc.example` and `_overrides.EUR.jsonc.example` to a throwaway type (for example `_settings.TMP.jsonc` / `_overrides.TMP.jsonc`), then run `npm run cli -- rebalance -pt TMP`.
-
-## Documentation
-
-`docs/` holds the architecture overview, ADRs (`docs/architecture/adr/`), and DDD domain docs: bounded contexts, ubiquitous language, the aggregate and its invariants, and use cases with known gaps. Read the relevant doc before changing domain behavior. When you make an architecturally significant change, add an ADR (template in `docs/architecture/adr/README.md`). Update `docs/domain/` whenever entity rules or use-case behavior change.
+- Node 22 (`.nvmrc`). Native ESM (`"type": "module"`), no build step (`noEmit`). TypeScript is pinned to `~6.0` because typescript-eslint doesn't support TypeScript 7 yet (ADR-0013).
+- The portfolio flag is `--pt, --portfolio`. commander 15 rejects the old `-pt`.
+- A real run launches two headless Chromium instances. To run end to end offline, copy `src/data/_settings.EUR.jsonc.example` and `_overrides.EUR.jsonc.example` to a throwaway type (for example `_settings.TMP.jsonc` / `_overrides.TMP.jsonc`; git ignores them) and use `--pt TMP`. Every price is then overridden.
+- If Puppeteer can't find Chrome: `npx puppeteer browsers install chrome`.
 
 ## Architecture
 
-Clean-architecture layering under `src/`. Imports across layers use the `@/*` → `src/*` path alias, which ts-node resolves via `tsconfig-paths/register`.
+Clean-architecture layers under `src/`. Imports across layers use the `@/*` → `src/*` alias (tsconfig `paths`, mirrored in `vitest.config.ts`). Read `docs/architecture/overview.md` for the full picture.
 
 ```
-CliApp (commander commands + presenters)
-  → UseCases (one class per command, all extend PortfolioUserCase)
-    → Repositories/PortfolioRepository (assembles a Portfolio entity)
-      → DataDrivers (settings file, overrides file, price scrapers)
-  Entities (Portfolio, PortfolioSecurity, Security) — domain logic + validation
+CliApp | McpApp  (interfaces; never import each other)
+  → UseCases     (one class per operation, extend PortfolioUserCase)
+    → Repositories/PortfolioRepository   (anti-corruption layer: DTOs → Portfolio aggregate)
+      → DataDrivers                      (zod-validated JSONC files, Puppeteer scrapers)
+  Entities       (Portfolio aggregate, PortfolioSecurity, Security: rules + validation)
 ```
 
-**Data flow:** each CLI command builds a UseCase with the `--portfolio` type (default `EUR`). The use case's `handler()` calls `getSourcePortfolio()`, which goes to `PortfolioRepository.getPortfolio(type)`. The use case mutates `security.shares` on the returned portfolio (usually via `Portfolio.balanceForPrice`), and the CLI passes the result to `PortfolioCliPresenter` with a `PresentMode`. `initialShares` keeps the original count so presenters can show traded deltas and fees.
+- A use case loads the `Portfolio`, changes `shares` (usually via `Portfolio.balanceForPrice`), and returns it. `initialShares` keeps the original holdings, so presenters can show trades and fees.
+- Every operation exists in **both** interfaces: `CliCommands/<name>.CliCommand.ts` ↔ `McpTools/<name>.McpTool.ts`. A new use case needs both (see `src/McpApp/CLAUDE.md`).
+- Folder-specific rules are in nested CLAUDE.md files: `src/Entities/`, `src/DataDrivers/`, `src/McpApp/`.
 
-**Portfolio data files** live in `src/data/` and are git-ignored. Everything starting with `_` is ignored; only `*.example` files are tracked.
-- `_settings.<TYPE>.jsonc` (required): fees plus a list of securities. It's parsed with `jsonc-parser` and validated at runtime with `typia.assert<SettingsDto>`. typia works through a compile-time transform (tsconfig `plugins` + ts-patch), so `assert<T>` calls only work when compiled through the patched TypeScript.
-- `_overrides.<TYPE>.jsonc` (optional): manual prices that skip scraping. It's a `Record<tick, { price, currency }>`, keyed by tick.
+## Tests
 
-**Price resolution** (`PortfolioRepository.getPrice`): if the tick is in overrides, that price is used. Otherwise the JustEtf driver (needs `isin`, 2s timeout) and the TradingView driver (`exchange-tick`, 30s timeout) race with `Promise.any`, and the first success wins. If both fail, the resulting `AggregateError` is unpacked by `ErrorCliPresenter`. Each driver extends `BrowserController`, which owns one Puppeteer browser. The repository launches both browsers up front and closes them in `finally`. New price sources should implement `IPriceDataDriver` and be added to the drivers list in the repository.
+- Vitest. Tests live in a `__tests__/` folder next to the code they cover (`src/DataDrivers/__tests__/Settings.DataDriver.test.ts` tests `src/DataDrivers/Settings.DataDriver.ts`). Never put `*.test.ts` beside the sources: Vitest only collects `src/**/__tests__/**/*.test.ts`. Shared builders are in `src/__fixtures__/` (excluded from coverage):
+  - `portfolio.ts`: `buildPortfolio()`, the example portfolio QDVE 28.45 × 100 @ 40% and SPYD 62.10 × 100 @ 60%, 1 EUR flat fee.
+  - `dataFiles.ts`, `puppeteer.ts` (`createFakePage`), `console.ts` (`spyOnConsole`, `printedLines`).
+- There is no dependency injection, so isolate layers with `vi.mock` on module paths, using `vi.hoisted` for shared mock functions:
+  - interface and use-case tests mock `@/Repositories/Portfolio.Repository`,
+  - repository tests mock the data-driver modules,
+  - driver tests mock `puppeteer` / `fs`.
+  Never launch a browser, hit the network, or write to `src/data` in tests.
+- Tests pin current behaviour. Questionable behaviour gets a `// Current behaviour:` comment and an entry under "Known gaps" in `docs/domain/portfolio-allocation.md`.
+- Worked numbers for the example portfolio, which tests assert:
+  - rebalance → 127 / 87
+  - invest 1000 → 141 / 97
+  - target 5000 → 70 / 48
+  - minimal → 3 / 2
 
-**Entities and validation:**
-- Monetary and percentage values are `decimal.js` `Decimal`s. Keep arithmetic in Decimal.
-- Validation uses `class-validator` decorators. Constraints on Decimal fields go on `protected get xxxValue(): number` getters, because the validators can't inspect Decimal objects.
-- Each constructor ends with `validateClassErrors(this, ClassName)`. That function only validates when `this.constructor.name === ClassName`, so a subclass instance is validated once, by the most-derived constructor, after all fields are set. Follow this pattern in new entities and use cases (see `GetPortfolioWithMinimumSharesUseCase`).
-- The `Portfolio` constructor throws if target percentages don't sum to exactly 1, or if securities have mixed currencies.
-- `clone()` methods rebuild entities through their constructors, so validation runs again.
+## Documentation
+
+`docs/` holds the architecture overview, ADRs (`docs/architecture/adr/`, template in its README), and DDD domain docs: bounded contexts, ubiquitous language, the aggregate and its invariants, use cases, and known gaps. Read the relevant doc before changing domain behaviour. Add an ADR for architecturally significant changes, and update `docs/domain/` when entity rules or use-case behaviour change.
 
 ## Conventions
 
-- No semicolons (ESLint enforces this). Max line length is 100.
-- File naming: `<Name>.<Role>.ts`, for example `Portfolio.Entity.ts`, `GetRebalancedPortfolio.UseCase.ts`, `TradingView.DataDriver.ts`, `show.CliCommand.ts`, and `*.abstract.ts` / `*.type.ts`.
-- New CLI commands: create `src/CliApp/CliCommands/<name>.CliCommand.ts`, add the shared `portfolioOption`, wrap the action in try/catch that calls `ErrorCliPresenter.present`, and register it in `src/CliApp/app.ts`.
+- No semicolons, single quotes, 2-space indent, trailing commas, max line length 100 (ESLint enforces these).
+- File naming: `<Name>.<Role>.ts`, for example `Portfolio.Entity.ts`, `GetRebalancedPortfolio.UseCase.ts`, `TradingView.DataDriver.ts`, `show.CliCommand.ts`, `show.McpTool.ts`, and `*.abstract.ts` / `*.type.ts` / `*.schema.ts`.
+- New CLI commands: create `src/CliApp/CliCommands/<name>.CliCommand.ts`, add the shared `portfolioOption`, wrap the action in a try/catch that calls `ErrorCliPresenter.present`, register it in `src/CliApp/app.ts`, and add a `cli:<name>` script.
