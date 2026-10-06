@@ -12,6 +12,7 @@ export class PortfolioRepository {
   private tradingViewDD = new TradingViewDataDriver()
 
   private settingsDD = new SettingsDataDriver()
+
   private overridesDD = new OverridesDataDriver()
 
   public async getPortfolio(type: string): Promise<Portfolio> {
@@ -54,8 +55,10 @@ export class PortfolioRepository {
     }
   }
 
-  private async getPrice(setting: SettingsSecurityDto, overrides: Record<string, SecurityPriceDto>): Promise<SecurityPriceDto> {
-
+  private async getPrice(
+    setting: SettingsSecurityDto,
+    overrides: Record<string, SecurityPriceDto>,
+  ): Promise<SecurityPriceDto> {
     if (setting.tick in overrides) return overrides[setting.tick]
 
     const priceDataDrivers: IPriceDataDriver[] = [
