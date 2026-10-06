@@ -113,6 +113,31 @@ describe('composePortfolioUseCases', () => {
         'https://snduk.com/eg/funds/beltone-meya-100?lang=en',
         expect.objectContaining({ headers: expect.any(Object) }),
       )
+      // Only snduk.com prices a fund, and it needs no browser
+      expect(launch).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+      fs.rmSync(funds, { recursive: true })
+    }
+  })
+
+  it('fails a fund whose snduk.com page fails, without pricing it from an exchange', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>soft 404</html>')))
+    const funds = createDataDir({
+      'thndr/funds.jsonc': JSON.stringify({
+        securities: [{
+          tick: 'BMM', exchange: 'EGX', snduk: 'no-such-fund', shares: 10, targetPercentage: 1,
+        }],
+      }),
+    })
+
+    try {
+      const error = await composePortfolioUseCases(funds).show.execute({})
+        .catch((e: unknown) => e)
+
+      expect((error as AggregateError).errors.map((e: Error) => e.message))
+        .toEqual(['Fund \'no-such-fund\' is not registered in snduk.com'])
+      expect(launch).not.toHaveBeenCalled()
     } finally {
       vi.unstubAllGlobals()
       fs.rmSync(funds, { recursive: true })
@@ -126,14 +151,13 @@ describe('composePortfolioUseCases', () => {
     }
 
     // The fake pages never show a price, so both scrapers fail. XYZ names no fund page, so
-    // snduk.com, asked first, gives up without a request
+    // snduk.com isn't asked
     const error = await composePortfolioUseCases(dataDir).show
       .execute({ portfolio: 'ibkr/live' })
       .catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(AggregateError)
     expect((error as AggregateError).errors.map((e: Error) => e.message)).toEqual([
-      'No snduk.com fund page set',
       'ISIN \'IE0000000000\' is not registered in justetf.com',
       'Tick \'XYZ\' at \'IBIS2\' is not registered in tradingview.com',
     ])

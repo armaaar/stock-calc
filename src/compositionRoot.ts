@@ -22,8 +22,7 @@ export function composePortfolioUseCases(dataDir: string = dataDirectory()): Por
   const portfolioRepo = new PortfolioRepository({
     settings: new SettingsDataDriver(dataDir),
     overrides: new OverridesDataDriver(dataDir),
-    // Snduk answers at once for a security that doesn't name a fund page, so it goes first:
-    // a fund is then priced without waiting for the exchanges' sources to give up
+    // Each security is asked only the sources that can price it: a fund only snduk.com
     prices: [new SndukDataDriver(fetch), new JustEtfDataDriver(launchBrowser), tradingView],
     rates: [tradingView],
   })

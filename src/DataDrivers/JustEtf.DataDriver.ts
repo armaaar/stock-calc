@@ -1,5 +1,5 @@
 import { BrowserController } from '#src/Shared/BrowserController.abstract'
-import { IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto } from './DataDrivers.type'
+import { IPriceDataDriver, isMutualFund, SettingsSecurityDto, SecurityPriceDto } from './DataDrivers.type'
 import { parsePriceQuote } from './PriceQuote.parser'
 
 /** How long the profile page may take to load, in ms. */
@@ -16,6 +16,11 @@ const QUOTES_SELECTOR = '#realtime-quotes'
 
 export class JustEtfDataDriver extends BrowserController implements IPriceDataDriver {
   public readonly name = 'justetf.com'
+
+  /** By ISIN, and never a mutual fund: its fund page prices it. */
+  public canPrice(setting: SettingsSecurityDto): boolean {
+    return setting.isin !== undefined && !isMutualFund(setting)
+  }
 
   public async getPrice({ isin }: SettingsSecurityDto): Promise<SecurityPriceDto> {
     if (!isin) {

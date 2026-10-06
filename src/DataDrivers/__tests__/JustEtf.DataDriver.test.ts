@@ -174,4 +174,12 @@ describe('JustEtfDataDriver', () => {
     expect(browser.page.close).not.toHaveBeenCalled()
     expect(browser.close).not.toHaveBeenCalled()
   })
+
+  it('can price a security with an ISIN, but never a mutual fund', () => {
+    const driver = new JustEtfDataDriver(fakeLauncher())
+
+    expect(driver.canPrice(QDVE_SETTING)).toBe(true)
+    expect(driver.canPrice(withoutIsin(QDVE_SETTING))).toBe(false)
+    expect(driver.canPrice({ ...QDVE_SETTING, snduk: 'beltone-meya-100' })).toBe(false)
+  })
 })

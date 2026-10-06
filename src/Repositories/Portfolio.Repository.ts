@@ -94,12 +94,14 @@ export class PortfolioRepository implements IPortfolioRepository {
     // Before anything is scraped, so a mistyped key fails fast and isn't hidden by a price error
     assertRatesConvertInto(currency, overrides)
 
-    // Only start the browsers when at least one price has to be scraped. They start together,
+    // Only start the browsers of sources that some price to scrape needs: none when every price
+    // is overridden, only snduk.com (no browser) for a portfolio of funds. They start together,
     // so a cold start costs the slowest launch, not the sum. If one fails, closing them waits
     // for any launch still in flight (BrowserController), so nothing is left running.
-    if (securities.some(({ tick }) => !isOverridden(tick, overrides.prices))) {
-      await Promise.all(prices.map((priceDD) => priceDD.launchBrowser()))
-    }
+    const scraped = securities.filter(({ tick }) => !isOverridden(tick, overrides.prices))
+    await Promise.all(prices
+      .filter((priceDD) => scraped.some((security) => priceDD.canPrice(security)))
+      .map((priceDD) => priceDD.launchBrowser()))
 
     const quotes = await Promise.all(
       securities.map((security) => this.getPrice(security, overrides)),
@@ -155,14 +157,16 @@ export class PortfolioRepository implements IPortfolioRepository {
       }
     }
 
-    const { prices } = this.dataDrivers
+    // Only the sources that look a security up by what its settings name: a mutual fund only by
+    // its fund page, never by an exchange listing that shares its code (ADR-0029)
+    const sources = this.dataDrivers.prices.filter((priceDD) => priceDD.canPrice(setting))
     // An empty AggregateError would name no security
-    if (prices.length === 0) {
+    if (sources.length === 0) {
       throw Error(`No price source for '${setting.tick}': add its price to the overrides`)
     }
 
     const { value, source } = await this.firstAnswer(
-      prices,
+      sources,
       async (priceDD) => {
         const quote = await priceDD.getPrice(setting)
         // Another listing of the security: let the next source price this one

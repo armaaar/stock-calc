@@ -47,7 +47,20 @@ export interface IPriceDataDriver {
   readonly name: string
   launchBrowser(): Promise<void>
   closeBrowser(): Promise<void>
+  /**
+   * Whether the security's settings name what this source looks it up by. The repository only
+   * asks, and launches, the sources that can.
+   */
+  canPrice(setting: SettingsSecurityDto): boolean
   getPrice(setting: SettingsSecurityDto): Promise<LiveQuoteDto>
+}
+
+/**
+ * A security with a snduk.com fund page is a mutual fund, bought at its NAV: only its fund page
+ * prices it, never an exchange listing that happens to share its code (ADR-0029).
+ */
+export function isMutualFund(setting: SettingsSecurityDto): boolean {
+  return setting.snduk !== undefined
 }
 
 /** A live exchange-rate source. Its browser must be launched before `getRate` and closed after. */

@@ -41,6 +41,7 @@ function fakePriceDataDriver(name: string) {
       .mockRejectedValue(Error(`${name}: not found`)),
     getRate: vi.fn<IExchangeRateDataDriver['getRate']>()
       .mockRejectedValue(Error(`${name}: no rate`)),
+    canPrice: vi.fn<IPriceDataDriver['canPrice']>().mockReturnValue(true),
     launchBrowser: vi.fn<IPriceDataDriver['launchBrowser']>().mockResolvedValue(undefined),
     closeBrowser: vi.fn<IPriceDataDriver['closeBrowser']>().mockResolvedValue(undefined),
   } satisfies IPriceDataDriver & IExchangeRateDataDriver
@@ -325,6 +326,54 @@ describe('PortfolioRepository', () => {
 
       expect(portfolio.securities[0].price.toNumber()).toBe(28.45)
       expect(justEtf.getPrice).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('sources that can price a security', () => {
+    it('asks a security only the sources whose lookup its settings name', async () => {
+      justEtf.canPrice.mockImplementation(({ tick }) => tick === 'QDVE')
+      justEtf.getPrice.mockResolvedValue(EUR(28.45))
+      tradingView.getPrice.mockResolvedValue(EUR(62.1))
+
+      const portfolio = await repository.getPortfolio('ibkr/eur')
+
+      expect(justEtf.getPrice.mock.calls.map(([setting]) => setting.tick)).toEqual(['QDVE'])
+      expect(portfolio.securities.map((s) => s.quote.source)).toEqual(['justetf', 'tradingview'])
+    })
+
+    it('never falls back to a source that cannot price the security, even when it answers', async () => {
+      tradingView.canPrice.mockReturnValue(false)
+      tradingView.getPrice.mockResolvedValue(EUR(17.3))
+
+      const error = await repository.getPortfolio('ibkr/eur').catch((e: unknown) => e)
+
+      expect((error as AggregateError).errors.map((e: Error) => e.message))
+        .toEqual(['justetf: not found'])
+      expect(tradingView.getPrice).not.toHaveBeenCalled()
+    })
+
+    it('launches only the sources that some price to scrape needs', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        SPYD: EUR_OVERRIDES.prices.SPYD,
+      }))
+      justEtf.canPrice.mockImplementation(({ tick }) => tick === 'SPYD')
+      tradingView.getPrice.mockResolvedValue(EUR(28.45))
+
+      await repository.getPortfolio('ibkr/eur')
+
+      expect(justEtf.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
+      expectBrowsersClosed()
+    })
+
+    it('says no source can price a security that none looks up', async () => {
+      justEtf.canPrice.mockReturnValue(false)
+      tradingView.canPrice.mockReturnValue(false)
+
+      await expect(repository.getPortfolio('ibkr/eur'))
+        .rejects.toThrow('No price source for \'QDVE\': add its price to the overrides')
+      expect(justEtf.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
     })
   })
 

@@ -237,3 +237,13 @@ describe('symbolOfUrl', () => {
     },
   )
 })
+
+describe('TradingViewDataDriver.canPrice', () => {
+  it('can price any listed security, but never a mutual fund', () => {
+    const driver = new TradingViewDataDriver(fakeLauncher())
+
+    expect(driver.canPrice(QDVE_SETTING)).toBe(true)
+    expect(driver.canPrice(withoutIsin(QDVE_SETTING))).toBe(true)
+    expect(driver.canPrice({ ...QDVE_SETTING, snduk: 'beltone-meya-100' })).toBe(false)
+  })
+})

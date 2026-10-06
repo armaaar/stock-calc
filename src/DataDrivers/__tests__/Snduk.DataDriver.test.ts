@@ -133,4 +133,10 @@ describe('SndukDataDriver', () => {
     await expect(driver.launchBrowser()).resolves.toBeUndefined()
     await expect(driver.closeBrowser()).resolves.toBeUndefined()
   })
+
+  it('can price only a security that names its fund page', () => {
+    const driver = new SndukDataDriver(fakeFetch(''))
+    expect(driver.canPrice(BMM_SETTING)).toBe(true)
+    expect(driver.canPrice({ ...BMM_SETTING, snduk: undefined })).toBe(false)
+  })
 })

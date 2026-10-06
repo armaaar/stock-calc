@@ -1,7 +1,7 @@
 import type { Page } from 'puppeteer'
 import { BrowserController } from '#src/Shared/BrowserController.abstract'
 import {
-  IExchangeRateDataDriver, IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto,
+  IExchangeRateDataDriver, IPriceDataDriver, isMutualFund, SettingsSecurityDto, SecurityPriceDto,
 } from './DataDrivers.type'
 import { parsePriceQuote } from './PriceQuote.parser'
 
@@ -21,6 +21,11 @@ export function symbolOfUrl(url: string): string | undefined {
 export class TradingViewDataDriver extends BrowserController
   implements IPriceDataDriver, IExchangeRateDataDriver {
   public readonly name = 'tradingview.com'
+
+  /** By exchange and tick, and never a mutual fund: its fund page prices it. */
+  public canPrice(setting: SettingsSecurityDto): boolean {
+    return !isMutualFund(setting)
+  }
 
   public async getPrice({ tick, exchange }: SettingsSecurityDto): Promise<SecurityPriceDto> {
     const page = await this.newPage()

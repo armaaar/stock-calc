@@ -1,4 +1,6 @@
-import { IPriceDataDriver, LiveQuoteDto, SettingsSecurityDto } from './DataDrivers.type'
+import {
+  IPriceDataDriver, isMutualFund, LiveQuoteDto, SettingsSecurityDto,
+} from './DataDrivers.type'
 import { parsePriceQuote } from './PriceQuote.parser'
 import { parseSndukFunds } from './SndukFund.parser'
 
@@ -31,6 +33,10 @@ export class SndukDataDriver implements IPriceDataDriver {
 
   /** No browser to close. */
   public async closeBrowser(): Promise<void> {}
+
+  public canPrice(setting: SettingsSecurityDto): boolean {
+    return isMutualFund(setting)
+  }
 
   public async getPrice({ tick, snduk }: SettingsSecurityDto): Promise<LiveQuoteDto> {
     if (!snduk) {
