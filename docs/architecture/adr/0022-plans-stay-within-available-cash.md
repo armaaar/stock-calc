@@ -27,11 +27,11 @@
      - If nothing raises cash, for example a whole-value withdrawal that also has to pay fees, `cashAfterTrades` stays negative by the shortfall.
 - **`allocateValue(price)`** is the domain operation behind `target`. It balances, then trims the most overweight holding until the proposed value is ≤ `price`. The fees are cash paid on top of that value, and the plan reports them.
 - **Every plan reports `cashAfterTrades`** ("Cash After Trades"). `show` reports the cash held. Negative means the plan needs that much more money than it was given.
-- The planned deposit is plan state like `shares`. It can only be set through `allocateCash`, and the cash held is read-only ([ADR-0021](0021-guard-proposed-shares.md)).
+- The planned deposit is plan state like `shares`. It can only be set through `allocateCash` (and `buyWithCash`, [ADR-0023](0023-buy-only-investing.md)), and the cash held is read-only ([ADR-0021](0021-guard-proposed-shares.md)).
 
 ## Consequences
 
 - `invest X` never needs more than `X` plus the cash already held, fees included, and `rebalance` never needs new money. The worked examples are unchanged (rebalance 127 / 87, invest 1000 141 / 97, target 5000 70 / 48), because none of them overspent.
-- Trimming is greedy (one share at a time, most overweight first). It isn't a globally optimal fit, but it is deterministic and leaves weights close to target.
+- Trimming is greedy (most overweight first, in bulk when far short). It isn't a globally optimal fit, but it is deterministic, fast, and leaves weights close to target.
 - CLI output gains a "Cash" line (`show`) or a "Cash After Trades" line (plans). The MCP output gains `cash` / `cashAfterTrades`.
 - `minimal` is unaffected. It searches for a target state from scratch and has no budget.
