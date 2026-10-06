@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "stock-calc": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["node_modules/tsx/dist/cli.mjs", "src/McpApp/app.ts"]
+    }
+  }
+}
