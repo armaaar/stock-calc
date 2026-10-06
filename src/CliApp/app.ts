@@ -18,4 +18,4 @@ cli.addCommand(targetCli)
 cli.addCommand(rebalanceCli)
 cli.addCommand(investCli)
 
-cli.parse()
+await cli.parseAsync()

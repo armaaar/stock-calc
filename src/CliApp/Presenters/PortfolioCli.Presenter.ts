@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
+import Decimal from 'decimal.js'
 import { Portfolio } from '@/Entities/Portfolio.Entity'
+import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
 import { roundPercentage, sortObjectByKey } from '@/Shared/utils'
 
 interface StaticTableData {
@@ -34,94 +36,111 @@ export class PortfolioCliPresenter {
     mode: PresentMode = PresentMode.ONLY_NEW,
     title?: string,
   ): void {
+    // Numeric enum: only real values map back to a name (PresentMode[0] === 'ONLY_NEW')
+    if (typeof PresentMode[mode] !== 'string') {
+      throw Error(`Unknown present mode '${mode}'`)
+    }
+
     const tableData = PortfolioCliPresenter.getTableData(portfolio, mode)
 
     if (title) console.log(title)
     console.table(tableData)
-
-    if (mode === PresentMode.ONLY_NEW) {
-      console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`)
-    } else if (mode === PresentMode.ONLY_INITIAL) {
-      console.log(`Portfolio Price: ${portfolio.initialTotalPrice} ${portfolio.currency ?? ''}`)
-    } else if (mode === PresentMode.ONLY_DELTA) {
-      console.log(`Trading Fee: ${portfolio.totalTradingFee} ${portfolio.currency ?? ''}`)
-      console.log(`Trading Price: ${portfolio.totalTradedPrice} ${portfolio.currency ?? ''}`)
-    } else if (mode === PresentMode.WITH_DELTA) {
-      console.log(`Trading Fee: ${portfolio.totalTradingFee} ${portfolio.currency ?? ''}`)
-      console.log(`Trading Price: ${portfolio.totalTradedPrice} ${portfolio.currency ?? ''}`)
-      console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`)
-    } else {
-      throw Error(`Unknown present mode '${mode}'`)
-    }
+    PortfolioCliPresenter.getTotals(portfolio, mode).forEach((line) => console.log(line))
     console.log()
+  }
+
+  protected static getTotals(portfolio: Portfolio, mode: PresentMode): string[] {
+    const amount = (value: Decimal) => (
+      portfolio.currency ? `${value} ${portfolio.currency}` : String(value)
+    )
+    const fee = `Trading Fee: ${amount(portfolio.totalTradingFee)}`
+    const traded = `Trading Price: ${amount(portfolio.totalTradedPrice)}`
+
+    switch (mode) {
+      case PresentMode.ONLY_NEW:
+        return [`Portfolio Price: ${amount(portfolio.totalPrice)}`]
+      case PresentMode.ONLY_INITIAL:
+        return [`Portfolio Price: ${amount(portfolio.initialTotalPrice)}`]
+      case PresentMode.ONLY_DELTA:
+        return [fee, traded]
+      case PresentMode.WITH_DELTA:
+        return [fee, traded, `Portfolio Price: ${amount(portfolio.totalPrice)}`]
+    }
   }
 
   protected static getTableData(
     portfolio: Portfolio,
     mode: PresentMode = PresentMode.ONLY_NEW,
   ): PortfolioSecurityTableData[] {
+    // Each trade's share of everything bought and sold, so buys and sells don't cancel out
+    const grossTradedPrice = portfolio.securities.reduce(
+      (acc, sec) => acc.plus(sec.tradedPrice.abs()),
+      new Decimal(0),
+    )
+
     return portfolio.securities
       .filter((sec) => (mode === PresentMode.ONLY_DELTA ? sec.isBeingTraded : true))
-      .map<PortfolioSecurityTableData>((sec) => {
-        const infoData: StaticTableData = {
-          'Tick': sec.tick,
-          'Exchange': sec.exchange ?? 'Unknown',
-          'Currency': sec.currency ?? 'Unknown',
-          'Price': sec.price.toNumber(),
-          'Target Percentage %': roundPercentage(sec.targetPercentage.toNumber()),
-        }
-        let portfolioData: PerPortfolioTableData
+      .map<PortfolioSecurityTableData>((sec) => sortObjectByKey<PortfolioSecurityTableData>({
+        'Tick': sec.tick,
+        'Exchange': sec.exchange ?? 'Unknown',
+        'Currency': sec.currency ?? 'Unknown',
+        'Price': sec.price.toNumber(),
+        'Target Percentage %': roundPercentage(sec.targetPercentage.toNumber()),
+        ...PortfolioCliPresenter.getPortfolioData(portfolio, sec, mode, grossTradedPrice),
+      }, [
+        'Tick',
+        'Exchange',
+        'Currency',
+        'Price',
+        'Shares',
+        'Total Price',
+        'Percentage %',
+        'Target Percentage %',
+        'Traded Shares',
+        'Trading Price',
+        'Trading Fee',
+      ]))
+  }
 
-        if (mode === PresentMode.ONLY_NEW) {
-          portfolioData = {
-            'Shares': sec.shares,
-            'Total Price': sec.totalPrice.toNumber(),
-            'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
-          }
-        } else if (mode === PresentMode.ONLY_INITIAL) {
-          portfolioData = {
-            'Shares': sec.initialShares,
-            'Total Price': sec.initialTotalPrice.toNumber(),
-            'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.initialTotalPrice, sec.initialTotalPrice).toNumber()),
-          }
-        } else if (mode === PresentMode.ONLY_DELTA) {
-          portfolioData = {
-            'Shares': sec.shares - sec.initialShares,
-            'Total Price': sec.totalPrice.minus(sec.initialTotalPrice).toNumber(),
-            'Percentage %': roundPercentage(
-              sec.calcActualPercentage(portfolio.totalTradedPrice, sec.tradedPrice).toNumber(),
-            ),
-            'Trading Fee': sec.tradingFee.toNumber(),
-          }
-        } else if (mode === PresentMode.WITH_DELTA) {
-          portfolioData = {
-            'Shares': sec.shares,
-            'Total Price': sec.totalPrice.toNumber(),
-            'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
-            'Traded Shares': sec.shares - sec.initialShares,
-            'Trading Price': sec.tradedPrice.toNumber(),
-            'Trading Fee': sec.tradingFee.toNumber(),
-          }
-        } else {
-          throw Error(`Unknown present mode '${mode}'`)
+  private static getPortfolioData(
+    portfolio: Portfolio,
+    sec: PortfolioSecurity,
+    mode: PresentMode,
+    grossTradedPrice: Decimal,
+  ): PerPortfolioTableData {
+    switch (mode) {
+      case PresentMode.ONLY_NEW:
+        return {
+          'Shares': sec.shares,
+          'Total Price': sec.totalPrice.toNumber(),
+          'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
         }
-
-        return sortObjectByKey<PortfolioSecurityTableData>({
-          ...infoData,
-          ...portfolioData,
-        }, [
-          'Tick',
-          'Exchange',
-          'Currency',
-          'Price',
-          'Shares',
-          'Total Price',
-          'Percentage %',
-          'Target Percentage %',
-          'Traded Shares',
-          'Trading Price',
-          'Trading Fee',
-        ])
-      })
+      case PresentMode.ONLY_INITIAL:
+        return {
+          'Shares': sec.initialShares,
+          'Total Price': sec.initialTotalPrice.toNumber(),
+          'Percentage %': roundPercentage(
+            sec.calcActualPercentage(portfolio.initialTotalPrice, sec.initialTotalPrice).toNumber(),
+          ),
+        }
+      case PresentMode.ONLY_DELTA:
+        return {
+          'Shares': sec.shares - sec.initialShares,
+          'Total Price': sec.tradedPrice.toNumber(),
+          'Percentage %': roundPercentage(
+            sec.calcActualPercentage(grossTradedPrice, sec.tradedPrice.abs()).toNumber(),
+          ),
+          'Trading Fee': sec.tradingFee.toNumber(),
+        }
+      case PresentMode.WITH_DELTA:
+        return {
+          'Shares': sec.shares,
+          'Total Price': sec.totalPrice.toNumber(),
+          'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
+          'Traded Shares': sec.shares - sec.initialShares,
+          'Trading Price': sec.tradedPrice.toNumber(),
+          'Trading Fee': sec.tradingFee.toNumber(),
+        }
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ValidationError } from 'class-validator'
 import { ClassValidatorError } from '@/Shared/ClassValidatorError'
 import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
@@ -8,7 +8,7 @@ import {
 } from '@/UseCases/GetPortfolioWithMinimumShares.UseCase'
 import { PortfolioCliPresenter } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
-import { minimalCli } from '.././minimal.CliCommand'
+import { minimalCli } from '../minimal.CliCommand'
 
 const { UseCase, handler } = vi.hoisted(() => {
   const handler = vi.fn()
@@ -23,6 +23,15 @@ vi.mock('@/UseCases/GetPortfolioWithMinimumShares.UseCase', async (importOrigina
   GetPortfolioWithMinimumSharesUseCase: UseCase,
 }))
 
+/** Makes process.exit throw instead of exiting and captures what commander writes to stderr. */
+function interceptExit() {
+  vi.spyOn(process, 'exit').mockImplementation((code) => {
+    throw new Error(`process.exit(${code})`)
+  })
+  const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  return () => stderr.mock.calls.map(([chunk]) => String(chunk)).join('')
+}
+
 describe('minimal command', () => {
   let spies: ConsoleSpies
 
@@ -36,6 +45,10 @@ describe('minimal command', () => {
     ]))
   })
 
+  afterEach(() => {
+    process.exitCode = undefined
+  })
+
   it('is named "minimal" and takes precision, shares step and portfolio options', () => {
     expect(minimalCli.name()).toBe('minimal')
     expect(minimalCli.description()).toBe(
@@ -44,8 +57,8 @@ describe('minimal command', () => {
     expect(minimalCli.registeredArguments).toHaveLength(0)
     expect(minimalCli.options.map((option) => [option.short, option.long, option.defaultValue]))
       .toEqual([
-        ['-p', '--precision', String(DEFAULT_ACCEPTABLE_PRECESION)],
-        ['-s', '--shares-step', String(DEFAULT_SHARES_STEP)],
+        ['-p', '--precision', DEFAULT_ACCEPTABLE_PRECESION],
+        ['-s', '--shares-step', DEFAULT_SHARES_STEP],
         ['--pt', '--portfolio', 'EUR'],
       ])
   })
@@ -63,6 +76,7 @@ describe('minimal command', () => {
     expect(present.mock.calls[0]).toHaveLength(1)
     expect(printedLines(spies.log)).toEqual(['Portfolio Price: 209.55 EUR', ''])
     expect(spies.error).not.toHaveBeenCalled()
+    expect(process.exitCode).toBeUndefined()
   })
 
   it.each([
@@ -70,18 +84,31 @@ describe('minimal command', () => {
     [['--precision', '0.05', '--shares-step', '2'], ['EUR', 0.05, 2]],
     [['--pt', 'EGP'], ['EGP', 0.01, 1]],
     [['--portfolio', 'EGP', '-p', '0.1'], ['EGP', 0.1, 1]],
+    [['-p', '1e-3'], ['EUR', 0.001, 1]],
   ])('converts the options %j to the use case arguments', async (argv, expected) => {
     await minimalCli.parseAsync(argv, { from: 'user' })
 
     expect(UseCase).toHaveBeenCalledWith(...expected)
   })
 
-  it('passes zero and NaN through to the use case unchanged', async () => {
-    // Current behaviour: the CLI does not validate them; the use case silently falls back
-    // to its defaults for falsy values (0 and NaN).
-    await minimalCli.parseAsync(['-p', '0', '-s', 'abc'], { from: 'user' })
+  it.each([
+    [['-p', 'abc'], 'option \'-p, --precision <precision>\' argument \'abc\' is invalid.'],
+    [['--precision', 'Infinity'], 'option \'-p, --precision <precision>\' argument \'Infinity\' is invalid.'],
+    [['-s', 'abc'], 'option \'-s, --shares-step <step>\' argument \'abc\' is invalid.'],
+    [['--shares-step', ''], 'option \'-s, --shares-step <step>\' argument \'\' is invalid.'],
+  ])('rejects the non-numeric options %j with a usage error', async (argv, message) => {
+    const stderr = interceptExit()
 
-    expect(UseCase).toHaveBeenCalledWith('EUR', 0, NaN)
+    await expect(minimalCli.parseAsync(argv, { from: 'user' })).rejects.toThrow('process.exit(1)')
+
+    expect(stderr()).toBe(`error: ${message} Not a finite number.\n`)
+    expect(UseCase).not.toHaveBeenCalled()
+  })
+
+  it('passes a zero precision through, so the use case can reject it', async () => {
+    await minimalCli.parseAsync(['-p', '0', '-s', '0'], { from: 'user' })
+
+    expect(UseCase).toHaveBeenCalledWith('EUR', 0, 0)
   })
 
   it('routes a validation error from the use case constructor to the error presenter', async () => {
@@ -104,13 +131,15 @@ describe('minimal command', () => {
     expect(presentError).toHaveBeenCalledWith(error)
     expect(present).not.toHaveBeenCalled()
     expect(handler).not.toHaveBeenCalled()
-    expect(printedLines(spies.error)[0]).toBe(
+    expect(printedLines(spies.error)).toEqual([
       'ClassValidatorError: Class \'GetPortfolioWithMinimumSharesUseCase\' validation failed',
-    )
+      '- Errors For \'sharesStep\'',
+    ])
     expect(spies.table).toHaveBeenCalledWith({ isInt: 'sharesStep must be an integer number' })
+    expect(process.exitCode).toBe(1)
   })
 
-  it('routes a failing handler to the error presenter', async () => {
+  it('routes a failing handler to the error presenter and sets exit code 1', async () => {
     const error = new Error('Settings file not found')
     handler.mockRejectedValueOnce(error)
     const presentError = vi.spyOn(ErrorCliPresenter, 'present')
@@ -119,5 +148,6 @@ describe('minimal command', () => {
 
     expect(presentError).toHaveBeenCalledWith(error)
     expect(printedLines(spies.error)).toEqual(['Error: Settings file not found'])
+    expect(process.exitCode).toBe(1)
   })
 })

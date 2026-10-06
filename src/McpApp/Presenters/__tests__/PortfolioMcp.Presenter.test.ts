@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
-import { PortfolioMcpPresenter, PresentMode } from '.././PortfolioMcp.Presenter'
+import { PortfolioMcpPresenter, PresentMode } from '../PortfolioMcp.Presenter'
 
 function plannedPortfolio() {
   // Buy 27 QDVE and sell 13 SPYD (the rebalance plan of the example portfolio)
@@ -104,6 +104,37 @@ describe('PortfolioMcpPresenter', () => {
         percent: 100,
         tradingFee: 1,
       }],
+    })
+  })
+
+  it('ONLY_DELTA: percent is each trade\'s share of the gross value bought and sold', () => {
+    const { structuredContent } = PortfolioMcpPresenter.present(
+      plannedPortfolio(),
+      PresentMode.ONLY_DELTA,
+    )
+
+    // 768.15 / (768.15 + 807.3) and 807.3 / (768.15 + 807.3), not relative to the net -39.15
+    expect(structuredContent).toMatchObject({
+      tradedPrice: -39.15,
+      tradingFee: 2,
+      securities: [
+        { tick: 'QDVE', shares: 27, totalPrice: 768.15, percent: 48.76 },
+        { tick: 'SPYD', shares: -13, totalPrice: -807.3, percent: 51.24 },
+      ],
+    })
+  })
+
+  it('ONLY_DELTA: no securities and zero totals when nothing is traded', () => {
+    const { structuredContent } = PortfolioMcpPresenter.present(
+      buildPortfolio(),
+      PresentMode.ONLY_DELTA,
+    )
+
+    expect(structuredContent).toEqual({
+      currency: 'EUR',
+      tradedPrice: 0,
+      tradingFee: 0,
+      securities: [],
     })
   })
 

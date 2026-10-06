@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { buildPortfolio } from '@/__fixtures__/portfolio'
-import { createMcpServer } from '.././server'
+import { createMcpServer } from '../server'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
@@ -121,18 +121,60 @@ describe('MCP server', () => {
     }
   })
 
+  it('minimal: accepts the largest precision, 1', async () => {
+    const { result } = await callTool('minimal', { precision: 1 })
+
+    expect(result.isError).toBeFalsy()
+  })
+
   it.each([
     ['target', { price: 0 }],
+    ['target', { price: -5 }],
     ['target', { price: 'abc' }],
     ['invest', {}],
+    ['invest', { investment: 'abc' }],
+    ['invest', { investment: null }],
+    ['minimal', { precision: 0 }],
+    ['minimal', { precision: -0.01 }],
     ['minimal', { precision: 2 }],
+    ['minimal', { sharesStep: 0 }],
     ['minimal', { sharesStep: 1.5 }],
+    ['show', { portfolio: '' }],
+    ['rebalance', { portfolio: 'EUR.old' }],
   ])('%s: rejects invalid input %j before running the use case', async (name, args) => {
     const { result } = await callTool(name, args)
 
     expect(result.isError).toBe(true)
     expect((result.content as { text: string }[])[0].text).toContain('Input validation error')
     expect(getPortfolio).not.toHaveBeenCalled()
+  })
+
+  it.each(['show', 'rebalance', 'minimal', 'target', 'invest'])(
+    '%s: rejects a portfolio name that could leave the data folder',
+    async (name) => {
+      const { result } = await callTool(name, { portfolio: '../EUR', price: 1, investment: 1 })
+
+      expect(result.isError).toBe(true)
+      expect((result.content as { text: string }[])[0].text)
+        .toContain('Invalid portfolio name: use letters, digits, \'_\' or \'-\'')
+      expect(getPortfolio).not.toHaveBeenCalled()
+    },
+  )
+
+  it('documents the input constraints in the tool schemas', async () => {
+    const { tools } = await client.listTools()
+    const schema = (name: string) => tools.find((tool) => tool.name === name)!.inputSchema
+      .properties as Record<string, Record<string, unknown>>
+
+    expect(schema('minimal').precision).toMatchObject({
+      type: 'number', exclusiveMinimum: 0, maximum: 1, default: 0.01,
+    })
+    expect(schema('minimal').sharesStep).toMatchObject({ type: 'integer', minimum: 1, default: 1 })
+    expect(schema('target').price).toMatchObject({ type: 'number', exclusiveMinimum: 0 })
+    expect(schema('invest').investment).toMatchObject({ type: 'number' })
+    expect(schema('show').portfolio).toMatchObject({
+      type: 'string', pattern: '^[A-Za-z0-9_-]+$', default: 'EUR',
+    })
   })
 
   it.each(['show', 'rebalance', 'minimal'])('%s: returns domain errors as tool errors', async (name) => {

@@ -6,7 +6,7 @@ const { connect, StdioServerTransport } = vi.hoisted(() => ({
 }))
 
 vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({ StdioServerTransport }))
-vi.mock('.././server', () => ({ createMcpServer: () => ({ connect }) }))
+vi.mock('../server', () => ({ createMcpServer: () => ({ connect }) }))
 
 describe('MCP app entry point', () => {
   const original = { ...console }
@@ -20,7 +20,7 @@ describe('MCP app entry point', () => {
   })
 
   it('connects the server over stdio', async () => {
-    await import('.././app')
+    await import('../app')
 
     expect(StdioServerTransport).toHaveBeenCalledOnce()
     expect(connect).toHaveBeenCalledWith(StdioServerTransport.mock.instances[0])
@@ -30,7 +30,7 @@ describe('MCP app entry point', () => {
     const error = vi.fn()
     console.error = error
 
-    await import('.././app')
+    await import('../app')
     console.log('log')
     console.info('info')
     console.debug('debug')

@@ -16,5 +16,6 @@ showCli.name('show')
       PortfolioCliPresenter.present(portfolio, PresentMode.ONLY_INITIAL)
     } catch (e: unknown) {
       ErrorCliPresenter.present(e)
+      process.exitCode = 1
     }
   })

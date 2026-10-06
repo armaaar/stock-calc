@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
 import { PortfolioCliPresenter, PresentMode } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
-import { targetCli } from '.././target.CliCommand'
+import { targetCli } from '../target.CliCommand'
 
 const { UseCase, handler } = vi.hoisted(() => {
   const handler = vi.fn()
@@ -17,6 +17,15 @@ vi.mock('@/UseCases/GetPortfolioWithPrice.UseCase', () => ({
   GetPortfolioWithPriceUseCase: UseCase,
 }))
 
+/** Makes process.exit throw instead of exiting and captures what commander writes to stderr. */
+function interceptExit() {
+  vi.spyOn(process, 'exit').mockImplementation((code) => {
+    throw new Error(`process.exit(${code})`)
+  })
+  const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  return () => stderr.mock.calls.map(([chunk]) => String(chunk)).join('')
+}
+
 describe('target command', () => {
   let spies: ConsoleSpies
 
@@ -28,6 +37,10 @@ describe('target command', () => {
       { ...QDVE, shares: 70, initialShares: 100 },
       { ...SPYD, shares: 48, initialShares: 100 },
     ]))
+  })
+
+  afterEach(() => {
+    process.exitCode = undefined
   })
 
   it('is named "target" and takes a <price> argument and the portfolio option', () => {
@@ -60,6 +73,7 @@ describe('target command', () => {
       '',
     ])
     expect(spies.error).not.toHaveBeenCalled()
+    expect(process.exitCode).toBeUndefined()
   })
 
   it.each([
@@ -71,14 +85,29 @@ describe('target command', () => {
     expect(UseCase).toHaveBeenCalledWith(type, 10000)
   })
 
-  it('passes NaN for a non-numeric price', async () => {
-    // Current behaviour: `target abc` is not rejected; the use case receives NaN.
-    await targetCli.parseAsync(['abc'], { from: 'user' })
+  it.each(['abc', '12abc', 'NaN', 'Infinity'])(
+    'rejects the non-numeric price %j with a usage error',
+    async (value) => {
+      const stderr = interceptExit()
 
-    expect(UseCase).toHaveBeenCalledWith('EUR', NaN)
+      await expect(targetCli.parseAsync([value], { from: 'user' }))
+        .rejects.toThrow('process.exit(1)')
+
+      expect(stderr()).toBe(
+        `error: command-argument value '${value}' is invalid for argument 'price'. `
+        + 'Not a finite number.\n',
+      )
+      expect(UseCase).not.toHaveBeenCalled()
+    },
+  )
+
+  it('leaves the range check (price > 0) to the use case', async () => {
+    await targetCli.parseAsync(['-5'], { from: 'user' })
+
+    expect(UseCase).toHaveBeenCalledWith('EUR', -5)
   })
 
-  it('routes a failing handler to the error presenter', async () => {
+  it('routes a failing handler to the error presenter and sets exit code 1', async () => {
     handler.mockRejectedValueOnce('not an error')
     const presentError = vi.spyOn(ErrorCliPresenter, 'present')
     const present = vi.spyOn(PortfolioCliPresenter, 'present')
@@ -88,5 +117,6 @@ describe('target command', () => {
     expect(presentError).toHaveBeenCalledWith('not an error')
     expect(present).not.toHaveBeenCalled()
     expect(printedLines(spies.error)).toEqual(['not an error'])
+    expect(process.exitCode).toBe(1)
   })
 })

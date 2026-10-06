@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildPortfolio } from '@/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
 import { PortfolioCliPresenter, PresentMode } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
-import { rebalanceCli } from '.././rebalance.CliCommand'
+import { rebalanceCli } from '../rebalance.CliCommand'
 
 const { UseCase, handler } = vi.hoisted(() => {
   const handler = vi.fn()
@@ -26,6 +26,10 @@ describe('rebalance command', () => {
     const portfolio = buildPortfolio()
     portfolio.balanceForPrice(portfolio.totalPrice)
     handler.mockResolvedValue(portfolio)
+  })
+
+  afterEach(() => {
+    process.exitCode = undefined
   })
 
   it('is named "rebalance" and takes the portfolio option', () => {
@@ -54,6 +58,7 @@ describe('rebalance command', () => {
       '',
     ])
     expect(spies.error).not.toHaveBeenCalled()
+    expect(process.exitCode).toBeUndefined()
   })
 
   it.each([
@@ -65,7 +70,7 @@ describe('rebalance command', () => {
     expect(UseCase).toHaveBeenCalledWith(type)
   })
 
-  it('routes a failing handler to the error presenter', async () => {
+  it('routes a failing handler to the error presenter and sets exit code 1', async () => {
     const error = new AggregateError([new Error('JustEtf failed'), new Error('TradingView failed')])
     handler.mockRejectedValueOnce(error)
     const presentError = vi.spyOn(ErrorCliPresenter, 'present')
@@ -76,5 +81,6 @@ describe('rebalance command', () => {
     expect(presentError).toHaveBeenCalledWith(error)
     expect(present).not.toHaveBeenCalled()
     expect(printedLines(spies.error)).toEqual(['Error: JustEtf failed', 'Error: TradingView failed'])
+    expect(process.exitCode).toBe(1)
   })
 })

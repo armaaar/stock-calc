@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import Decimal from 'decimal.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { Portfolio } from '@/Entities/Portfolio.Entity'
 import { roundPercentage } from '@/Shared/utils'
@@ -11,7 +12,9 @@ const securitySchema = z.object({
   targetPercent: z.number().describe('Target weight in percent'),
   shares: z.number(),
   totalPrice: z.number(),
-  percent: z.number().describe('Actual weight in percent'),
+  percent: z.number().describe(
+    'Actual weight in percent (trades only: share of the gross value bought and sold)',
+  ),
   tradedShares: z.number().optional().describe('Positive to buy, negative to sell'),
   tradedPrice: z.number().optional().describe('Positive to buy, negative to sell'),
   tradingFee: z.number().optional(),
@@ -79,6 +82,12 @@ export class PortfolioMcpPresenter {
   }
 
   protected static getSecurities(portfolio: Portfolio, mode: PresentMode): SecurityOutput[] {
+    // Each trade's share of everything bought and sold, so buys and sells don't cancel out
+    const grossTradedPrice = portfolio.securities.reduce(
+      (acc, sec) => acc.plus(sec.tradedPrice.abs()),
+      new Decimal(0),
+    )
+
     return portfolio.securities
       .filter((sec) => (mode === PresentMode.ONLY_DELTA ? sec.isBeingTraded : true))
       .map((sec) => {
@@ -107,7 +116,7 @@ export class PortfolioMcpPresenter {
             shares: sec.shares - sec.initialShares,
             totalPrice: sec.tradedPrice.toNumber(),
             percent: roundPercentage(
-              sec.calcActualPercentage(portfolio.totalTradedPrice, sec.tradedPrice).toNumber(),
+              sec.calcActualPercentage(grossTradedPrice, sec.tradedPrice.abs()).toNumber(),
             ),
             tradingFee: sec.tradingFee.toNumber(),
           }

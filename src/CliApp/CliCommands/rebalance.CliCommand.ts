@@ -16,5 +16,6 @@ rebalanceCli.name('rebalance')
       PortfolioCliPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       ErrorCliPresenter.present(e)
+      process.exitCode = 1
     }
   })

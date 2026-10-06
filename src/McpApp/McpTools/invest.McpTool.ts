@@ -10,7 +10,9 @@ export function registerInvestTool(server: McpServer): void {
     title: 'Invest in portfolio',
     description: 'Calculates the number of shares you need to buy to satisfy your portfolio if you invest additionally. Also rebalances, so it may sell overweight securities.',
     inputSchema: {
-      investment: z.number().describe('Additional investment'),
+      // zod 4 numbers are finite: NaN and +/-Infinity are rejected
+      investment: z.number()
+        .describe('Additional investment, a finite number (negative to plan a withdrawal)'),
       ...portfolioInput,
     },
     outputSchema: portfolioOutputSchema,

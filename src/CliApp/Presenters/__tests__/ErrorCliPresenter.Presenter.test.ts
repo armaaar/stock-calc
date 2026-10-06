@@ -4,7 +4,7 @@ import { ClassValidatorError } from '@/Shared/ClassValidatorError'
 import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
 import { QDVE } from '@/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
-import { ErrorCliPresenter } from '.././ErrorCliPresenter.Presenter'
+import { ErrorCliPresenter } from '../ErrorCliPresenter.Presenter'
 
 class Holding {}
 
@@ -115,15 +115,14 @@ describe('ErrorCliPresenter.present', () => {
     ])
   })
 
-  it('prints "undefined" as the class name when a validation error has no target', () => {
+  it('omits the class name when a validation error has no target', () => {
     ErrorCliPresenter.present(new ClassValidatorError('failed', [
       validationError({ property: 'value', constraints: { min: 'value must not be less than 0' } }),
     ]))
 
-    // Current behaviour: a missing target is shown as the literal string 'undefined'.
     expect(printedLines(spies.error)).toEqual([
       'ClassValidatorError: failed',
-      '- Errors For \'undefined\' => \'value\'',
+      '- Errors For \'value\'',
     ])
     expect(spies.table).toHaveBeenCalledWith({ min: 'value must not be less than 0' })
   })

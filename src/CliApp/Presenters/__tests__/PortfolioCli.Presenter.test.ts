@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Portfolio } from '@/Entities/Portfolio.Entity'
 import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
-import { PortfolioCliPresenter, PresentMode } from '.././PortfolioCli.Presenter'
+import { PortfolioCliPresenter, PresentMode } from '../PortfolioCli.Presenter'
 
 const COLUMN_ORDER = [
   'Tick',
@@ -98,9 +98,8 @@ describe('PortfolioCliPresenter.present', () => {
         'Price': 28.45,
         'Shares': 27,
         'Total Price': 768.15,
-        // Current behaviour: the percentage is relative to the *net* traded price (-39.15),
-        // so buys and sells that nearly cancel out produce huge, signed percentages.
-        'Percentage %': -1962.07,
+        // Share of the gross traded value: 768.15 / (768.15 + 807.3)
+        'Percentage %': 48.76,
         'Target Percentage %': 40,
         'Trading Fee': 1,
       },
@@ -111,7 +110,7 @@ describe('PortfolioCliPresenter.present', () => {
         'Price': 62.1,
         'Shares': -13,
         'Total Price': -807.3,
-        'Percentage %': 2062.07,
+        'Percentage %': 51.24,
         'Target Percentage %': 60,
         'Trading Fee': 1,
       },
@@ -136,6 +135,29 @@ describe('PortfolioCliPresenter.present', () => {
       'Trading Price: 768.15 EUR',
       '',
     ])
+  })
+
+  it('ONLY_DELTA percentages are unsigned and add up to 100 when buying and selling', () => {
+    // The example portfolio after `invest 1000`: buy 41 QDVE (+1166.45), sell 3 SPYD (-186.3).
+    const portfolio = buildPortfolio([
+      { ...QDVE, shares: 141, initialShares: 100 },
+      { ...SPYD, shares: 97, initialShares: 100 },
+    ])
+
+    PortfolioCliPresenter.present(portfolio, PresentMode.ONLY_DELTA)
+
+    expect(tableRows(spies).map((row) => [row['Tick'], row['Total Price'], row['Percentage %']]))
+      .toEqual([
+        ['QDVE', 1166.45, 86.23],
+        ['SPYD', -186.3, 13.77],
+      ])
+  })
+
+  it('ONLY_DELTA prints an empty table and zero totals when nothing is traded', () => {
+    PortfolioCliPresenter.present(buildPortfolio(), PresentMode.ONLY_DELTA)
+
+    expect(tableRows(spies)).toEqual([])
+    expect(printedLines(spies.log)).toEqual(['Trading Fee: 0 EUR', 'Trading Price: 0 EUR', ''])
   })
 
   it('WITH_DELTA shows the proposed portfolio together with trades and fees', () => {
@@ -215,12 +237,12 @@ describe('PortfolioCliPresenter.present', () => {
     }
 
     it.each([
-      [PresentMode.ONLY_NEW, ['Portfolio Price: 9015.85 ', '']],
-      [PresentMode.ONLY_INITIAL, ['Portfolio Price: 9055 ', '']],
-      [PresentMode.ONLY_DELTA, ['Trading Fee: 2 ', 'Trading Price: -39.15 ', '']],
+      [PresentMode.ONLY_NEW, ['Portfolio Price: 9015.85', '']],
+      [PresentMode.ONLY_INITIAL, ['Portfolio Price: 9055', '']],
+      [PresentMode.ONLY_DELTA, ['Trading Fee: 2', 'Trading Price: -39.15', '']],
       [
         PresentMode.WITH_DELTA,
-        ['Trading Fee: 2 ', 'Trading Price: -39.15 ', 'Portfolio Price: 9015.85 ', ''],
+        ['Trading Fee: 2', 'Trading Price: -39.15', 'Portfolio Price: 9015.85', ''],
       ],
     ])('mode %i shows "Unknown" in the table and no currency in the totals', (mode, lines) => {
       PortfolioCliPresenter.present(buildAnonymousPortfolio(), mode)
@@ -231,29 +253,32 @@ describe('PortfolioCliPresenter.present', () => {
         expect(row['Exchange']).toBe('Unknown')
         expect(row['Currency']).toBe('Unknown')
       })
-      // Current behaviour: the totals keep a trailing space where the currency would be.
-      expect(printedLines(spies.log)).toEqual(lines)
+      // Raw strings, not printedLines(): no trailing space where the currency would be
+      expect(spies.log.mock.calls).toEqual(lines.map((line) => (line ? [line] : [])))
     })
   })
 
   describe('with an unknown mode', () => {
-    it('throws while building the table, before printing anything', () => {
-      expect(() => PortfolioCliPresenter.present(buildPortfolio(), 99 as PresentMode))
+    it('throws before printing anything', () => {
+      expect(() => PortfolioCliPresenter.present(buildPortfolio(), 99 as PresentMode, 'Title'))
         .toThrow('Unknown present mode \'99\'')
       expect(spies.table).not.toHaveBeenCalled()
       expect(spies.log).not.toHaveBeenCalled()
     })
 
-    it('throws after printing the (empty) table when there are no securities', () => {
-      // Current behaviour: the second unknown-mode check in present() is only reachable when
-      // getTableData() never maps a security, which a constructed Portfolio does not allow.
+    it('throws before printing anything even when there are no securities', () => {
       const portfolio = buildPortfolio()
       portfolio.securities = []
 
       expect(() => PortfolioCliPresenter.present(portfolio, 99 as PresentMode, 'Title'))
         .toThrow('Unknown present mode \'99\'')
-      expect(spies.table).toHaveBeenCalledWith([])
-      expect(printedLines(spies.log)).toEqual(['Title'])
+      expect(spies.table).not.toHaveBeenCalled()
+      expect(spies.log).not.toHaveBeenCalled()
+    })
+
+    it('rejects a mode name passed in place of its value', () => {
+      expect(() => PortfolioCliPresenter.present(buildPortfolio(), 'ONLY_NEW' as never))
+        .toThrow('Unknown present mode \'ONLY_NEW\'')
     })
   })
 })

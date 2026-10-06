@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildPortfolio } from '@/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
 import { PortfolioCliPresenter, PresentMode } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
-import { showCli } from '.././show.CliCommand'
+import { showCli } from '../show.CliCommand'
 
 const { UseCase, handler } = vi.hoisted(() => {
   const handler = vi.fn()
@@ -24,6 +24,10 @@ describe('show command', () => {
     vi.clearAllMocks()
     spies = spyOnConsole()
     handler.mockResolvedValue(buildPortfolio())
+  })
+
+  afterEach(() => {
+    process.exitCode = undefined
   })
 
   it('is named "show" and takes the portfolio option', () => {
@@ -47,6 +51,7 @@ describe('show command', () => {
     )
     expect(printedLines(spies.log)).toContain('Portfolio Price: 9055 EUR')
     expect(spies.error).not.toHaveBeenCalled()
+    expect(process.exitCode).toBeUndefined()
   })
 
   it.each([
@@ -71,7 +76,7 @@ describe('show command', () => {
     expect(UseCase.mock.calls).toEqual([['EGP'], ['EUR']])
   })
 
-  it('routes a failing handler to the error presenter', async () => {
+  it('routes a failing handler to the error presenter and sets exit code 1', async () => {
     const error = new Error('Settings file not found')
     handler.mockRejectedValueOnce(error)
     const presentError = vi.spyOn(ErrorCliPresenter, 'present')
@@ -82,6 +87,7 @@ describe('show command', () => {
     expect(presentError).toHaveBeenCalledWith(error)
     expect(present).not.toHaveBeenCalled()
     expect(printedLines(spies.error)).toEqual(['Error: Settings file not found'])
+    expect(process.exitCode).toBe(1)
   })
 
   it('routes a throwing use case constructor to the error presenter', async () => {
@@ -94,5 +100,6 @@ describe('show command', () => {
 
     expect(presentError).toHaveBeenCalledWith(new Error('bad type'))
     expect(handler).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(1)
   })
 })

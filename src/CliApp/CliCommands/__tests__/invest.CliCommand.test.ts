@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
 import { PortfolioCliPresenter, PresentMode } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
-import { investCli } from '.././invest.CliCommand'
+import { investCli } from '../invest.CliCommand'
 
 const { UseCase, handler } = vi.hoisted(() => {
   const handler = vi.fn()
@@ -17,6 +17,15 @@ vi.mock('@/UseCases/GetPortfolioWithInvestment.UseCase', () => ({
   GetPortfolioWithInvestmentUseCase: UseCase,
 }))
 
+/** Makes process.exit throw instead of exiting and captures what commander writes to stderr. */
+function interceptExit() {
+  vi.spyOn(process, 'exit').mockImplementation((code) => {
+    throw new Error(`process.exit(${code})`)
+  })
+  const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  return () => stderr.mock.calls.map(([chunk]) => String(chunk)).join('')
+}
+
 describe('invest command', () => {
   let spies: ConsoleSpies
 
@@ -28,6 +37,10 @@ describe('invest command', () => {
       { ...QDVE, shares: 141, initialShares: 100 },
       { ...SPYD, shares: 97, initialShares: 100 },
     ]))
+  })
+
+  afterEach(() => {
+    process.exitCode = undefined
   })
 
   it('is named "invest" and takes an <investment> argument and the portfolio option', () => {
@@ -60,6 +73,7 @@ describe('invest command', () => {
       '',
     ])
     expect(spies.error).not.toHaveBeenCalled()
+    expect(process.exitCode).toBeUndefined()
   })
 
   it.each([
@@ -77,22 +91,39 @@ describe('invest command', () => {
     expect(UseCase).toHaveBeenCalledWith('EGP', 500)
   })
 
-  it('passes NaN for a non-numeric investment', async () => {
-    // Current behaviour: the CLI does not validate the amount; Number('abc') is NaN.
-    await investCli.parseAsync(['abc'], { from: 'user' })
+  it.each(['abc', 'Infinity', ''])(
+    'rejects the non-numeric investment %j with a usage error',
+    async (value) => {
+      const stderr = interceptExit()
 
-    expect(UseCase).toHaveBeenCalledWith('EUR', NaN)
+      await expect(investCli.parseAsync([value], { from: 'user' }))
+        .rejects.toThrow('process.exit(1)')
+
+      expect(stderr()).toBe(
+        `error: command-argument value '${value}' is invalid for argument 'investment'. `
+        + 'Not a finite number.\n',
+      )
+      expect(UseCase).not.toHaveBeenCalled()
+    },
+  )
+
+  it('rejects an invalid portfolio name with a usage error', async () => {
+    const stderr = interceptExit()
+
+    await expect(investCli.parseAsync(['1000', '--pt', 'EUR.old'], { from: 'user' }))
+      .rejects.toThrow('process.exit(1)')
+
+    expect(stderr()).toContain('argument \'EUR.old\' is invalid. Use letters, digits, \'_\' or \'-\'.')
+    expect(UseCase).not.toHaveBeenCalled()
   })
 
-  it('accepts a negative amount as the investment', async () => {
-    // Current behaviour: commander 15 parses '-100' as a negative number argument (not as an
-    // unknown option, as docs/domain/use-cases.md still says) and the CLI does not reject it.
+  it('accepts a negative amount as the investment, to plan a withdrawal', async () => {
     await investCli.parseAsync(['-100'], { from: 'user' })
 
     expect(UseCase).toHaveBeenCalledWith('EUR', -100)
   })
 
-  it('routes a failing handler to the error presenter', async () => {
+  it('routes a failing handler to the error presenter and sets exit code 1', async () => {
     const error = new Error('price not found')
     handler.mockRejectedValueOnce(error)
     const presentError = vi.spyOn(ErrorCliPresenter, 'present')
@@ -103,5 +134,6 @@ describe('invest command', () => {
     expect(presentError).toHaveBeenCalledWith(error)
     expect(present).not.toHaveBeenCalled()
     expect(printedLines(spies.error)).toEqual(['Error: price not found'])
+    expect(process.exitCode).toBe(1)
   })
 })

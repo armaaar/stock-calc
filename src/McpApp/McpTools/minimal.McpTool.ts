@@ -10,12 +10,12 @@ export function registerMinimalTool(server: McpServer): void {
     title: 'Minimal portfolio',
     description: 'Calculates the minimum number of shares you need to buy to satisfy your portfolio',
     inputSchema: {
-      precision: z.number().min(0).max(1)
+      precision: z.number().positive().max(1)
         .default(DEFAULT_ACCEPTABLE_PRECESION)
-        .describe('How much can your securities percentage deviate from target (0.01 = 1 percentage point)'),
+        .describe('How much can your securities percentage deviate from target, greater than 0 and at most 1 (0.01 = 1 percentage point)'),
       sharesStep: z.number().int().min(1)
         .default(DEFAULT_SHARES_STEP)
-        .describe('The minimum amount of shares a security is incremented by'),
+        .describe('The minimum amount of shares a security is incremented by (an integer, at least 1)'),
       ...portfolioInput,
     },
     outputSchema: portfolioOutputSchema,

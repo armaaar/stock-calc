@@ -18,7 +18,8 @@ export class ErrorCliPresenter {
   }
 
   private static presentClassValidatorError(error: ValidationError, depth: number = 1) {
-    console.error(chalk.red(`${'-'.repeat(depth)} Errors For '${chalk.yellow(error.target?.constructor.name)}' => '${chalk.yellow(error.property)}'`))
+    const owner = error.target ? `'${chalk.yellow(error.target.constructor.name)}' => ` : ''
+    console.error(chalk.red(`${'-'.repeat(depth)} Errors For ${owner}'${chalk.yellow(error.property)}'`))
     if (error.constraints) {
       console.table(error.constraints)
     }
