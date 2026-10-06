@@ -902,6 +902,29 @@ describe('Portfolio', () => {
       expect(portfolio.cashAfterTrades.toNumber()).toBe(5)
     })
 
+    it('stays fast when a percentage fee makes the cash-limited share count too many', () => {
+      // B is far short of target but limited by the cash; its 1% fee makes floor(cash / price)
+      // one share too many on every pass
+      const portfolio = new Portfolio({
+        securities: [
+          security({ tick: 'A', price: 100000, shares: 0, targetPercentage: 0.25 }),
+          security({
+            tick: 'B', price: 0.1, shares: 0, targetPercentage: 0.25,
+            brokerageFeeFlat: 0, tradingFeePercentage: 0.01,
+          }),
+          security({ tick: 'C', price: 1, shares: 1_000_000, targetPercentage: 0.5 }),
+        ],
+      })
+
+      const started = performance.now()
+      portfolio.buyWithCash(new Decimal(80000))
+
+      expect(performance.now() - started).toBeLessThan(1000)
+      expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+      // Less than one more B share (with its fee) is left
+      expect(portfolio.cashAfterTrades.lessThan(0.101 + 1)).toBe(true)
+    })
+
     it('stays fast with very different prices', () => {
       const portfolio = new Portfolio({
         securities: [

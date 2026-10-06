@@ -356,11 +356,15 @@ export class Portfolio {
 
       const sec = candidates.reduce((a, b) => (shortOf(b).greaterThan(shortOf(a)) ? b : a))
       // Several shares at once when far short, so cheap shares don't take a step each
+      // As many shares as the shortfall and the cash allow, halving while the fee makes that
+      // too many, so a large remainder takes a few steps, not one per share
       const many = Decimal.min(shortOf(sec), this.cashAfterTrades)
         .dividedBy(sec.price).floor().toNumber()
-      if (!this.tryBuy(sec, Math.max(1, many)) && !(many > 1 && this.tryBuy(sec, 1))) {
-        candidates = candidates.filter((other) => other !== sec)
+      let bought = false
+      for (let count = Math.max(1, many); !bought && count >= 1; count = Math.floor(count / 2)) {
+        bought = this.tryBuy(sec, count)
       }
+      if (!bought) candidates = candidates.filter((other) => other !== sec)
     }
   }
 
