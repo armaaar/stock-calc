@@ -122,13 +122,69 @@ npm run cli:rebalance -- [options]
 
 The same operations are available as [Model Context Protocol](https://modelcontextprotocol.io) tools: `show`, `minimal`, `target`, `invest` and `rebalance`. Each tool takes a `portfolio` input (default `"EUR"`) plus the same arguments as its CLI command (`precision`, `sharesStep`, `price`, `investment`), and returns structured JSON.
 
-This repository's `.mcp.json` registers the server for Claude Code, which asks you to approve it the first time you start `claude` in this folder. Any other MCP client can launch it over stdio, from the repository root:
+The server reads your portfolios from the folder named by the `STOCK_CALC_DATA_DIR` environment variable (a leading `~` means your home folder). Put your `_settings.<portfolio_name>.jsonc` and optional `_overrides.<portfolio_name>.jsonc` files there; see [Portfolio](#portfolio) for the format. If it isn't set, the server uses `src/data` in its own folder.
+
+You need Node 22 (or newer) and git. The first start takes a while, because npm installs the server and Puppeteer downloads Chrome.
+
+### Use it straight from GitHub (no clone)
+
+`npx` downloads the server from this repository and runs it.
+
+**Claude Code:**
 
 ```sh
-node node_modules/tsx/dist/cli.mjs src/McpApp/app.ts
+claude mcp add stock-calc --env STOCK_CALC_DATA_DIR=~/portfolios -- npx -y github:armaaar/stock-calc
 ```
 
-Use that command rather than `npm run mcp` in client configurations, because npm prints a banner to stdout, which corrupts the protocol stream.
+Add `--scope user` to make it available in every project.
+
+**Claude Desktop, Cursor and other clients** that use a JSON configuration (`claude_desktop_config.json`, `.cursor/mcp.json`, …):
+
+```json
+{
+  "mcpServers": {
+    "stock-calc": {
+      "command": "npx",
+      "args": ["-y", "github:armaaar/stock-calc"],
+      "env": { "STOCK_CALC_DATA_DIR": "~/portfolios" }
+    }
+  }
+}
+```
+
+On Windows, some clients can't start `npx` directly. If the server doesn't start, use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "github:armaaar/stock-calc"]`, or add `cmd /c` before `npx` in the `claude mcp add` command.
+
+To pin a version, add a tag, branch or commit after a `#`, for example `github:armaaar/stock-calc#v1.0.0`. npx caches what it downloads, so pinning is also how you pick up updates deliberately.
+
+### Run it from a clone
+
+```sh
+git clone https://github.com/armaaar/stock-calc.git
+cd stock-calc
+npm install
+```
+
+Then point the client at the entry point with tsx. Pass `--tsconfig` because clients start the server in another folder, and without it tsx can't resolve the project's imports:
+
+```json
+{
+  "mcpServers": {
+    "stock-calc": {
+      "command": "npx",
+      "args": [
+        "tsx",
+        "--tsconfig", "/path/to/stock-calc/tsconfig.json",
+        "/path/to/stock-calc/src/McpApp/app.ts"
+      ],
+      "env": { "STOCK_CALC_DATA_DIR": "~/portfolios" }
+    }
+  }
+}
+```
+
+`node /path/to/stock-calc/bin/stock-calc-mcp.js` works too, and doesn't need `--tsconfig`. Inside the clone, the repository's `.mcp.json` already registers the server for Claude Code, which asks you to approve it the first time you start `claude` there. Without `STOCK_CALC_DATA_DIR`, it reads the portfolios in `src/data`.
+
+Don't use `npm run mcp` in client configurations: npm prints a banner to stdout, which corrupts the protocol stream.
 
 ## Development
 

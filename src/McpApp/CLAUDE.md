@@ -7,7 +7,14 @@ MCP server exposing the use cases as tools. It mirrors `src/CliApp` one-to-one (
 stdout carries the JSON-RPC stream. One stray `console.log` (or an npm banner) corrupts the session.
 - `app.ts` redirects `console.log` / `info` / `debug` / `table` to stderr. Keep that redirect at the top of the entry point.
 - Log diagnostics with `console.error`.
-- `.mcp.json` runs `node node_modules/tsx/dist/cli.mjs src/McpApp/app.ts`. Don't change it to `npm run mcp`, because npm prints its banner to stdout. Don't change it to `npx`, because Windows needs `cmd /c npx`, which breaks other platforms.
+- `.mcp.json` runs `node bin/stock-calc-mcp.js`, the same launcher users get with `npx -y github:armaaar/stock-calc` (ADR-0016). Don't change it to `npm run mcp`, because npm prints its banner to stdout. Don't change it to `npx`, because Windows needs `cmd /c npx`, which breaks other platforms.
+
+## Running from GitHub
+
+- `bin/stock-calc-mcp.js` registers tsx with the package's own `tsconfig.json`, then `bin/alias-hooks.js`, then imports `app.ts`. The hook maps `@/x` to `src/x.ts`, because tsx ignores tsconfig `paths` inside `node_modules`, which is where npx installs the package. Keep every `@/` import pointing at a `.ts` file.
+- Runtime code may only import `dependencies`, never devDependencies; `tsx` is a dependency for this reason.
+- `files` in `package.json` decides what an install contains. After adding a runtime folder, check `npm pack --dry-run`. Personal `src/data/_*.jsonc` files must never appear in it.
+- Before changing the launcher, test the installed path rather than the repo path: `npm pack`, then from another folder `npm exec --yes --package <tgz> -- stock-calc-mcp` with `STOCK_CALC_DATA_DIR` set, connected through the SDK's `StdioClientTransport`.
 
 ## Structure
 

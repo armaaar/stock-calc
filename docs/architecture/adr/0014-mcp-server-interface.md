@@ -23,7 +23,7 @@ We will add `src/McpApp`, an MCP server that mirrors `src/CliApp` one-to-one. It
 - Output field names are camelCase. Percentages are in percent, as in the CLI. Traded values are signed.
 - Every tool is annotated `readOnlyHint: true`, `idempotentHint: true` and `openWorldHint: true`, because the tools read public web pages but never change anything.
 - `app.ts` redirects `console.log`/`info`/`debug`/`table` to stderr, because stdout carries the JSON-RPC stream.
-- The repository ships a project-scoped `.mcp.json` that launches the server with `node node_modules/tsx/dist/cli.mjs src/McpApp/app.ts`. It runs `node` directly instead of going through npm or npx. `npm run` prints a banner to stdout, which would corrupt the protocol stream, and `npx` on Windows needs a `cmd /c` wrapper that would break other platforms.
+- The repository ships a project-scoped `.mcp.json` that launches the server with `node node_modules/tsx/dist/cli.mjs src/McpApp/app.ts` (since [ADR-0016](0016-run-mcp-server-from-github.md): `node bin/stock-calc-mcp.js`). It runs `node` directly instead of going through npm or npx. `npm run` prints a banner to stdout, which would corrupt the protocol stream, and `npx` on Windows needs a `cmd /c` wrapper that would break other platforms.
 
 ## Consequences
 

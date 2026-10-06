@@ -21,6 +21,7 @@ npx vitest run -t "rebalance"                          # tests whose name matche
 
 - Node 22 (`.nvmrc`). Native ESM (`"type": "module"`), no build step (`noEmit`). TypeScript is pinned to `~6.0` because typescript-eslint doesn't support TypeScript 7 yet (ADR-0013).
 - The portfolio flag is `--pt, --portfolio`. commander 15 rejects the old `-pt`.
+- Portfolio files are read from `$STOCK_CALC_DATA_DIR`, or `src/data` when it's unset. The MCP server can run without a clone via `npx -y github:armaaar/stock-calc` (`bin/stock-calc-mcp.js`, ADR-0016); see `src/McpApp/CLAUDE.md` before touching `bin/` or `package.json` `files`.
 - A real run launches two headless Chromium instances. To run end to end offline, copy `src/data/_settings.EUR.jsonc.example` and `_overrides.EUR.jsonc.example` to a throwaway type (for example `_settings.TMP.jsonc` / `_overrides.TMP.jsonc`; git ignores them) and use `--pt TMP`. Every price is then overridden.
 - If Puppeteer can't find Chrome: `npx puppeteer browsers install chrome`.
 

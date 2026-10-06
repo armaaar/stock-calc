@@ -131,9 +131,9 @@ When a command fails, the CLI prints the error and exits with code 1.
 
 ## Data and configuration
 
-- **Portfolio type** (`--pt, --portfolio <type>` in the CLI, `portfolio` in MCP tools, default `EUR`; letters, digits, `_` and `-` only, see `src/Shared/portfolioName.ts`) selects `src/data/_settings.<TYPE>.jsonc` and `src/data/_overrides.<TYPE>.jsonc`. Paths are resolved relative to the `DataDrivers` source folder through `import.meta.dirname`.
+- **Portfolio type** (`--pt, --portfolio <type>` in the CLI, `portfolio` in MCP tools, default `EUR`; letters, digits, `_` and `-` only, see `src/Shared/portfolioName.ts`) selects `_settings.<TYPE>.jsonc` and `_overrides.<TYPE>.jsonc` in the data folder: `$STOCK_CALC_DATA_DIR` if set (a leading `~` means the home folder), otherwise `src/data` in the repository ([ADR-0016](adr/0016-run-mcp-server-from-github.md)).
 - Files are JSONC (comments allowed), parsed with `jsonc-parser`, and validated at runtime with zod schemas in `src/DataDrivers/DataFiles.schema.ts` ([ADR-0007](adr/0007-local-jsonc-portfolio-files.md), [ADR-0012](adr/0012-validate-data-files-with-zod.md)). The DTO types are derived from those schemas. The fields are documented in the [README](../../README.md#portfolio).
-- `.mcp.json` registers the MCP server for this project (stdio, `node node_modules/tsx/dist/cli.mjs src/McpApp/app.ts`).
+- `.mcp.json` registers the MCP server for this project (stdio, `node bin/stock-calc-mcp.js`). Users without a clone run the same launcher with `npx -y github:armaaar/stock-calc` ([ADR-0016](adr/0016-run-mcp-server-from-github.md)).
 
 ## Technology
 

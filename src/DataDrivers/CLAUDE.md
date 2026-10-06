@@ -6,7 +6,8 @@ Infrastructure: reads the portfolio data files and scrapes prices. Returns plain
 
 - `DataFiles.schema.ts` holds the zod schemas and is the **single source of truth** for the file shapes (ADR-0012). The DTO types in `IPriceDataDriver.type.ts` are `z.infer`'d from it. Change the schema, never the types.
 - Always go through `DataFiles.reader.ts`:
-  - `dataFilePath(prefix, type)` checks the portfolio name against `PORTFOLIO_NAME_PATTERN` (letters, digits, `_`, `-`) before resolving `src/data/_<prefix>.<TYPE>.jsonc`, so names can't escape `src/data`.
+  - `dataDirectory()` is `$STOCK_CALC_DATA_DIR` (with `~` expanded) or `src/data`. Users of the npx install keep their portfolios there (ADR-0016). `vitest.config.ts` clears the variable so tests always see `src/data`.
+  - `dataFilePath(prefix, type)` checks the portfolio name against `PORTFOLIO_NAME_PATTERN` (letters, digits, `_`, `-`) before resolving `<data folder>/_<prefix>.<TYPE>.jsonc`, so names can't escape the data folder.
   - `parseJsonc()` rejects JSONC syntax errors with line and column.
   - After that, `parseDataFile()` validates against the schema and throws `Invalid data file '<path>'` with the failing field paths.
 - The schemas check ranges as well as types (integer shares ≥ 0, fractions in [0, 1], fees ≥ 0, override prices > 0, non-empty strings).
