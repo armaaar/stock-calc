@@ -1,6 +1,6 @@
 # ADR-0009: Run TypeScript directly with ts-node (no build step)
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0013](0013-node22-esm-toolchain.md)
 - **Date:** 2023-10-07
 - **Introduced in:** `4d56948` (`cli` script on ts-node, `@/` paths), `c109258` (`ts-patch` + typia transform)
 

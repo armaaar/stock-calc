@@ -49,3 +49,14 @@ The quote's `currency` becomes `Security.currency`. The core then enforces the *
 - One headless Chromium per live source per run, launched before resolution and closed afterwards, even when every price is overridden.
 - Selectors depend on third-party markup. When a site changes its layout, prices for that source fail. Add overrides until the driver is fixed.
 - Adding a source: implement `IPriceDataDriver` (extend `BrowserController` if it needs a browser), add an instance to the repository, add it to the `priceDataDrivers` list, and add it to the `launchBrowser` / `closeBrowser` calls.
+
+## Known gaps
+
+Current behaviour, pinned by tests with `// Current behaviour:` comments:
+
+1. **Scraped values aren't validated.** If a selector matches nothing or holds no text, the quote is `NaN` or `0` (TradingView gives `price: 0, currency: null`) instead of an error. Prices with thousands separators (`1,234.56`) parse as `NaN`.
+2. **Page-load failures aren't wrapped.** `page.goto` runs outside the drivers' `try`, so a navigation error surfaces as a raw Puppeteer error, not as "not registered".
+3. **Concurrent `launchBrowser()` calls start two browsers**, and the first one is never closed. The repository launches each driver once, so this doesn't happen today.
+4. **The portfolio type isn't sanitised.** It goes straight into the file path, so `../` segments can escape `src/data`. This is acceptable for a local single-user tool, but worth fixing before exposing the MCP server more widely.
+5. **JSONC syntax errors are tolerated.** `jsonc-parser` recovers from them (for example a stray `,,`), so a malformed file may still validate. An empty overrides file fails validation, while a missing one means no overrides.
+6. **The file schemas only check types.** Ranges (non-negative shares, percentages ≤ 1) are enforced later by the entities.

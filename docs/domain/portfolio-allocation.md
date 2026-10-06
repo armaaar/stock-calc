@@ -41,7 +41,7 @@ stateDiagram-v2
 
 | # | Invariant | Enforced by | Failure |
 | --- | --- | --- | --- |
-| P1 | At least one security | `@IsArray() @ArrayNotEmpty()` | `ClassValidatorError` |
+| P1 | At least one security | `@IsArray() @ArrayNotEmpty()` | In practice P2 fails first: `Error: Portfolio percentage don't add up to 1 (0)` (see known gap 8) |
 | P2 | Target percentages sum to **exactly** 1 (`Decimal` equality) | constructor | `Error: Portfolio percentage don't add up to 1 (<sum>)` |
 | P3 | All securities have the same currency | constructor | `Error: Portfolio have securities with different currencies` |
 | P4 | Each security is itself valid | `@ValidateNested()` + each entity's own validation | `ClassValidatorError` |
@@ -132,3 +132,7 @@ These are behaviors of the current model that may not be intended. They're recor
 5. **Fee settings are duplicated per security.** They belong to the portfolio (broker) but are copied onto each `PortfolioSecurity`.
 6. **Tick uniqueness isn't enforced.** Two holdings with the same tick are accepted. They would share one override and be hard to tell apart in output.
 7. **Security mixes identity and quote.** Quote time and source aren't recorded, so a plan can't say how fresh its prices are.
+8. **P1 can never fire.** The constructor checks the percentage sum (P2) before running decorator validation, so an empty portfolio fails with the P2 message instead.
+9. **Validation is matched by class name.** `validateClassErrors` compares `constructor.name`, so a subclass that doesn't validate itself skips all checks (for example `class X extends Security {}` accepts an empty tick).
+10. **Division by a zero portfolio value.** `calcActualPercentage` maps only 0 ÷ 0 to 0. A nonzero value over a zero portfolio price gives `Infinity`. With a 0 target on the first security, the `minimal` search never terminates.
+11. **Duplicate validation messages.** `initialShares` defaults to `shares`, so one invalid share count is reported twice.

@@ -1,27 +1,27 @@
 # Use Cases (application services)
 
-Each CLI command maps to one **application service** in `src/UseCases`. Every use case:
+Each CLI command, and the MCP tool of the same name, maps to one **application service** in `src/UseCases`. Every use case:
 
 1. extends `PortfolioUserCase` and is constructed with a **portfolio type**,
 2. loads the `Portfolio` aggregate through `PortfolioRepository` (`getSourcePortfolio()`),
 3. optionally changes the proposed `shares` (the initial state is never changed),
-4. returns the aggregate for the CLI to present.
+4. returns the aggregate for the interface to present.
 
 Use cases hold no state between runs and persist nothing.
 
 ## Summary
 
-| Use case | Command | Extra input | Domain operation | Presented as |
+| Use case | CLI command | MCP tool and inputs | Domain operation | Presented as |
 | --- | --- | --- | --- | --- |
-| [Show current portfolio](#uc-1-show-current-portfolio) | `show` | none | none | `ONLY_INITIAL` |
-| [Rebalance](#uc-2-rebalance-portfolio) | `rebalance` | none | `balanceForPrice(totalPrice)` | `WITH_DELTA` |
-| [Invest additional amount](#uc-3-invest-an-additional-amount) | `invest <investment>` | amount | `balanceForPrice(totalPrice + investment)` | `WITH_DELTA` |
-| [Allocate to a target value](#uc-4-allocate-to-a-target-value) | `target <price>` | portfolio value | `balanceForPrice(price)` | `WITH_DELTA` |
-| [Find minimal portfolio](#uc-5-find-the-minimal-portfolio) | `minimal` | precision, shares step | iterative search | `ONLY_NEW` |
+| [Show current portfolio](#uc-1-show-current-portfolio) | `show` | `show` | none | `ONLY_INITIAL` |
+| [Rebalance](#uc-2-rebalance-portfolio) | `rebalance` | `rebalance` | `balanceForPrice(totalPrice)` | `WITH_DELTA` |
+| [Invest additional amount](#uc-3-invest-an-additional-amount) | `invest <investment>` | `invest { investment }` | `balanceForPrice(totalPrice + investment)` | `WITH_DELTA` |
+| [Allocate to a target value](#uc-4-allocate-to-a-target-value) | `target <price>` | `target { price > 0 }` | `balanceForPrice(price)` | `WITH_DELTA` |
+| [Find minimal portfolio](#uc-5-find-the-minimal-portfolio) | `minimal [-p] [-s]` | `minimal { precision ∈ [0,1], sharesStep ≥ 1 integer }` | iterative search | `ONLY_NEW` |
 
-All commands take `-pt, --portfolio <type>` (default `EUR`). **Actor:** the investor, running the CLI locally.
+Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfolio` input. Both default to `EUR`. **Actor:** the investor, running the CLI locally or asking an AI assistant connected to the MCP server.
 
-**Shared preconditions:** `src/data/_settings.<type>.jsonc` exists and passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the run prints the error(s) and produces no plan.
+**Shared preconditions:** `src/data/_settings.<type>.jsonc` exists and passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the CLI prints the error(s), the MCP tool returns an `isError` result, and no plan is produced.
 
 **Worked examples** below use the tracked example portfolio (`_settings.EUR.jsonc.example` with `_overrides.EUR.jsonc.example`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
 
@@ -78,7 +78,7 @@ All commands take `-pt, --portfolio <type>` (default `EUR`). **Actor:** the inve
 **Notes:**
 - This is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added. There's no "buy-only" mode.
 - Net cash needed is `investment` ± rounding, **plus fees**. It can be slightly above or below the amount entered.
-- The CLI parser reads a leading `-` as an option, so `invest -100` fails with `unknown option '-100'`. The use case itself doesn't reject negative amounts.
+- Negative amounts are accepted by the CLI (`invest -100`), the MCP tool and the use case. They plan a withdrawal: `invest -4055` gives the same plan as `target 5000`.
 
 ---
 
@@ -92,7 +92,7 @@ All commands take `-pt, --portfolio <type>` (default `EUR`). **Actor:** the inve
 
 **Example (`target 5000`):** sell 30 QDVE and 52 SPYD. Proposed value 4972.30 EUR (40.05% / 59.95%), fees 2 EUR.
 
-**Notes:** the result may differ from `price` by up to about half a share's price per security. A non-numeric `price` (for example `target abc`) isn't rejected. It produces `NaN` share counts and prices, and the process still exits with code 0.
+**Notes:** the result may differ from `price` by up to about half a share's price per security. In the CLI, a non-numeric `price` (for example `target abc`) isn't rejected. It produces `NaN` share counts and prices, and the process still exits with code 0. The MCP tool rejects anything that isn't a positive number.
 
 ---
 
@@ -123,7 +123,8 @@ All commands take `-pt, --portfolio <type>` (default `EUR`). **Actor:** the inve
 - The acceptance test is checked **before** the first iteration, on the current holdings. If they're already within precision, they're returned unchanged instead of the minimum.
 - The result doesn't depend on current holdings otherwise. It's presented as a target state only (`ONLY_NEW`, with no trades or fees).
 - The first security drives the search. A target of 0 for it divides by zero.
-- `0` or non-numeric values for `-p`/`-s` silently fall back to the defaults, because the constructor tests them for truthiness.
+- `0` (CLI or MCP) or non-numeric (CLI) values for precision and shares step silently fall back to the defaults, because the constructor tests them for truthiness.
+- A target of 0 on the **first** security makes the search divide by zero and **never terminate**, because every other weight computes as 0.
 - Smaller precision means more iterations and larger results. There's no iteration cap.
 
 ---

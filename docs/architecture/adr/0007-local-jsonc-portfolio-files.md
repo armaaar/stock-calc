@@ -1,6 +1,6 @@
 # ADR-0007: Local JSONC portfolio files validated with typia
 
-- **Status:** Accepted
+- **Status:** Accepted. Validation with typia superseded by [ADR-0012](0012-validate-data-files-with-zod.md)
 - **Date:** 2023-10-07
 - **Introduced in:** `c109258` "feat: support multiple portfolios" (typia, per-type files), `3355a5e` "feat: use jsonc for data"
 

@@ -1,6 +1,15 @@
 # Stocks Calculator
 
-This is a small tool to help calculate your stock investments.
+This is a small tool to help calculate your stock investments. Use it from the command line, or let an AI assistant use it through its [MCP server](#mcp-server).
+
+## Setup
+
+Requires Node 22 (see `.nvmrc`).
+
+```sh
+npm install
+npx puppeteer browsers install chrome   # only if npm install didn't download Chrome
+```
 
 ## Portfolio
 
@@ -51,7 +60,7 @@ npm run cli -- <command> [options]
 
 This is a list of global options available in all operations
 
-- `-pt, --portfolio <type>`: the portfolio to use (default: "EUR")
+- `--pt, --portfolio <type>`: the portfolio to use (default: "EUR")
 - `-h, --help`: display help for command
 
 ### Show Portfolio
@@ -107,4 +116,25 @@ Rebalance the current portfolio
 ```sh
 npm run cli -- rebalance [options]
 npm run cli:rebalance -- [options]
+```
+
+## MCP server
+
+The same operations are available as [Model Context Protocol](https://modelcontextprotocol.io) tools: `show`, `minimal`, `target`, `invest` and `rebalance`. Each tool takes a `portfolio` input (default `"EUR"`) plus the same arguments as its CLI command (`precision`, `sharesStep`, `price`, `investment`), and returns structured JSON.
+
+This repository's `.mcp.json` registers the server for Claude Code, which asks you to approve it the first time you start `claude` in this folder. Any other MCP client can launch it over stdio, from the repository root:
+
+```sh
+node node_modules/tsx/dist/cli.mjs src/McpApp/app.ts
+```
+
+Use that command rather than `npm run mcp` in client configurations, because npm prints a banner to stdout, which corrupts the protocol stream.
+
+## Development
+
+```sh
+npm run typecheck       # tsc (type-check only)
+npm run lint            # eslint
+npm test                # vitest
+npm run test:coverage   # vitest with v8 coverage, fails below 95%
 ```

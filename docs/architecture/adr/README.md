@@ -2,7 +2,7 @@
 
 An ADR records one significant architectural decision: its context, the decision, and its consequences. We use the lightweight [Michael Nygard format](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions).
 
-ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. Each one is dated by the commit that introduced the decision. Where the commit history doesn't state the rationale, the context section reconstructs it from the code.
+ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-0012 and later were written when the decision was made. Each one is dated by the commit that introduced the decision. Where the commit history doesn't state the rationale, the context section reconstructs it from the code.
 
 ## Index
 
@@ -14,11 +14,15 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. Each on
 | [0004](0004-self-validating-entities.md) | Self-validating entities with class-validator | Accepted | 2023-09-10 |
 | [0005](0005-scrape-prices-with-headless-browser.md) | Scrape live prices with a headless browser | Accepted | 2023-09-09 |
 | [0006](0006-race-multiple-price-sources.md) | Race multiple price sources, one browser per source per run | Accepted | 2023-10-07 |
-| [0007](0007-local-jsonc-portfolio-files.md) | Local JSONC portfolio files validated with typia | Accepted | 2023-10-07 |
+| [0007](0007-local-jsonc-portfolio-files.md) | Local JSONC portfolio files validated with typia | Accepted (validation superseded by 0012) | 2023-10-07 |
 | [0008](0008-manual-price-overrides.md) | Manual price overrides per portfolio | Accepted | 2024-07-21 |
-| [0009](0009-run-typescript-directly-with-ts-node.md) | Run TypeScript directly with ts-node (no build step) | Accepted | 2023-10-07 |
+| [0009](0009-run-typescript-directly-with-ts-node.md) | Run TypeScript directly with ts-node (no build step) | Superseded by 0013 | 2023-10-07 |
 | [0010](0010-track-initial-state-in-entities.md) | Track initial holdings inside entities for delta reporting | Accepted | 2023-10-08 |
 | [0011](0011-fee-model-per-security-order.md) | Model trading fees per security order | Accepted | 2023-10-08 |
+| [0012](0012-validate-data-files-with-zod.md) | Validate data files with zod | Accepted | 2026-10-06 |
+| [0013](0013-node22-esm-toolchain.md) | Node 22 native ESM toolchain with tsx | Accepted | 2026-10-06 |
+| [0014](0014-mcp-server-interface.md) | Expose the use cases through an MCP server | Accepted | 2026-10-06 |
+| [0015](0015-vitest-with-coverage-gate.md) | Unit tests with Vitest and a 95% coverage gate | Accepted | 2026-10-06 |
 
 ## Adding an ADR
 

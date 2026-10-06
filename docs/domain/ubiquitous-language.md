@@ -7,7 +7,7 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | Term | Definition | Code | CLI column |
 | --- | --- | --- | --- |
 | **Portfolio** | A set of securities held together, priced in one currency, with target weights that sum to 100%. The aggregate root. | `Portfolio` | |
-| **Portfolio type** | The name that selects a portfolio's settings and overrides files (for example `EUR`, `EGP`). It's just a name; it often matches the currency by convention. | `portfolioType`, `--portfolio` / `-pt` | |
+| **Portfolio type** | The name that selects a portfolio's settings and overrides files (for example `EUR`, `EGP`). It's just a name; it often matches the currency by convention. | `portfolioType`, `--portfolio` / `--pt`, MCP `portfolio` input | |
 | **Security** | A tradable instrument identified by tick and exchange (and optionally ISIN), with a current price and currency. | `Security` | |
 | **Portfolio security** (holding, position) | A security as held in a portfolio: share counts, target percentage, and fee settings. | `PortfolioSecurity` | one table row |
 | **Tick** (ticker) | The exchange symbol of a security, such as `QDVE` or `ETEL`. The practical identity of a security within a portfolio, and the key for price overrides. | `tick` | Tick |
