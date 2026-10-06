@@ -416,6 +416,6 @@ describe('tracked example data files', () => {
     // Every security is overridden, so the example runs offline
     const { prices } = await overrides.getPortfolioOverrides('thndr/egp')
     expect(Object.keys(prices)).toEqual(egp.securities.map((sec) => sec.tick))
-    expect(prices.ESRS.asOf).toBe('2026-10-01')
+    expect(prices.BMM.asOf).toBe('2026-10-06')
   })
 })

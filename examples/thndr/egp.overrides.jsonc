@@ -3,9 +3,9 @@
     "price": 38.50,
     "currency": "EGP"
   },
-  "ESRS": {
-    "price": 73.25,
+  "BMM": {
+    "price": 2.4326,
     "currency": "EGP",
-    "asOf": "2026-10-01" // optional: when the price was looked up
+    "asOf": "2026-10-06" // optional: when the price (here, the fund's NAV) was looked up
   }
 }

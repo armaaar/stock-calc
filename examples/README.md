@@ -20,7 +20,7 @@ examples/
     mixed.overrides.jsonc  its prices, and the USD/EUR rate
   thndr/
     _broker.jsonc          Thndr's tariff
-    egp.jsonc              thndr/egp: cash, and one security with its own minimum fee
+    egp.jsonc              thndr/egp: cash, and a mutual fund with its own minimum fee
     egp.overrides.jsonc    its prices, one of them dated
 ```
 
@@ -30,7 +30,7 @@ examples/
 | `ibkr/eur.jsonc` | The smallest portfolio: just `securities`. Its fees come from the broker. |
 | `ibkr/mixed.jsonc` | `currency` (what orders are paid in), and a security's own `currency` (what it trades in). CSPX is converted from USD, and its orders pay the FX fee. |
 | `ibkr/mixed.overrides.jsonc` | Price overrides by tick, and a rate override by `<FROM>/<TO>`. Remove the rate to fetch it live. |
-| `thndr/egp.jsonc` | `cash`, and a fee part set on one security. |
-| `thndr/egp.overrides.jsonc` | `asOf`: when a price was looked up. |
+| `thndr/egp.jsonc` | `cash`, a mutual fund (BMM) no source lists, priced by override, and a fee part set on one security. |
+| `thndr/egp.overrides.jsonc` | `asOf`: when a price, here the fund's NAV, was looked up. |
 
 The [README](../README.md#portfolio) describes every field.
