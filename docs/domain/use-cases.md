@@ -80,7 +80,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Example (`invest 1000`):** buy 41 QDVE (+1166.45) and **sell 3 SPYD** (−186.30). Net 980.15 EUR, fees 2 EUR, new value 10035.15 EUR, 17.85 EUR cash after trades.
 
-**Example (`invest 2`):** rounding alone would buy 27 QDVE and sell 12 SPYD, needing 24.95 EUR. The plan cancels one QDVE buy instead: buy 26 QDVE, sell 12 SPYD, leaving 5.50 EUR.
+**Example (`invest 2`):** rounding alone would buy 27 QDVE and sell 12 SPYD, needing 24.95 EUR. Selling one more SPYD covers it and lands closer to target than cancelling a QDVE buy: buy 27 QDVE, sell 13 SPYD (the rebalance plan), leaving 39.15 EUR.
 
 **Notes:**
 - By default this is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added.

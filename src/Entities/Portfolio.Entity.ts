@@ -155,18 +155,29 @@ export class Portfolio {
     this.plannedDeposit = deposit
     this.balanceForPrice(value)
 
-    // Rounding and fees can overshoot: cancel buys first
-    this.cancelBuysUntilAffordable()
+    // Rounding and fees can overshoot: cancel buys, or sell a little more, whichever lands closer
+    this.fitToCash()
 
-    const hasBuys = this.securities.some((sec) => sec.shares > sec.initialShares)
-    if (!hasBuys && deposit.plus(this.cash).greaterThanOrEqualTo(0)) {
+    if (!this.isWithdrawal && this.securities.every((sec) => sec.shares <= sec.initialShares)) {
       // Sells only fund buys or a withdrawal: without either they just turn holdings into fees
       this.resetShares()
       return
     }
 
-    // A withdrawal that the sells and fees don't cover yet: raise more by selling
+    // A withdrawal still short: sell more, only what it needs
     this.sellUntilAffordable()
+    // A sell whose fee eats what it raises only loses money; dropping it leaves more cash
+    this.securities
+      .filter((sec) => sec.shares < sec.initialShares)
+      .filter((sec) => sec.tradingFee.greaterThanOrEqualTo(sec.tradedPrice.abs()))
+      .forEach((sec) => {
+        sec.shares = sec.initialShares
+      })
+  }
+
+  /** Whether the plan takes money out: the cash held plus the deposit is below 0. */
+  private get isWithdrawal(): boolean {
+    return this.cash.plus(this.plannedDeposit).lessThan(0)
   }
 
   private resetShares() {
@@ -176,76 +187,110 @@ export class Portfolio {
   }
 
   /**
-   * Cancels buys until the plan needs no more cash than it has, or no buys are left. Each step
-   * tries cancelling, for every buy, just enough shares to cover the shortfall (or the whole buy),
-   * and keeps the one that leaves the weights closest to target. A cheap share often covers a
-   * small shortfall better than an expensive one would, and large shortfalls take few steps.
+   * Makes the plan affordable, one step at a time. The candidate steps are:
+   * - cancelling, for each buy, just enough shares to cover the shortfall (or the whole buy);
+   * - selling, for each security already being sold, the fewest more shares that cover it.
+   *
+   * It keeps the step that leaves the weights closest to target, preferring a cancel on a tie.
+   * When cancelling the last buy, it judges the state the plan falls back to: the current
+   * holdings, unless it's a withdrawal. Stops when no step is left.
    */
-  private cancelBuysUntilAffordable() {
+  private fitToCash() {
     while (this.cashAfterTrades.lessThan(0)) {
       const short = this.cashAfterTrades.negated()
-      const options = this.securities
-        .filter((sec) => sec.shares > sec.initialShares)
-        .map((sec) => {
+      const options: { sec: PortfolioSecurity, count: number }[] = []
+      this.securities.forEach((sec) => {
+        if (sec.shares > sec.initialShares) {
           // A share cancelled saves its price and its part of a percentage fee
-          const saving = this.cashChange(sec, 1)
-          const toCover = short.dividedBy(Decimal.max(saving, sec.price)).ceil().toNumber()
+          const saving = Decimal.max(this.cashChange(sec, 1), sec.price)
+          const toCover = short.dividedBy(saving).ceil().toNumber()
           const count = Math.min(sec.shares - sec.initialShares, Math.max(1, toCover))
-          sec.shares -= count
-          const distance = this.distanceFromTargets()
-          sec.shares += count
-          return { sec, count, distance }
-        })
+          options.push({ sec, count })
+        } else if (sec.shares < sec.initialShares) {
+          const count = this.fewestSharesCovering(sec, short)
+          if (count !== undefined) options.push({ sec, count })
+        }
+      })
       if (options.length === 0) return
-      const best = options.reduce((a, b) => (b.distance.lessThan(a.distance) ? b : a))
+
+      const scored = options.map((option) => ({ ...option, distance: this.distanceAfter(option) }))
+      const best = scored.reduce((a, b) => (b.distance.lessThan(a.distance) ? b : a))
       best.sec.shares -= best.count
     }
   }
 
-  /** Σ (actual weight − target weight)² over the proposed holdings: 0 when exactly on target. */
-  private distanceFromTargets(): Decimal {
-    const totalPrice = this.totalPrice
+  /** How far from target the plan would be with `count` fewer shares of `sec`. */
+  private distanceAfter({ sec, count }: { sec: PortfolioSecurity, count: number }): Decimal {
+    sec.shares -= count
+    // A plan left with no buys falls back to the holdings, unless it's a withdrawal
+    const fallsBack = !this.isWithdrawal
+      && this.securities.every((other) => other.shares <= other.initialShares)
+    const distance = this.distanceFromTargets(fallsBack)
+    sec.shares += count
+    return distance
+  }
+
+  /**
+   * Σ (actual weight − target weight)² over the proposed holdings, or over the current ones:
+   * 0 when exactly on target.
+   */
+  private distanceFromTargets(current = false): Decimal {
+    const totalPrice = current ? this.initialTotalPrice : this.totalPrice
     return this.securities.reduce((acc, sec) => {
-      const drift = sec.calcActualPercentage(totalPrice).minus(sec.targetPercentage)
+      const value = current ? sec.initialTotalPrice : sec.totalPrice
+      const drift = sec.calcActualPercentage(totalPrice, value).minus(sec.targetPercentage)
       return acc.plus(drift.times(drift))
     }, new Decimal(0))
   }
 
   /**
-   * Sells until the plan is affordable. It undoes any sell that costs more in fees than it
-   * raises, and only takes steps that raise cash. If nothing does, cashAfterTrades stays
-   * negative and shows the shortfall.
+   * Sells for a withdrawal until the plan is affordable. It sells the fewest shares of one
+   * holding that cover the shortfall, choosing the holding that leaves the weights closest to
+   * target. When no single holding can cover it, it sells all of the one that raises the most
+   * and goes on. If nothing raises cash, cashAfterTrades stays negative and shows the shortfall.
    */
   private sellUntilAffordable() {
     while (this.cashAfterTrades.lessThan(0)) {
-      const losing = this.securities.find((sec) => (
-        sec.shares < sec.initialShares && sec.tradingFee.greaterThanOrEqualTo(sec.tradedPrice.abs())
-      ))
-      if (losing) {
-        losing.shares = losing.initialShares
-        continue
-      }
-
+      const short = this.cashAfterTrades.negated()
       const held = this.securities.filter((sec) => sec.shares > 0)
-      const sec = this.mostOverweight(held.filter((other) => this.raisesCash(other, 1)))
-      if (sec) {
-        // Fees grow by at most the percentage of what's sold, so if one more share raises cash,
-        // so do several
-        sec.shares -= this.sharesToRemove(sec, held.length, sec.shares)
-        continue
+
+      const covering = held.flatMap((sec) => {
+        const count = this.fewestSharesCovering(sec, short)
+        return count === undefined ? [] : [{ sec, count }]
+      })
+      if (covering.length > 0) {
+        const scored = covering.map((option) => (
+          { ...option, distance: this.distanceAfter(option) }
+        ))
+        const best = scored.reduce((a, b) => (b.distance.lessThan(a.distance) ? b : a))
+        best.sec.shares -= best.count
+        return
       }
 
-      // One more share can't pay for a new order's fee; selling a whole holding still might
-      const sellable = held.filter((other) => this.raisesCash(other, other.shares))
-      const whole = this.mostOverweight(sellable)
-      if (!whole) return
-      whole.shares = 0
+      const raising = held
+        .map((sec) => ({ sec, gain: this.cashChange(sec, sec.shares) }))
+        .filter(({ gain }) => gain.greaterThan(0))
+      if (raising.length === 0) return
+      const best = raising.reduce((a, b) => (b.gain.greaterThan(a.gain) ? b : a))
+      best.sec.shares = 0
     }
   }
 
-  /** Whether selling `shares` more of `sec` (or buying that many fewer) leaves more cash. */
-  private raisesCash(sec: PortfolioSecurity, shares: number): boolean {
-    return this.cashChange(sec, shares).greaterThan(0)
+  /**
+   * The fewest more shares of `sec` to sell for `short` more cash, fees included, or undefined
+   * if selling all of them isn't enough. The cash raised never falls as more shares are sold
+   * (a fee grows by at most its percentage of what's sold), so a binary search finds it.
+   */
+  private fewestSharesCovering(sec: PortfolioSecurity, short: Decimal): number | undefined {
+    if (sec.shares === 0 || this.cashChange(sec, sec.shares).lessThan(short)) return undefined
+    let low = 1
+    let high = sec.shares
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2)
+      if (this.cashChange(sec, middle).greaterThanOrEqualTo(short)) high = middle
+      else low = middle + 1
+    }
+    return low
   }
 
   /** How much more cash the plan leaves with `shares` fewer of `sec`. */
@@ -255,16 +300,6 @@ export class Portfolio {
     const after = this.cashAfterTrades
     sec.shares += shares
     return after.minus(before)
-  }
-
-  /**
-   * How many shares of `sec` to take off at once: its share of the shortfall, split between the
-   * `among` candidates, at least 1 and at most `max`.
-   */
-  private sharesToRemove(sec: PortfolioSecurity, among: number, max: number): number {
-    const short = this.cashAfterTrades.negated()
-    const step = short.dividedBy(sec.price.times(among)).floor().toNumber()
-    return Math.min(max, Math.max(1, step))
   }
 
   /**
@@ -290,7 +325,7 @@ export class Portfolio {
 
     // Rounding up and fees can overshoot. With no sells, cancelling every buy always fits,
     // since cash + deposit ≥ 0.
-    this.cancelBuysUntilAffordable()
+    this.fitToCash()
 
     this.spendRemainder(buyable)
   }

@@ -67,11 +67,11 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
   })
 
   it('never plans to spend more than the investment, fees included', async () => {
-    // Rounding alone would buy one more QDVE and need 24.95
+    // Rounding alone would sell one SPYD fewer and need 24.95
     const portfolio = await invest(2)
 
-    expect(sharesOf(portfolio)).toEqual([['QDVE', 126], ['SPYD', 88]])
-    expect(portfolio.cashAfterTrades.toNumber()).toBe(5.5)
+    expect(sharesOf(portfolio)).toEqual([['QDVE', 127], ['SPYD', 87]])
+    expect(portfolio.cashAfterTrades.toNumber()).toBe(39.15)
   })
 
   it('invests the cash the portfolio already holds as well', async () => {

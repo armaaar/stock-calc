@@ -324,6 +324,15 @@ describe('Portfolio', () => {
   })
 
   describe('allocateCash', () => {
+    const two = (a: Partial<IPortfolioSecurity>, b: Partial<IPortfolioSecurity>) => (
+      new Portfolio({
+        securities: [
+          security({ tick: 'A', brokerageFeeFlat: 1, ...a }),
+          security({ tick: 'B', brokerageFeeFlat: 1, ...b }),
+        ],
+      })
+    )
+
     it('rebalances the example portfolio with no deposit to QDVE 127 / SPYD 87', () => {
       const portfolio = buildPortfolio()
 
@@ -353,8 +362,9 @@ describe('Portfolio', () => {
       expect(portfolio.cashAfterTrades.toNumber()).toBe(27.5)
     })
 
-    it('cancels buys when rounding and fees would need more than the deposit', () => {
-      // Rounding alone gives QDVE 127 / SPYD 88: 24.95 needed for a deposit of 2
+    it('sells a little more when rounding and fees would need more than the deposit', () => {
+      // Rounding alone gives QDVE 127 / SPYD 88: 24.95 needed for a deposit of 2. Selling one
+      // more SPYD covers it and lands closer to target than cancelling a QDVE buy would.
       const naive = buildPortfolio()
       naive.balanceForPrice(naive.initialTotalPrice.plus(2))
       expect(naive.totalTradedPrice.plus(naive.totalTradingFee).toNumber()).toBe(24.95)
@@ -362,16 +372,17 @@ describe('Portfolio', () => {
       const portfolio = buildPortfolio()
       portfolio.allocateCash(new Decimal(2))
 
-      // One QDVE buy fewer; SPYD (sold) is untouched while there are buys to cancel
-      expect(sharesOf(portfolio)).toEqual({ QDVE: 126, SPYD: 88 })
-      expect(portfolio.cashAfterTrades.toNumber()).toBe(5.5)
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 127, SPYD: 87 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(39.15)
     })
 
-    it('cancels only as many buys as needed', () => {
+    it('cancels a buy when that lands closer to target than selling more', () => {
+      // Investing 25: rounding gives QDVE 128 / SPYD 88, 28.40 short after fees
       const portfolio = buildPortfolio()
 
       portfolio.allocateCash(new Decimal(25))
 
+      // One QDVE fewer (127 / 88) is closer to target than selling one more SPYD (128 / 87)
       expect(sharesOf(portfolio)).toEqual({ QDVE: 127, SPYD: 88 })
       expect(portfolio.cashAfterTrades.toNumber()).toBe(0.05)
     })
@@ -416,15 +427,6 @@ describe('Portfolio', () => {
     })
 
     describe('when cancelling buys leaves only sells', () => {
-      const two = (a: Partial<IPortfolioSecurity>, b: Partial<IPortfolioSecurity>) => (
-        new Portfolio({
-          securities: [
-            security({ tick: 'A', brokerageFeeFlat: 1, ...a }),
-            security({ tick: 'B', brokerageFeeFlat: 1, ...b }),
-          ],
-        })
-      )
-
       it('trades nothing rather than sell everything to pay a minimum fee', () => {
         // Balancing buys 8 A and sells 7 B; fees of 1 + minimum 10 per order make both cost more
         // than they move. Trading nothing is free.
@@ -439,9 +441,9 @@ describe('Portfolio', () => {
         expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
       })
 
-      it('trades nothing rather than keep sells whose buys were cancelled', () => {
-        // Balancing buys 1 A (50) with half of B (30): unaffordable, so the A buy is cancelled.
-        // Selling B on its own would only turn holdings into cash and a fee.
+      it('sells more to pay for a buy when that lands closer to target than trading nothing', () => {
+        // Balancing buys 1 A (50 + 1 fee) with 60 B (30 - 1 fee): 22 short. Selling 44 more B
+        // pays for it, and 50 / 8 is closer to 50/50 than holding only B.
         const portfolio = two(
           { price: 50, shares: 0, targetPercentage: 0.5 },
           { price: 0.5, shares: 120, targetPercentage: 0.5 },
@@ -449,8 +451,22 @@ describe('Portfolio', () => {
 
         portfolio.allocateCash(new Decimal(0))
 
-        expect(sharesOf(portfolio)).toEqual({ A: 0, B: 120 })
-        expect(portfolio.totalTradingFee.toNumber()).toBe(0)
+        expect(sharesOf(portfolio)).toEqual({ A: 1, B: 16 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
+      })
+
+      it('rebalances with a little more selling rather than skip a buy over a fee', () => {
+        // 4 A / 7 B at 45/55: balancing buys 1 A and sells 1 B, 2 short in fees. Selling a
+        // second B pays for it: 5 / 5 is closer to target than 4 / 7.
+        const portfolio = two(
+          { price: 28.45, shares: 4, targetPercentage: 0.45 },
+          { price: 28.45, shares: 7, targetPercentage: 0.55 },
+        )
+
+        portfolio.allocateCash(new Decimal(0))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 5, B: 5 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(26.45)
       })
 
       it('trades nothing rather than sell a share for less than its fee', () => {
@@ -467,9 +483,9 @@ describe('Portfolio', () => {
     })
 
     describe('withdrawing', () => {
-      it('undoes a sell whose fee is more than it raises, and sells more of another', () => {
+      it('drops a sell whose fee is more than it raises, and sells more of another', () => {
         // Withdrawing 100: balancing sells 1 A (0.50, fee 1) and 1 B (100, fee 1), raising
-        // only 98.50. Selling A loses money, so it's undone and B sells one more share.
+        // only 98.50. B sells one more share, and the A sale, which only loses money, is dropped.
         const portfolio = new Portfolio({
           securities: [
             security({
@@ -487,9 +503,9 @@ describe('Portfolio', () => {
         expect(portfolio.cashAfterTrades.toNumber()).toBe(99)
       })
 
-      it('sells a whole holding when one more share can\'t pay for the order\'s fee', () => {
-        // Withdrawing 3 from 10 × 1 with a flat fee of 5: selling 3 raises 3 for a fee of 5,
-        // and so does any single share. Only selling all 10 raises enough.
+      it('sells the fewest shares that cover the withdrawal and the order\'s fee', () => {
+        // Withdrawing 3 from 10 x 1 with a flat fee of 5: selling 3 raises 3 for a fee of 5.
+        // Selling 8 raises exactly 3 after the fee.
         const portfolio = new Portfolio({
           securities: [
             security({ price: 1, shares: 10, targetPercentage: 1, brokerageFeeFlat: 5 }),
@@ -498,8 +514,89 @@ describe('Portfolio', () => {
 
         portfolio.allocateCash(new Decimal(-3))
 
-        expect(portfolio.securities[0].shares).toBe(0)
-        expect(portfolio.cashAfterTrades.toNumber()).toBe(2)
+        expect(portfolio.securities[0].shares).toBe(2)
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
+      })
+
+      it('sells a small withdrawal from an expensive holding without selling all of it', () => {
+        const portfolio = new Portfolio({
+          securities: [
+            security({ price: 1, shares: 10000, targetPercentage: 1, brokerageFeeFlat: 5 }),
+          ],
+        })
+
+        portfolio.allocateCash(new Decimal(-3))
+
+        expect(portfolio.securities[0].shares).toBe(9992)
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
+      })
+
+      it('sells whole holdings one by one when none covers the withdrawal alone', () => {
+        // Withdrawing 12 from 10 x 1 A and 10 x 1 B, flat fee 5 each: everything raises 10
+        const portfolio = two(
+          { price: 1, shares: 10, targetPercentage: 0.5, brokerageFeeFlat: 5 },
+          { price: 1, shares: 10, targetPercentage: 0.5, brokerageFeeFlat: 5 },
+        )
+
+        portfolio.allocateCash(new Decimal(-12))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 0, B: 0 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(-2)
+      })
+
+      it('sells from a holding that rounding left untouched, when nothing else is sold', () => {
+        // Withdrawing 40 from 10 x 100 A and 10 x 101 B: balancing keeps 10 / 10 (both round
+        // up), so it plans no sale at all. One share of either covers 40 and its fee; selling
+        // B, the heavier holding, lands closer to 50/50.
+        const portfolio = two(
+          { price: 100, shares: 10, targetPercentage: 0.5 },
+          { price: 101, shares: 10, targetPercentage: 0.5 },
+        )
+
+        portfolio.allocateCash(new Decimal(-40))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 10, B: 9 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(60)
+      })
+
+      it('sells the first holding when two cover a withdrawal equally well', () => {
+        const portfolio = two(
+          { price: 100, shares: 10, targetPercentage: 0.5 },
+          { price: 100, shares: 10, targetPercentage: 0.5 },
+        )
+
+        portfolio.allocateCash(new Decimal(-40))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 9, B: 10 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(59)
+      })
+
+      it('sells the holding that raises most first when none covers the withdrawal alone', () => {
+        // Withdrawing 24 from 10 x 1 A and 10 x 2 B, flat fee 5 each: everything raises 20
+        const portfolio = two(
+          { price: 1, shares: 10, targetPercentage: 0.5, brokerageFeeFlat: 5 },
+          { price: 2, shares: 10, targetPercentage: 0.5, brokerageFeeFlat: 5 },
+        )
+
+        portfolio.allocateCash(new Decimal(-24))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 0, B: 0 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(-4)
+      })
+
+      it('keeps only the sells a withdrawal needs when a buy it funded is cancelled', () => {
+        // Withdrawing 10: balancing buys 1 A (250) and sells 255 B. Selling 7 more B covers
+        // the shortfall and stays closer to target than cancelling the A buy.
+        const portfolio = two(
+          { price: 250, shares: 0, targetPercentage: 0.5 },
+          { price: 1, shares: 500, targetPercentage: 0.5 },
+        )
+
+        portfolio.allocateCash(new Decimal(-10))
+
+        expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+        expect(portfolio.cashAfterTrades.lessThan(1)).toBe(true)
+        expect(sharesOf(portfolio).A).toBe(1)
       })
     })
 
