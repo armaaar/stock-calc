@@ -1,5 +1,5 @@
 import {
-  IsDate, IsNotEmpty, IsOptional, Min,
+  IsISO8601, IsNotEmpty, IsOptional, Min,
 } from 'class-validator'
 import Decimal from 'decimal.js'
 import { validateClassErrors } from '#src/Shared/ClassValidatorError'
@@ -9,8 +9,11 @@ export interface IPriceQuote {
   currency?: string
   /** Where the price came from, such as `justetf.com` or `override`. */
   source?: string
-  /** When the price was quoted. */
-  quotedAt?: Date
+  /**
+   * When the price was quoted, in ISO 8601: a UTC timestamp for a live quote, or just a date
+   * (`2026-10-01`) for an override, whose time of day isn't known.
+   */
+  quotedAt?: string
 }
 
 /**
@@ -32,8 +35,8 @@ export class PriceQuote {
   public readonly source?: string
 
   @IsOptional()
-  @IsDate()
-  public readonly quotedAt?: Date
+  @IsISO8601({ strict: true })
+  public readonly quotedAt?: string
 
   constructor({
     price, currency, source, quotedAt,

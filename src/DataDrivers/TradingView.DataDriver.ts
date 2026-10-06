@@ -13,8 +13,8 @@ export class TradingViewDataDriver extends BrowserController implements IPriceDa
     const page = await browser.newPage()
 
     try {
-      await page.goto(`https://www.tradingview.com/symbols/${exchange}-${tick}/`)
       page.setDefaultTimeout(30000)
+      await page.goto(`https://www.tradingview.com/symbols/${exchange}-${tick}/`)
 
       // Locate the price
       const priceSelect = await page.waitForSelector(`[data-symbol="${exchange}:${tick}"] .js-symbol-last`, { visible: true })

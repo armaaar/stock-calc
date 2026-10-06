@@ -50,6 +50,8 @@ describe('TradingViewDataDriver', () => {
     expect(browser.newPage).toHaveBeenCalledOnce()
     expect(page.goto).toHaveBeenCalledWith('https://www.tradingview.com/symbols/IBIS2-QDVE/')
     expect(page.setDefaultTimeout).toHaveBeenCalledWith(30000)
+    expect(page.setDefaultTimeout.mock.invocationCallOrder[0])
+      .toBeLessThan(page.goto.mock.invocationCallOrder[0])
     expect(page.waitForSelector.mock.calls).toEqual([
       [PRICE_SELECTOR, { visible: true }],
       [CURRENCY_SELECTOR, { visible: true }],

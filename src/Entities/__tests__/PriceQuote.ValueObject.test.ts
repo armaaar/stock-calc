@@ -13,7 +13,7 @@ function validationErrorOf(fn: () => unknown): ClassValidatorError {
 
 describe('PriceQuote', () => {
   it('holds the price as a Decimal, with its currency, source and time', () => {
-    const quotedAt = new Date('2026-10-06T12:00:00Z')
+    const quotedAt = '2026-10-06T12:00:00.000Z'
     const quote = new PriceQuote({
       price: 28.45, currency: 'EUR', source: 'justetf.com', quotedAt,
     })
@@ -39,7 +39,8 @@ describe('PriceQuote', () => {
   it.each([
     ['a negative price', { price: -1 }, 'priceValue'],
     ['an empty source', { price: 1, source: '' }, 'source'],
-    ['an invalid time', { price: 1, quotedAt: new Date('not a date') }, 'quotedAt'],
+    ['an invalid time', { price: 1, quotedAt: 'yesterday' }, 'quotedAt'],
+    ['an impossible date', { price: 1, quotedAt: '2026-02-30' }, 'quotedAt'],
   ])('rejects %s', (_, values, property) => {
     const error = validationErrorOf(() => new PriceQuote(values))
 
@@ -50,7 +51,7 @@ describe('PriceQuote', () => {
 
   it('round-trips through toValues', () => {
     const quote = new PriceQuote({
-      price: 62.1, currency: 'EUR', source: 'override', quotedAt: new Date('2026-10-01'),
+      price: 62.1, currency: 'EUR', source: 'override', quotedAt: '2026-10-01',
     })
 
     expect(new PriceQuote(quote.toValues())).toEqual(quote)

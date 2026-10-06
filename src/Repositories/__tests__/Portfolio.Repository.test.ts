@@ -185,7 +185,8 @@ describe('PortfolioRepository', () => {
         () => now,
       ).getPortfolio('EUR')
 
-      expect(portfolio.securities.map((s) => s.quote.quotedAt)).toEqual([now, now])
+      expect(portfolio.securities.map((s) => s.quote.quotedAt))
+        .toEqual(['2026-10-06T09:30:00.000Z', '2026-10-06T09:30:00.000Z'])
     })
 
     it('time-stamps live prices with the current time by default', async () => {
@@ -194,9 +195,9 @@ describe('PortfolioRepository', () => {
 
       const portfolio = await repository.getPortfolio('EUR')
 
-      const quotedAt = portfolio.securities[0].quote.quotedAt as Date
-      expect(quotedAt.getTime()).toBeGreaterThanOrEqual(before)
-      expect(quotedAt.getTime()).toBeLessThanOrEqual(Date.now())
+      const quotedAt = Date.parse(portfolio.securities[0].quote.quotedAt as string)
+      expect(quotedAt).toBeGreaterThanOrEqual(before)
+      expect(quotedAt).toBeLessThanOrEqual(Date.now())
     })
 
     it('marks overridden prices as overrides, dated by their optional asOf', async () => {
@@ -208,7 +209,7 @@ describe('PortfolioRepository', () => {
       const [qdve, spyd] = (await repository.getPortfolio('EUR')).securities
 
       expect(qdve.quote.source).toBe('override')
-      expect(qdve.quote.quotedAt).toEqual(new Date('2026-10-01'))
+      expect(qdve.quote.quotedAt).toBe('2026-10-01')
       expect(spyd.quote.source).toBe('override')
       expect(spyd.quote.quotedAt).toBeUndefined()
     })

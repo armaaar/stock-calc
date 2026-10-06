@@ -14,6 +14,7 @@ export function createFakePage(selectors: Record<string, FakeSelectorResult> = {
   return {
     goto: vi.fn<(url: string) => Promise<null>>(async () => null),
     setDefaultTimeout: vi.fn<(timeout: number) => void>(),
+    setDefaultNavigationTimeout: vi.fn<(timeout: number) => void>(),
     close: vi.fn(async () => undefined),
     waitForSelector: vi.fn(async (selector: string) => {
       if (!(selector in selectors)) {

@@ -62,6 +62,11 @@ describe('JustEtfDataDriver', () => {
     expect(page.goto)
       .toHaveBeenCalledWith('https://www.justetf.com/en/etf-profile.html?isin=IE00B3WJKG14')
     expect(page.setDefaultTimeout).toHaveBeenCalledWith(2000)
+    expect(page.setDefaultNavigationTimeout).toHaveBeenCalledWith(10_000)
+    // Both limits apply to the navigation too, so they must be set before it
+    const gotoOrder = page.goto.mock.invocationCallOrder[0]
+    expect(page.setDefaultTimeout.mock.invocationCallOrder[0]).toBeLessThan(gotoOrder)
+    expect(page.setDefaultNavigationTimeout.mock.invocationCallOrder[0]).toBeLessThan(gotoOrder)
     expect(page.waitForSelector).toHaveBeenCalledWith(PRICE_SELECTOR)
   })
 

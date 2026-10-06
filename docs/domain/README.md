@@ -94,7 +94,7 @@ classDiagram
     price: Decimal
     currency?: string
     source?: string
-    quotedAt?: Date
+    quotedAt?: string
   }
   class PortfolioSecurity {
     <<Entity>>

@@ -318,11 +318,11 @@ describe('PortfolioSecurity', () => {
     })
 
     it('keeps the price source and time', () => {
-      const pricedAt = new Date('2026-10-06T12:00:00Z')
+      const pricedAt = '2026-10-06T12:00:00.000Z'
       const copy = build({ priceSource: 'justetf.com', pricedAt }).clone()
 
       expect(copy.quote.source).toBe('justetf.com')
-      expect(copy.quote.quotedAt).toEqual(pricedAt)
+      expect(copy.quote.quotedAt).toBe(pricedAt)
     })
 
     it('re-validates through the constructor', () => {

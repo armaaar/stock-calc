@@ -72,10 +72,14 @@ export class PortfolioCliPresenter {
       ))
   }
 
-  /** Where and when the price was quoted, to the minute in UTC: "justetf.com 2026-10-06 09:30". */
+  /**
+   * Where and when the price was quoted: a timestamp to the minute in UTC
+   * ("justetf.com 2026-10-06 09:30"), or a date as given ("override 2026-10-01").
+   */
   protected static quoteOf({ priceSource, pricedAt }: SecurityView): string | undefined {
     if (!priceSource) return undefined
-    return pricedAt ? `${priceSource} ${pricedAt.slice(0, 16).replace('T', ' ')}` : priceSource
+    if (!pricedAt) return priceSource
+    return `${priceSource} ${pricedAt.slice(0, 16).replace('T', ' ')}`
   }
 
   /** One table row; columns the mode doesn't have are left out (they're undefined). */

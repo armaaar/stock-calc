@@ -109,7 +109,8 @@ export class PortfolioRepository implements IPortfolioRepository {
         price,
         currency,
         priceSource: OVERRIDE_SOURCE,
-        pricedAt: asOf === undefined ? undefined : new Date(asOf),
+        // A date: the time of day of a hand-entered price isn't known
+        pricedAt: asOf,
       }
     }
 
@@ -128,7 +129,7 @@ export class PortfolioRepository implements IPortfolioRepository {
       try {
         const { price, currency } = await answers[i]
         return {
-          price, currency, priceSource: prices[i].name, pricedAt: this.now(),
+          price, currency, priceSource: prices[i].name, pricedAt: this.now().toISOString(),
         }
       } catch (error) {
         errors.push(error)

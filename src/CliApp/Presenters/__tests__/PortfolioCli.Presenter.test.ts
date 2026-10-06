@@ -227,16 +227,17 @@ describe('PortfolioCliPresenter.present', () => {
     ])
   })
 
-  it('shows where and when each price was quoted, to the minute in UTC', () => {
+  it('shows where and when each price was quoted: to the minute in UTC, or as a date', () => {
     const portfolio = buildPortfolio([
-      { ...QDVE, priceSource: 'justetf.com', pricedAt: new Date('2026-10-06T09:30:15Z') },
-      { ...SPYD, priceSource: 'override' },
+      { ...QDVE, priceSource: 'justetf.com', pricedAt: '2026-10-06T09:30:15.000Z' },
+      { ...SPYD, priceSource: 'override', pricedAt: '2026-10-01' },
     ])
 
     PortfolioCliPresenter.present(portfolio, PresentMode.ONLY_INITIAL)
 
     const rows = tableRows(spies)
-    expect(rows.map((row) => row['Quote'])).toEqual(['justetf.com 2026-10-06 09:30', 'override'])
+    expect(rows.map((row) => row['Quote']))
+      .toEqual(['justetf.com 2026-10-06 09:30', 'override 2026-10-01'])
     expect(Object.keys(rows[0]).slice(3, 6)).toEqual(['Price', 'Quote', 'Shares'])
   })
 

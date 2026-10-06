@@ -23,7 +23,7 @@ export type SecurityView = {
   price: number
   /** Where the price came from, such as `justetf.com` or `override`, when known. */
   priceSource?: string
-  /** When the price was quoted (ISO 8601), when known. */
+  /** When the price was quoted, when known: an ISO 8601 UTC timestamp, or a date for overrides. */
   pricedAt?: string
   /** Target weight in percent. */
   targetPercent: number
@@ -141,7 +141,7 @@ function toSecurityViews(portfolio: Portfolio, mode: PresentMode): SecurityView[
       currency: sec.currency,
       price: sec.price.toNumber(),
       priceSource: sec.quote.source,
-      pricedAt: sec.quote.quotedAt?.toISOString(),
+      pricedAt: sec.quote.quotedAt,
       targetPercent: roundPercentage(sec.targetPercentage.toNumber()),
       ...holdingView(portfolio, sec, mode, grossTradedPrice),
     }))

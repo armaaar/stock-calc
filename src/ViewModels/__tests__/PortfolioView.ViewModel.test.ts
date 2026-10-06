@@ -249,10 +249,10 @@ describe('toPortfolioView', () => {
   })
 
   it('shows where and when each price was quoted, in every mode', () => {
-    const pricedAt = new Date('2026-10-06T09:30:15Z')
+    const pricedAt = '2026-10-06T09:30:15.000Z'
     const portfolio = buildPortfolio([
       { ...QDVE, priceSource: 'justetf.com', pricedAt },
-      { ...SPYD, priceSource: 'override' },
+      { ...SPYD, priceSource: 'override', pricedAt: '2026-10-01' },
     ])
 
     for (const mode of [0, 1, 2, 3] as PresentMode[]) {
@@ -261,7 +261,7 @@ describe('toPortfolioView', () => {
       const [qdve, spyd] = toPortfolioView(portfolio, mode).securities
 
       expect(qdve).toMatchObject({ priceSource: 'justetf.com', pricedAt: '2026-10-06T09:30:15.000Z' })
-      expect(spyd).toMatchObject({ priceSource: 'override', pricedAt: undefined })
+      expect(spyd).toMatchObject({ priceSource: 'override', pricedAt: '2026-10-01' })
     }
   })
 

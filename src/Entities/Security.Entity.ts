@@ -11,8 +11,8 @@ export interface ISecurety {
   currency?: string
   /** Where the price came from, such as `justetf.com` or `override`. */
   priceSource?: string
-  /** When the price was quoted. */
-  pricedAt?: Date
+  /** When the price was quoted (ISO 8601 timestamp or date). */
+  pricedAt?: string
 }
 
 /** A tradable instrument (its identity) and its price quote at plan time. */

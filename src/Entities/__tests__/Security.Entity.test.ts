@@ -51,7 +51,7 @@ describe('Security', () => {
   })
 
   it('keeps identity and quote apart: the quote holds price, currency, source and time', () => {
-    const pricedAt = new Date('2026-10-06T12:00:00Z')
+    const pricedAt = '2026-10-06T12:00:00.000Z'
     const security = new Security({
       tick: 'QDVE', price: 28.45, currency: 'EUR', priceSource: 'justetf.com', pricedAt,
     })

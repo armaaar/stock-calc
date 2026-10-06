@@ -16,7 +16,7 @@ Infrastructure: reads the portfolio data files and scrapes prices. Returns plain
 
 ## Price scrapers
 
-- `JustEtf.DataDriver.ts` (by `isin`, 2 s timeout) and `TradingView.DataDriver.ts` (by `exchange` + `tick`, 30 s timeout) both extend `Shared/BrowserController.abstract.ts`, which holds one Chromium per driver per run. Concurrent launches share one in-flight launch. The browser comes from an injected `BrowserLauncher`; only the composition root imports puppeteer's `launch`.
+- `JustEtf.DataDriver.ts` (by `isin`, 10 s to load the page, 2 s for the quote, both set before `goto`) and `TradingView.DataDriver.ts` (by `exchange` + `tick`, 30 s timeout) both extend `Shared/BrowserController.abstract.ts`, which holds one Chromium per driver per run. Concurrent launches share one in-flight launch. The browser comes from an injected `BrowserLauncher`; only the composition root imports puppeteer's `launch`.
 - Every driver has a `name` (`justetf.com`, `tradingview.com`), which the repository stamps on its quotes with the time. The repository launches browsers only when some security isn't overridden. It asks every driver at once but takes the answers in the `prices` list order, so the first driver that can price a security wins (ADR-0025). Then it awaits closing them.
 - Drivers never close their pages: the losing driver may still be using its page. The repository closes the browsers.
 - Scraped text must go through `parsePriceQuote()` (`PriceQuote.parser.ts`), which strips whitespace and thousands commas and requires a positive price and a non-empty currency.
