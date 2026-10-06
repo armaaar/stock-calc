@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2023-10-08
+- **Amended by:** [ADR-0021](0021-guard-proposed-shares.md) (only `shares` changes after construction, and every change is checked)
 - **Introduced in:** `0b1b363` "feat: include delta in entities"
 
 ## Context
@@ -21,6 +22,6 @@ Derived values come from the entity: `isBeingTraded`, `initialTotalPrice`, `trad
 
 - Use cases are tiny: load, change shares, return.
 - Delta and fee logic live in one place, the domain.
-- The aggregate is mutable after construction, and invariants aren't re-checked after mutation ([ADR-0004](0004-self-validating-entities.md)).
+- The aggregate is mutable after construction, and invariants aren't re-checked after mutation ([ADR-0004](0004-self-validating-entities.md)). *Since [ADR-0021](0021-guard-proposed-shares.md), only `shares` can change, and every change is checked.*
 - A `Portfolio` represents a **plan** (before and after) rather than a snapshot. That is the main modeling idea in the [domain docs](../../domain/portfolio-allocation.md).
 - `Portfolio.clone()` and `PresentMode.ONLY_DELTA` are no longer used by any command, but are kept.

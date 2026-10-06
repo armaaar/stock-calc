@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-06
-- **Amends:** [ADR-0004](0004-self-validating-entities.md) (validation no longer happens only at construction)
+- **Amends:** [ADR-0004](0004-self-validating-entities.md) (validation no longer happens only at construction), [ADR-0010](0010-track-initial-state-in-entities.md) (the aggregate is no longer freely mutable)
 
 ## Context
 
@@ -14,7 +14,7 @@ Only one value is meant to change after construction: the proposed `shares`. Eve
 
 - `PortfolioSecurity.shares` is an accessor. Its setter throws `Shares of '<tick>' must be a whole number of at least 0 (<value>)` and keeps the previous value. Invariant S1 therefore holds after every planning step, not just at construction.
 - The constructor stores the initial value directly, so a bad value in the input is still reported as a `ClassValidatorError` together with any other field errors (ADR-0004).
-- Every other entity field is `readonly`: `Security` identity and quote, `initialShares`, `targetPercentage`, the fee parts, and `Portfolio.securities` (a `readonly` array) and `currency`. The compiler rejects any attempt to change them. P1–P5 and S2–S5 can only be broken by bypassing the type system.
+- Every other entity field is `readonly`: `Security` identity and quote, `initialShares`, `targetPercentage`, the fee parts, and `Portfolio.securities` and `currency`. `securities` is a frozen copy of the array it was built from, so changing that array afterwards changes nothing. The compiler rejects any attempt to change them. P1–P5 and S2–S5 can only be broken by bypassing the type system.
 
 ## Consequences
 

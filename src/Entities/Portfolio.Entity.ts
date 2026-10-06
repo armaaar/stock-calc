@@ -20,7 +20,8 @@ export class Portfolio {
   constructor({
     securities,
   }: IPortfolio) {
-    this.securities = securities
+    // A frozen copy: changing the caller's array later can't add, remove or swap securities
+    this.securities = Object.freeze([...securities])
     this.currency = securities[0]?.currency
 
     validateClassErrors(this, Portfolio)

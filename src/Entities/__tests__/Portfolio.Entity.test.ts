@@ -22,6 +22,16 @@ describe('Portfolio', () => {
       expect(portfolio.currency).toBe('EUR')
     })
 
+    it('keeps its own frozen list of securities, unaffected by the array it was built from', () => {
+      const securities = [new PortfolioSecurity(QDVE), new PortfolioSecurity(SPYD)]
+      const portfolio = new Portfolio({ securities })
+
+      securities.push(new PortfolioSecurity({ ...QDVE, targetPercentage: 0.5 }))
+
+      expect(portfolio.securities.map((sec) => sec.tick)).toEqual(['QDVE', 'SPYD'])
+      expect(Object.isFrozen(portfolio.securities)).toBe(true)
+    })
+
     it('accepts a single security at 100%', () => {
       const portfolio = new Portfolio({ securities: [security({ targetPercentage: 1 })] })
 
