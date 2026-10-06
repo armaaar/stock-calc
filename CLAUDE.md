@@ -43,7 +43,7 @@ CliApp | McpApp      (interfaces; never import each other; receive PortfolioUseC
 - A portfolio has a `currency` (what orders are paid in). A security quoted in another currency is converted at an exchange rate (`ExchangeRate`, sourced like prices: live from TradingView's `FX_IDC` pairs or a `<FROM>/<TO>` override) and pays an `fxFeePercentage` on its orders (ADR-0028). `PortfolioSecurity.price` is always in the portfolio's currency; `quote` keeps the listed price.
 - A use case validates its request with a small value class (`Investment`, `TargetPrice`, `MinimumSharesSearch`), loads the `Portfolio`, changes `shares` through a `Portfolio` domain operation (`allocateCash` for invest/rebalance, `buyWithCash` for `invest --buy-only`, `allocateValue` for target, which keep plans within the money available, ADR-0022), and returns it. `initialShares` keeps the original holdings, so presenters can show trades and fees.
 - Every operation exists in **both** interfaces: `CliCommands/<name>.CliCommand.ts` (`create<Name>Cli(useCase)`) ↔ `McpTools/<name>.McpTool.ts` (`register<Name>Tool(server, useCase)`). A new use case needs both, plus an entry in `PortfolioUseCases` (see `src/McpApp/CLAUDE.md`). Change what a mode shows in `src/ViewModels/PortfolioView.ViewModel.ts`, never in one presenter.
-- Folder-specific rules are in nested CLAUDE.md files: `src/Entities/`, `src/DataDrivers/`, `src/McpApp/`.
+- Folder-specific rules are in nested CLAUDE.md files: `src/Entities/`, `src/DataDrivers/`, `src/Repositories/`, `src/UseCases/`, `src/ViewModels/`, `src/CliApp/`, `src/McpApp/`, `examples/`.
 
 ## Tests
 

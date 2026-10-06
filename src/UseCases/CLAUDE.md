@@ -1,0 +1,11 @@
+# src/UseCases
+
+One stateless class per operation, all extending `PortfolioUseCase<Request>` (`PortfolioUseCase.abstract.ts`). Behaviour and worked numbers per use case are in `docs/domain/use-cases.md`.
+
+- **Stateless.** The only field is the injected `portfolioRepo: IPortfolioRepository`. Each `execute(request)` loads a fresh `Portfolio`, changes its `shares` through a domain operation, and returns it. Keep the planning maths in `src/Entities` (`allocateCash`, `buyWithCash`, `allocateValue`); `minimal`'s share search is the one loop that lives here.
+- **The port lives here.** `IPortfolioRepository.type.ts` (`getPortfolio(portfolioId?)`) is owned by this layer and implemented by `src/Repositories`. Import only `Entities` and `Shared`; never a data driver, repository, puppeteer, or `process.env`.
+- **The portfolio id is optional.** Every request extends `PortfolioRequest` (`portfolio?: string`, `<broker>/<portfolio>`) and passes it straight to `getPortfolio`; without one, the settings driver picks the only portfolio. Don't validate or default it here: the interfaces check `PORTFOLIO_ID_PATTERN` and the data driver resolves it.
+- **Validate the request first, with a value class**, before `getPortfolio`, so bad input fails without reading files or launching a browser. Each value class (`Investment`, `TargetPrice`, `MinimumSharesSearch`) puts class-validator decorators on `readonly` fields, fills defaults in its constructor, and ends with `validateClassErrors(this, Self)` (ADR-0004; `src/__tests__/validationGuard.test.ts` enforces it). Errors surface as `ClassValidatorError`.
+- **Defaults are exported constants** (`DEFAULT_ACCEPTABLE_PRECISION`, `DEFAULT_SHARES_STEP`), reused as commander defaults in `CliCommands/` and zod defaults in `McpTools/`. Optional request fields stay `undefined` in the request type; the value class applies the default.
+- **New use case:** add its request interface and class, a key in `PortfolioUseCases` and `createPortfolioUseCases` (`PortfolioUseCases.factory.ts`, keyed by the CLI command / MCP tool name), an entry in `stubUseCases()` (`src/__fixtures__/useCases.ts`), then the CLI command and MCP tool (root CLAUDE.md, `src/McpApp/CLAUDE.md`).
+- Tests run the real use case and domain over `fakePortfolioRepository()` (`src/__fixtures__/repository.ts`), which returns a fresh `buildPortfolio()` per load.

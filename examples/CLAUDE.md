@@ -1,0 +1,11 @@
+# examples
+
+A tracked, complete data folder (`STOCK_CALC_DATA_DIR=examples`), kept outside `src/data` so it never shows up among the user's real portfolios. It's both user documentation and test data. Never copy anything from `src/data` into it.
+
+- **Every price, and every rate a portfolio needs, is overridden**, so the examples run offline. Tests depend on it: `CliApp/__tests__/app.test.ts` and `McpApp/__tests__/app.test.ts` run the real composition root (puppeteer not mocked) on `createDataDir(exampleFiles())`, and `DataFiles.schema.test.ts` checks that every `thndr/egp` security has an override. A security without one would launch a real browser in tests.
+- **`ibkr/eur` is the example portfolio**: QDVE 28.45 × 100 @ 0.4 and SPYD 62.10 × 100 @ 0.6, with a 1 EUR flat fee from `ibkr/_broker.jsonc`. It must stay equal to `buildPortfolio()` (`src/__fixtures__/portfolio.ts`) and to `EUR_SETTINGS` / `EUR_OVERRIDES` (`src/__fixtures__/dataFiles.ts`), and the worked numbers in the root CLAUDE.md (and `CliApp/__tests__/app.test.ts`'s 141 / 97 for `invest 1000`) come from it. Change those together or not at all.
+- **The portfolio list is pinned.** `DataFiles.schema.test.ts` expects `listPortfolioIds(EXAMPLES_DIR)` to be exactly `ibkr/eur`, `ibkr/mixed`, `thndr/egp`, and `CliApp/__tests__/app.test.ts` prints that list in its portfolio errors. Adding, renaming or removing a portfolio means updating those tests.
+- Each example shows specific features (see the table in `README.md`): `ibkr/mixed` a USD-traded security converted at an overridden `USD/EUR` rate with the FX fee, `thndr/egp` `cash`, a per-security fee part, a fund priced only by override, and an `asOf`. Keep those features when editing, since the schema tests assert them.
+- **`README.md` lists every file**, in both the tree and the table. Update both when adding, renaming or repurposing a file.
+- `exampleFiles()` copies every file inside each broker folder into the test data folder, so put only data files (`_broker.jsonc`, `<portfolio>.jsonc`, `<portfolio>.overrides.jsonc`) in broker folders. Docs like this one and `README.md` stay at the top level.
+- Comments in these files are the user-facing explanation of each field: keep them accurate when the schema or the behaviour they describe changes.
