@@ -29,3 +29,5 @@ Brokers charge per order, and different brokers (one per portfolio) use differen
 - Fee settings are duplicated on every security instead of living on the `Portfolio` aggregate, and nothing guarantees they are consistent across securities.
 - `tradedPrice` is signed, so for **sells** the percentage part is negative and the `max` falls back to `minimumTradingFeeFlat`. In effect, sells are charged only `brokerageFeeFlat + minimumTradingFeeFlat`, regardless of order size. If sells should be charged a percentage too, the formula should use the absolute traded value. See [known gaps](../../domain/portfolio-allocation.md#known-gaps-and-open-questions).
 - `invest X` and `target X` can spend slightly more than `X` once fees (and share rounding) are included.
+
+> **Update:** [ADR-0020](0020-per-security-fee-overrides.md) lets each security override the fee parts and applies the percentage to the absolute order value, so sells now pay it too. The consequences above describe the model as it was decided here.

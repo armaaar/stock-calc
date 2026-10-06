@@ -106,7 +106,7 @@ A security's **drift** is `actualPercentage − targetPercentage`. The presenter
 | --- | --- | --- |
 | Current (`show`) | `initialTotalPrice` | portfolio `initialTotalPrice` |
 | Proposed (`rebalance`, `invest`, `target`, `minimal`) | `totalPrice` | portfolio `totalPrice` |
-| Trade only (`ONLY_DELTA`, no command uses it) | `|tradedPrice|` | Σ `|tradedPrice|` (gross traded value; 0 when nothing is traded) |
+| Trade only (`ONLY_DELTA`, no command uses it) | `abs(tradedPrice)` | Σ `abs(tradedPrice)` (gross traded value; 0 when nothing is traded) |
 
 ## Configuration (portfolio definition)
 
@@ -126,7 +126,7 @@ The **Portfolio Configuration** context provides the input for building the aggr
 }
 ```
 
-The three portfolio-level fees are the default tariff. A security may set any of them, and each part it doesn't set falls back to the portfolio's on its own. An explicit `0` is an override.
+The three portfolio-level fees are the default tariff. A security may set any of them, and each part it doesn't set falls back to the portfolio's on its own. An explicit `0` is an override. Unknown keys, such as a misspelled fee, are rejected.
 
 `PortfolioRepository` combines each security's settings with its [price quote](market-data.md) and its fees (falling back to the portfolio's part by part) to build each `PortfolioSecurity`, then builds the `Portfolio`. That step is where invariants P1–P4 and S1–S5 are checked.
 

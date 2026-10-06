@@ -17,12 +17,13 @@ ADR-0011 configured one fee tariff per portfolio and had the repository copy it 
 
 - The portfolio-level fees in `_settings.<TYPE>.jsonc` stay required and are the **default**.
 - Each security may set any of `brokerageFeeFlat`, `tradingFeePercentage` and `minimumTradingFeeFlat`, with the same ranges as at portfolio level. **Each part falls back to the portfolio's on its own.** A security that sets only `brokerageFeeFlat` keeps the portfolio's percentage and minimum. An explicit `0` is an override, not a fallback.
+- The settings schemas reject unknown keys, so a misspelled override fails loudly instead of silently falling back.
 - The fallback happens in `PortfolioRepository`, while it builds each `PortfolioSecurity`. The entity still only knows its own three values.
 - The percentage applies to the order's **absolute** value: `tradingFee = brokerageFeeFlat + max(tradingFeePercentage × |tradedPrice|, minimumTradingFeeFlat)`. A sell is charged like a buy of the same value.
 - Fees stay **per order**, not per share. They are still amounts in the portfolio's currency, with no fee currency field.
 
 ## Consequences
 
-- Holdings on different tariffs are costed correctly, and an unchanged settings file behaves exactly as before.
+- Holdings on different tariffs are costed correctly. Securities that set no fees of their own are costed with the portfolio's, as before.
 - Plans that sell cost more once a percentage tariff is set. With the example portfolio (flat fee only) nothing changes.
 - A fee quoted in another currency still has to be converted by hand into the portfolio's currency.

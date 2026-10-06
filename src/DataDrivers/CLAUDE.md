@@ -10,7 +10,7 @@ Infrastructure: reads the portfolio data files and scrapes prices. Returns plain
   - `dataFilePath(dataDir, prefix, type)` checks the portfolio name against `PORTFOLIO_NAME_PATTERN` (letters, digits, `_`, `-`) before resolving `<data folder>/_<prefix>.<TYPE>.jsonc`, so names can't escape the data folder.
   - `parseJsonc()` rejects JSONC syntax errors with line and column.
   - After that, `parseDataFile()` validates against the schema and throws `Invalid data file '<path>'` with the failing field paths.
-- The schemas check ranges as well as types (integer shares ≥ 0, fractions in [0, 1], fees ≥ 0, override prices > 0, non-empty strings).
+- The schemas check ranges as well as types (integer shares ≥ 0, fractions in [0, 1], fees ≥ 0, override prices > 0, non-empty strings). The settings schemas are `.strict()`: an unknown key, such as a misspelled per-security fee, is an error rather than a silent fallback.
 - A missing settings file throws `Portfolio '<type>' not found`. A missing, empty or comments-only overrides file means no overrides (`{}`).
 - When a schema changes, update the tracked `src/data/*.jsonc.example` files. `__tests__/DataFiles.schema.test.ts` checks that they still parse. Real `_*.jsonc` files are personal and git-ignored: never read them into output, logs or commits.
 

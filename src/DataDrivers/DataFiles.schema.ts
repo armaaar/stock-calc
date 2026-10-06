@@ -24,12 +24,12 @@ export const SettingsSecuritySchema = z.object({
   brokerageFeeFlat: FeesShape.brokerageFeeFlat.optional(),
   tradingFeePercentage: FeesShape.tradingFeePercentage.optional(),
   minimumTradingFeeFlat: FeesShape.minimumTradingFeeFlat.optional(),
-})
+}).strict() // a misspelled optional fee would otherwise be dropped silently
 
 export const SettingsSchema = z.object({
   ...FeesShape,
   securities: z.array(SettingsSecuritySchema),
-})
+}).strict()
 
 export const SecurityPriceSchema = z.object({
   price: z.number().positive(),

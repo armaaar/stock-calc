@@ -63,10 +63,11 @@ describe('SettingsSecuritySchema', () => {
     expect(result.error?.issues[0].path).toEqual([field])
   })
 
-  it('strips unknown keys', () => {
-    const parsed = SettingsSecuritySchema.parse({ ...EUR_SETTINGS.securities[0], note: 'x' })
+  it.each(['note', 'brokerageFee', 'tradingFeePercent'])('rejects the unknown key %s', (key) => {
+    const result = SettingsSecuritySchema.safeParse({ ...EUR_SETTINGS.securities[0], [key]: 1 })
 
-    expect(parsed).not.toHaveProperty('note')
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]).toMatchObject({ code: 'unrecognized_keys', keys: [key] })
   })
 
   it.each([
@@ -159,6 +160,25 @@ describe('SettingsSchema', () => {
     expect(SettingsSchema.safeParse({ ...EUR_SETTINGS, [field]: value }).success).toBe(true)
   })
 
+  it('rejects an unknown top-level key, such as a misspelled fee', () => {
+    const result = SettingsSchema.safeParse({ ...EUR_SETTINGS, brokerageFeeFlt: 1 })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]).toMatchObject({
+      code: 'unrecognized_keys', keys: ['brokerageFeeFlt'],
+    })
+  })
+
+  it('names the misspelled key and its security in the file error', () => {
+    const data = {
+      ...EUR_SETTINGS,
+      securities: [EUR_SETTINGS.securities[0], { ...EUR_SETTINGS.securities[1], brokerFee: 3 }],
+    }
+
+    expect(() => parseDataFile(SettingsSchema, data, FILE))
+      .toThrow(/brokerFee[\s\S]*securities\[1\]/)
+  })
+
   it('reports a range error with the file path and the field path', () => {
     const data = {
       ...EUR_SETTINGS,
@@ -228,7 +248,10 @@ describe('tracked example data files', () => {
   it('_settings.EGP.jsonc.example matches SettingsSchema', () => {
     const file = '_settings.EGP.jsonc.example'
 
-    expect(() => parseDataFile(SettingsSchema, read(file), file)).not.toThrow()
+    const settings = parseDataFile(SettingsSchema, read(file), file)
+
+    // It also shows a per-security fee override
+    expect(settings.securities.map((sec) => sec.minimumTradingFeeFlat)).toEqual([undefined, 5])
   })
 
   it('_overrides.EGP.jsonc.example matches OverridesSchema', () => {

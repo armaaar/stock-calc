@@ -346,18 +346,22 @@ describe('PortfolioRepository', () => {
       expect(spyd.minimumTradingFeeFlat.toNumber()).toBe(1)
     })
 
-    it('keeps a fee override of 0 instead of falling back', async () => {
+    it.each([
+      ['brokerageFeeFlat', 3],
+      ['tradingFeePercentage', 0.002],
+      ['minimumTradingFeeFlat', 5],
+    ] as const)('keeps a %s override of 0 instead of falling back', async (part, portfolioFee) => {
       settings.getPortfolioSettings.mockResolvedValue({
         ...EUR_SETTINGS,
-        brokerageFeeFlat: 3,
-        securities: [{ ...QDVE_SETTING, brokerageFeeFlat: 0 }, SPYD_SETTING],
+        [part]: portfolioFee,
+        securities: [{ ...QDVE_SETTING, [part]: 0 }, SPYD_SETTING],
       })
       overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
 
       const [qdve, spyd] = (await repository.getPortfolio('EUR')).securities
 
-      expect(qdve.brokerageFeeFlat.toNumber()).toBe(0)
-      expect(spyd.brokerageFeeFlat.toNumber()).toBe(3)
+      expect(qdve[part].toNumber()).toBe(0)
+      expect(spyd[part].toNumber()).toBe(portfolioFee)
     })
 
     it('keeps an undefined isin for securities without one', async () => {

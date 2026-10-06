@@ -13,7 +13,10 @@
       "tick": "ESRS",
       "exchange": "EGX",
       "shares": 5,
-      "targetPercentage": 0.2
+      "targetPercentage": 0.2,
+      // Optional: this security's own fees. Each part set here replaces the portfolio's for
+      // this security's orders; the others fall back. Fees are in the portfolio's currency.
+      "minimumTradingFeeFlat": 5
     }
   ]
 }
