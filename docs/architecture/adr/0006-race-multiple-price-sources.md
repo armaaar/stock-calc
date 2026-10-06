@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2023-10-07
+- **Amended by:** [ADR-0025](0025-price-quotes-with-source-and-priority.md) (sources answer in priority order instead of racing)
 - **Introduced in:** `73b70ce` "feat: add trading view data driver", `9f9f495` "fix: fix too many browsers memory leak". Refined in `d0190df` "fix: close browser without closing pages" (2023-10-15) and `8eaae83` (TradingView timeout raised to 30 s).
 
 ## Context

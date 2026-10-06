@@ -83,6 +83,22 @@ describe('PortfolioMcpPresenter', () => {
     })
   })
 
+  it('returns where and when each price was quoted', () => {
+    const portfolio = buildPortfolio([
+      { ...QDVE, priceSource: 'tradingview.com', pricedAt: new Date('2026-10-06T09:30:00Z') },
+      SPYD,
+    ])
+
+    const { structuredContent } = PortfolioMcpPresenter.present(portfolio, PresentMode.ONLY_INITIAL)
+
+    expect(structuredContent).toMatchObject({
+      securities: [
+        { tick: 'QDVE', priceSource: 'tradingview.com', pricedAt: '2026-10-06T09:30:00.000Z' },
+        { tick: 'SPYD' },
+      ],
+    })
+  })
+
   it('ONLY_DELTA: only the securities being traded, with trade values', () => {
     const portfolio = buildPortfolio()
     portfolio.securities[0].shares = 110

@@ -3,6 +3,8 @@ import { IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto } from './DataD
 import { parsePriceQuote } from './PriceQuote.parser'
 
 export class TradingViewDataDriver extends BrowserController implements IPriceDataDriver {
+  public readonly name = 'tradingview.com'
+
   public async getPrice({ tick, exchange }: SettingsSecurityDto): Promise<SecurityPriceDto> {
     // Launch the browser
     const browser = this.getBrowser()

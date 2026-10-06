@@ -32,6 +32,10 @@ describe('TradingViewDataDriver', () => {
     driver = new TradingViewDataDriver(launch)
   })
 
+  it('names itself tradingview.com, for the quotes it gives', () => {
+    expect(new TradingViewDataDriver(fakeLauncher()).name).toBe('tradingview.com')
+  })
+
   it('throws when the browser was not launched', async () => {
     await expect(driver.getPrice(QDVE_SETTING)).rejects.toThrow(/launch the browser first/)
   })

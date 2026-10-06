@@ -13,9 +13,9 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-001
 | [0003](0003-decimal-arithmetic.md) | Use arbitrary-precision decimals for money and percentages | Accepted | 2023-09-10 |
 | [0004](0004-self-validating-entities.md) | Self-validating entities with class-validator | Accepted (amended by 0021) | 2023-09-10 |
 | [0005](0005-scrape-prices-with-headless-browser.md) | Scrape live prices with a headless browser | Accepted | 2023-09-09 |
-| [0006](0006-race-multiple-price-sources.md) | Race multiple price sources, one browser per source per run | Accepted | 2023-10-07 |
+| [0006](0006-race-multiple-price-sources.md) | Race multiple price sources, one browser per source per run | Accepted (amended by 0025) | 2023-10-07 |
 | [0007](0007-local-jsonc-portfolio-files.md) | Local JSONC portfolio files validated with typia | Accepted (validation superseded by 0012) | 2023-10-07 |
-| [0008](0008-manual-price-overrides.md) | Manual price overrides per portfolio | Accepted | 2024-07-21 |
+| [0008](0008-manual-price-overrides.md) | Manual price overrides per portfolio | Accepted (amended by 0025) | 2024-07-21 |
 | [0009](0009-run-typescript-directly-with-ts-node.md) | Run TypeScript directly with ts-node (no build step) | Superseded by 0013 | 2023-10-07 |
 | [0010](0010-track-initial-state-in-entities.md) | Track initial holdings inside entities for delta reporting | Accepted | 2023-10-08 |
 | [0011](0011-fee-model-per-security-order.md) | Model trading fees per security order | Accepted (amended by 0020, 0022) | 2023-10-08 |
@@ -32,6 +32,7 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-001
 | [0022](0022-plans-stay-within-available-cash.md) | Portfolios hold cash, and plans stay within the money available | Accepted | 2026-10-06 |
 | [0023](0023-buy-only-investing.md) | Buy-only investing by water-filling the underweight holdings | Accepted | 2026-10-06 |
 | [0024](0024-warn-about-expensive-orders.md) | Warn about orders whose fee is a large share of their value | Accepted | 2026-10-06 |
+| [0025](0025-price-quotes-with-source-and-priority.md) | Price quotes record their source and time, and sources answer in priority order | Accepted | 2026-10-06 |
 
 ## Adding an ADR
 

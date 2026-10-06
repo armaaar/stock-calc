@@ -12,6 +12,8 @@ const securitySchema = z.object({
   exchange: z.string().optional(),
   currency: z.string().optional(),
   price: z.number(),
+  priceSource: z.string().optional().describe('Where the price came from, e.g. justetf.com or override'),
+  pricedAt: z.string().optional().describe('When the price was quoted (ISO 8601)'),
   targetPercent: z.number().describe('Target weight in percent'),
   shares: z.number(),
   totalPrice: z.number(),

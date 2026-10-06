@@ -24,6 +24,7 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | Term | Definition | Code | CLI column |
 | --- | --- | --- | --- |
 | **Price** | Current price of one share, from market data or an override. | `price` | Price |
+| **Price quote** | A price with its currency, source (`justetf.com`, `tradingview.com`, `override`) and the time it was quoted. A value object. | `PriceQuote`, `Security.quote` | Quote |
 | **Total price** (market value) | `price × shares` for a security, or the sum over securities for the portfolio (proposed state). | `totalPrice` | Total Price, "Portfolio Price" |
 | **Initial total price** | `price × initialShares`: the value of current holdings. | `initialTotalPrice` | "Portfolio Price" (in `show`) |
 | **Traded price** (trade value) | `totalPrice − initialTotalPrice`. Positive means buy, negative means sell. | `tradedPrice`, `totalTradedPrice` | Trading Price, "Trading Price" |

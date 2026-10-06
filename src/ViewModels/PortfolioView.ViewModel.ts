@@ -21,6 +21,10 @@ export type SecurityView = {
   exchange?: string
   currency?: string
   price: number
+  /** Where the price came from, such as `justetf.com` or `override`, when known. */
+  priceSource?: string
+  /** When the price was quoted (ISO 8601), when known. */
+  pricedAt?: string
   /** Target weight in percent. */
   targetPercent: number
   /** Shares held, or traded in `ONLY_DELTA` (negative to sell). */
@@ -132,6 +136,8 @@ function toSecurityViews(portfolio: Portfolio, mode: PresentMode): SecurityView[
       exchange: sec.exchange,
       currency: sec.currency,
       price: sec.price.toNumber(),
+      priceSource: sec.quote.source,
+      pricedAt: sec.quote.quotedAt?.toISOString(),
       targetPercent: roundPercentage(sec.targetPercentage.toNumber()),
       ...holdingView(portfolio, sec, mode, grossTradedPrice),
     }))
@@ -142,7 +148,7 @@ function holdingView(
   sec: PortfolioSecurity,
   mode: PresentMode,
   grossTradedPrice: Decimal,
-): Omit<SecurityView, 'tick' | 'exchange' | 'currency' | 'price' | 'targetPercent'> {
+): Omit<SecurityView, 'tick' | 'exchange' | 'currency' | 'price' | 'priceSource' | 'pricedAt' | 'targetPercent'> {
   const proposed = {
     shares: sec.shares,
     totalPrice: sec.totalPrice.toNumber(),

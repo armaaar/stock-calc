@@ -12,6 +12,7 @@ interface PortfolioSecurityTableData {
   'Exchange': string
   'Currency': string
   'Price': number
+  'Quote'?: string
   'Shares': number
   'Total Price': number
   'Percentage %': number
@@ -27,6 +28,7 @@ const COLUMNS: (keyof PortfolioSecurityTableData)[] = [
   'Exchange',
   'Currency',
   'Price',
+  'Quote',
   'Shares',
   'Total Price',
   'Percentage %',
@@ -70,6 +72,12 @@ export class PortfolioCliPresenter {
       ))
   }
 
+  /** Where and when the price was quoted, to the minute in UTC: "justetf.com 2026-10-06 09:30". */
+  protected static quoteOf({ priceSource, pricedAt }: SecurityView): string | undefined {
+    if (!priceSource) return undefined
+    return pricedAt ? `${priceSource} ${pricedAt.slice(0, 16).replace('T', ' ')}` : priceSource
+  }
+
   /** One table row; columns the mode doesn't have are left out (they're undefined). */
   protected static toRow(sec: SecurityView): PortfolioSecurityTableData {
     return sortObjectByKey<PortfolioSecurityTableData>({
@@ -77,6 +85,7 @@ export class PortfolioCliPresenter {
       'Exchange': sec.exchange ?? 'Unknown',
       'Currency': sec.currency ?? 'Unknown',
       'Price': sec.price,
+      'Quote': PortfolioCliPresenter.quoteOf(sec),
       'Shares': sec.shares,
       'Total Price': sec.totalPrice,
       'Percentage %': sec.percent,

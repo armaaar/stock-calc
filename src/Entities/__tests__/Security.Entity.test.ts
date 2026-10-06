@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
+import { PriceQuote } from '../PriceQuote.ValueObject'
 import { Security } from '../Security.Entity'
 
 describe('Security', () => {
@@ -35,10 +36,10 @@ describe('Security', () => {
     expect(() => new Security({ tick: 'QDVE', price: -1 })).toThrow(ClassValidatorError)
   })
 
-  it('reports every failing constraint in one error', () => {
+  it('reports an invalid identity as a Security error', () => {
     let error: unknown
     try {
-      new Security({ tick: '', price: -1 })
+      new Security({ tick: '', price: 1 })
     } catch (e) {
       error = e
     }
@@ -46,7 +47,21 @@ describe('Security', () => {
     expect(error).toBeInstanceOf(ClassValidatorError)
     const { message, errors } = error as ClassValidatorError
     expect(message).toBe('Class \'Security\' validation failed')
-    expect(errors.map((e) => e.property).sort()).toEqual(['priceValue', 'tick'])
+    expect(errors.map((e) => e.property)).toEqual(['tick'])
+  })
+
+  it('keeps identity and quote apart: the quote holds price, currency, source and time', () => {
+    const pricedAt = new Date('2026-10-06T12:00:00Z')
+    const security = new Security({
+      tick: 'QDVE', price: 28.45, currency: 'EUR', priceSource: 'justetf.com', pricedAt,
+    })
+
+    expect(security.quote).toBeInstanceOf(PriceQuote)
+    expect(security.quote.toValues()).toEqual({
+      price: 28.45, currency: 'EUR', source: 'justetf.com', quotedAt: pricedAt,
+    })
+    expect(security.price).toBe(security.quote.price)
+    expect(security.currency).toBe('EUR')
   })
 
   it('skips validation when constructed as a subclass that does not validate itself', () => {
@@ -54,6 +69,6 @@ describe('Security', () => {
 
     // By design (ADR-0004): validateClassErrors only runs when the object's constructor is
     // exactly the given class, so a subclass that doesn't validate itself is never validated.
-    expect(() => new UnvalidatedSecurity({ tick: '', price: -1 })).not.toThrow()
+    expect(() => new UnvalidatedSecurity({ tick: '', price: 1 })).not.toThrow()
   })
 })

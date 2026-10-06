@@ -217,6 +217,23 @@ describe('toPortfolioView', () => {
     }
   })
 
+  it('shows where and when each price was quoted, in every mode', () => {
+    const pricedAt = new Date('2026-10-06T09:30:15Z')
+    const portfolio = buildPortfolio([
+      { ...QDVE, priceSource: 'justetf.com', pricedAt },
+      { ...SPYD, priceSource: 'override' },
+    ])
+
+    for (const mode of [0, 1, 2, 3] as PresentMode[]) {
+      portfolio.securities[0].shares = 101
+      portfolio.securities[1].shares = 99
+      const [qdve, spyd] = toPortfolioView(portfolio, mode).securities
+
+      expect(qdve).toMatchObject({ priceSource: 'justetf.com', pricedAt: '2026-10-06T09:30:15.000Z' })
+      expect(spyd).toMatchObject({ priceSource: 'override', pricedAt: undefined })
+    }
+  })
+
   it('keeps a missing exchange or currency undefined for the interface to fill in', () => {
     const portfolio = buildPortfolio([
       { ...QDVE, exchange: undefined, currency: undefined },

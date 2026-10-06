@@ -219,6 +219,19 @@ describe('OverridesSchema', () => {
     expect(OverridesSchema.parse({})).toEqual({})
   })
 
+  it('accepts an optional asOf date recording when the price was looked up', () => {
+    const overrides = { QDVE: { ...EUR_OVERRIDES.QDVE, asOf: '2026-10-01' } }
+
+    expect(OverridesSchema.parse(overrides)).toEqual(overrides)
+  })
+
+  it.each(['01.10.2026', '2026-13-01', 'yesterday'])('rejects the asOf %j', (asOf) => {
+    const result = OverridesSchema.safeParse({ QDVE: { ...EUR_OVERRIDES.QDVE, asOf } })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual(['QDVE', 'asOf'])
+  })
+
   it('rejects an entry with a missing currency, reporting the tick in the path', () => {
     const result = OverridesSchema.safeParse({ QDVE: { price: 1 } })
 

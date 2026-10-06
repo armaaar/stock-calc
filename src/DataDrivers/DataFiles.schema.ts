@@ -40,7 +40,12 @@ export const SecurityPriceSchema = z.object({
   currency: NonEmptyString,
 })
 
-export const OverridesSchema = z.record(z.string(), SecurityPriceSchema)
+/** A hand-entered price; `asOf` (YYYY-MM-DD) records when it was looked up. */
+export const OverridePriceSchema = SecurityPriceSchema.extend({
+  asOf: z.iso.date().optional(),
+})
+
+export const OverridesSchema = z.record(z.string(), OverridePriceSchema)
 
 export function parseDataFile<T>(schema: z.ZodType<T>, data: unknown, filePath: string): T {
   const result = schema.safeParse(data)

@@ -47,7 +47,9 @@ To skip fetching for some securities (for example, when no source lists them), c
 }
 ```
 
-The override currency must match the rest of the portfolio. See `src/data/*.jsonc.example` for templates.
+The override currency must match the rest of the portfolio. Add `"asOf": "YYYY-MM-DD"` to record when you looked the price up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), so a stale override is easy to spot. See `src/data/*.jsonc.example` for templates.
+
+When both sites can price a security, justetf.com's price is used, so the same portfolio always gets the same prices.
 
 ## Documentation
 

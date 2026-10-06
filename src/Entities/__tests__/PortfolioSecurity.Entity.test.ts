@@ -111,10 +111,17 @@ describe('PortfolioSecurity', () => {
     })
 
     it('validates the inherited Security constraints once, as PortfolioSecurity', () => {
-      const error = validationErrorOf(() => build({ tick: '', price: -1 }))
+      const error = validationErrorOf(() => build({ tick: '', shares: -1 }))
 
       expect(error.message).toBe('Class \'PortfolioSecurity\' validation failed')
-      expect(error.errors.map((e) => e.property).sort()).toEqual(['priceValue', 'tick'])
+      expect(error.errors.map((e) => e.property).sort()).toEqual(['shares', 'tick'])
+    })
+
+    it('reports a bad price from its quote, before the security is checked', () => {
+      const error = validationErrorOf(() => build({ tick: '', price: -1 }))
+
+      expect(error.message).toBe('Class \'PriceQuote\' validation failed')
+      expect(error.errors.map((e) => e.property)).toEqual(['priceValue'])
     })
   })
 
@@ -304,9 +311,18 @@ describe('PortfolioSecurity', () => {
       expect(copy).toBeInstanceOf(PortfolioSecurity)
       expect(copy).toEqual(sec)
       expect(copy.price).not.toBe(sec.price)
+      expect(copy.quote).not.toBe(sec.quote)
 
       copy.shares = 1
       expect(sec.shares).toBe(127)
+    })
+
+    it('keeps the price source and time', () => {
+      const pricedAt = new Date('2026-10-06T12:00:00Z')
+      const copy = build({ priceSource: 'justetf.com', pricedAt }).clone()
+
+      expect(copy.quote.source).toBe('justetf.com')
+      expect(copy.quote.quotedAt).toEqual(pricedAt)
     })
 
     it('re-validates through the constructor', () => {

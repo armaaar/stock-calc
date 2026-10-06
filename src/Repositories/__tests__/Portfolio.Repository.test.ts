@@ -30,6 +30,7 @@ function fakeOverridesDataDriver() {
 /** A price source that can't price anything; its browser launches and closes fine. */
 function fakePriceDataDriver(name: string) {
   return {
+    name,
     getPrice: vi.fn<IPriceDataDriver['getPrice']>()
       .mockRejectedValue(Error(`${name}: not found`)),
     launchBrowser: vi.fn<IPriceDataDriver['launchBrowser']>().mockResolvedValue(undefined),
@@ -133,20 +134,24 @@ describe('PortfolioRepository', () => {
       expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([1, 2])
     })
 
-    it('races both scrapers with the full setting and takes the first success', async () => {
+    it('asks every source with the full setting, but prefers the first in the list', async () => {
+      // tradingview answers first, but justetf comes first in the list and can price both
       const justEtfPrice = deferred<SecurityPriceDto>()
       justEtf.getPrice.mockReturnValue(justEtfPrice.promise)
       tradingView.getPrice.mockResolvedValue(EUR(30))
 
-      const portfolio = await repository.getPortfolio('EUR')
-      justEtfPrice.resolve(EUR(10))
+      const result = repository.getPortfolio('EUR')
+      setTimeout(() => justEtfPrice.resolve(EUR(10)), 0)
+      const portfolio = await result
 
       expect(justEtf.getPrice.mock.calls).toEqual([[QDVE_SETTING], [SPYD_SETTING]])
       expect(tradingView.getPrice.mock.calls).toEqual([[QDVE_SETTING], [SPYD_SETTING]])
-      expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([30, 30])
+      expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([10, 10])
+      expect(portfolio.securities.map((s) => s.quote.source))
+        .toEqual(['justetf', 'justetf'])
     })
 
-    it('takes the first success even if the faster source failed', async () => {
+    it('falls back to the next source when the preferred one fails', async () => {
       const tradingViewPrice = deferred<SecurityPriceDto>()
       justEtf.getPrice.mockRejectedValue(Error('justetf: not found'))
       tradingView.getPrice.mockReturnValue(tradingViewPrice.promise)
@@ -158,19 +163,54 @@ describe('PortfolioRepository', () => {
       expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([40, 40])
     })
 
-    it('uses the first-resolving source per security', async () => {
+    it('picks the source per security, and records it on the quote', async () => {
       justEtf.getPrice.mockImplementation(async ({ tick }) => {
         if (tick === 'QDVE') return EUR(28.45)
-        return new Promise(() => undefined) // never settles
+        throw Error('justetf: not found')
       })
-      tradingView.getPrice.mockImplementation(async ({ tick }) => {
-        if (tick === 'SPYD') return EUR(62.1)
-        throw Error('tradingview: not found')
-      })
+      tradingView.getPrice.mockResolvedValue(EUR(62.1))
 
       const portfolio = await repository.getPortfolio('EUR')
 
       expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([28.45, 62.1])
+      expect(portfolio.securities.map((s) => s.quote.source)).toEqual(['justetf', 'tradingview'])
+    })
+
+    it('time-stamps live prices with the injected clock', async () => {
+      const now = new Date('2026-10-06T09:30:00Z')
+      justEtf.getPrice.mockResolvedValue(EUR(10))
+
+      const portfolio = await new PortfolioRepository(
+        { settings, overrides, prices: [justEtf] },
+        () => now,
+      ).getPortfolio('EUR')
+
+      expect(portfolio.securities.map((s) => s.quote.quotedAt)).toEqual([now, now])
+    })
+
+    it('time-stamps live prices with the current time by default', async () => {
+      justEtf.getPrice.mockResolvedValue(EUR(10))
+      const before = Date.now()
+
+      const portfolio = await repository.getPortfolio('EUR')
+
+      const quotedAt = portfolio.securities[0].quote.quotedAt as Date
+      expect(quotedAt.getTime()).toBeGreaterThanOrEqual(before)
+      expect(quotedAt.getTime()).toBeLessThanOrEqual(Date.now())
+    })
+
+    it('marks overridden prices as overrides, dated by their optional asOf', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue({
+        QDVE: { ...EUR_OVERRIDES.QDVE, asOf: '2026-10-01' },
+        SPYD: EUR_OVERRIDES.SPYD,
+      })
+
+      const [qdve, spyd] = (await repository.getPortfolio('EUR')).securities
+
+      expect(qdve.quote.source).toBe('override')
+      expect(qdve.quote.quotedAt).toEqual(new Date('2026-10-01'))
+      expect(spyd.quote.source).toBe('override')
+      expect(spyd.quote.quotedAt).toBeUndefined()
     })
 
     it('rejects with an AggregateError of every source error when all sources fail', async () => {
@@ -185,6 +225,7 @@ describe('PortfolioRepository', () => {
       const error = await repository.getPortfolio('EUR').catch((e: unknown) => e)
 
       expect(error).toBeInstanceOf(AggregateError)
+      expect((error as AggregateError).message).toBe('No price source could price \'QDVE\'')
       expect((error as AggregateError).errors).toEqual([justEtfError, tradingViewError])
     })
 
@@ -265,7 +306,7 @@ describe('PortfolioRepository', () => {
         .rejects.toThrow('No price source for \'SPYD\': add its price to the overrides')
     })
 
-    it('races a third price driver alongside the others', async () => {
+    it('asks a third price driver alongside the others', async () => {
       const third = fakePriceDataDriver('third')
       third.getPrice.mockResolvedValue(EUR(50))
 

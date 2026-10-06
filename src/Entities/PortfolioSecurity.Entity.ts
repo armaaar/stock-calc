@@ -128,12 +128,17 @@ export class PortfolioSecurity extends Security {
   }
 
   public clone(): PortfolioSecurity {
+    const {
+      price, currency, source, quotedAt,
+    } = this.quote.toValues()
     return new PortfolioSecurity({
       tick: this.tick,
       isin: this.isin,
-      price: this.priceValue,
+      price,
       exchange: this.exchange,
-      currency: this.currency,
+      currency,
+      priceSource: source,
+      pricedAt: quotedAt,
       shares: this.shares,
       initialShares: this.initialShares,
       targetPercentage: this.targetPercentageValue,

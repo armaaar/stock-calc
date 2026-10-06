@@ -3,6 +3,8 @@ import { IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto } from './DataD
 import { parsePriceQuote } from './PriceQuote.parser'
 
 export class JustEtfDataDriver extends BrowserController implements IPriceDataDriver {
+  public readonly name = 'justetf.com'
+
   public async getPrice({ isin }: SettingsSecurityDto): Promise<SecurityPriceDto> {
     if (!isin) {
       throw Error('No ISIN provided to get price')

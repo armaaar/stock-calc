@@ -87,9 +87,11 @@ A holding of one security within a portfolio. It extends `Security`, so it carri
 
 ## `Security`
 
-The tradable instrument plus its price at plan time: `tick`, `exchange?`, `isin?`, `price` (`Decimal`, ≥ 0), and `currency?`. It's never created directly, only as the base of `PortfolioSecurity`.
+The tradable instrument and its price at plan time. It's never created directly, only as the base of `PortfolioSecurity`.
 
-Conceptually it combines two things: an **instrument identity** (tick, exchange, ISIN), which would be a value object, and a **price quote** (price, currency), which is also a value object. The code doesn't separate them.
+- Its **identity** is `tick`, `exchange?` and `isin?`.
+- Its **`quote`** is a `PriceQuote` value object ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md)): `price` (`Decimal`, ≥ 0), `currency?`, `source?` (`justetf.com`, `tradingview.com` or `override`) and `quotedAt?`. The quote validates itself.
+- `Security.price` and `Security.currency` read from the quote, so a plan can say where each price came from and how fresh it is.
 
 ## Fee model
 
@@ -147,7 +149,6 @@ The three portfolio-level fees are the default tariff. A security may set any of
 
 These are behaviors of the current model that may not be intended. They're recorded here so they get decided deliberately.
 
-1. **Security mixes identity and quote.** Quote time and source aren't recorded, so a plan can't say how fresh its prices are.
-2. **Subclasses must validate themselves.** `validateClassErrors` only validates when `object.constructor === cls`. This is by design: the most-derived constructor validates once all fields are set (ADR-0004). A subclass that doesn't call it skips validation.
-3. **Fees are in the portfolio's currency only.** Every fee value is read as an amount in the portfolio's single currency (P3). A broker fee quoted in another currency, such as 4 USD on a EUR portfolio, has to be entered as a hand-converted approximation (about 3.56 EUR). It drifts with the exchange rate, by cents. This is accepted: there's deliberately no currency conversion and no currency field on fees, because the portfolio is single-currency by design.
-4. **One currency per portfolio.** P3 rejects a portfolio whose price quotes don't all share one currency. There's no FX conversion. A security listed in another currency only works if its quote arrives in the portfolio's currency, either from a source that quotes it that way or through a price override.
+1. **Subclasses must validate themselves.** `validateClassErrors` only validates when `object.constructor === cls`. This is by design: the most-derived constructor validates once all fields are set (ADR-0004). A subclass that doesn't call it skips validation.
+2. **Fees are in the portfolio's currency only.** Every fee value is read as an amount in the portfolio's single currency (P3). A broker fee quoted in another currency, such as 4 USD on a EUR portfolio, has to be entered as a hand-converted approximation (about 3.56 EUR). It drifts with the exchange rate, by cents. This is accepted: there's deliberately no currency conversion and no currency field on fees, because the portfolio is single-currency by design.
+3. **One currency per portfolio.** P3 rejects a portfolio whose price quotes don't all share one currency. There's no FX conversion. A security listed in another currency only works if its quote arrives in the portfolio's currency, either from a source that quotes it that way or through a price override.

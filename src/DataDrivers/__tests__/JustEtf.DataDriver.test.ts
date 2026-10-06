@@ -28,6 +28,10 @@ describe('JustEtfDataDriver', () => {
     driver = new JustEtfDataDriver(launch)
   })
 
+  it('names itself justetf.com, for the quotes it gives', () => {
+    expect(driver.name).toBe('justetf.com')
+  })
+
   it('throws when the security has no ISIN, without touching the browser', async () => {
     const noIsin = withoutIsin(QDVE_SETTING)
 

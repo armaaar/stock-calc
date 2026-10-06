@@ -85,8 +85,16 @@ classDiagram
     tick: string
     exchange?: string
     isin?: string
+    quote: PriceQuote
     price: Decimal
     currency?: string
+  }
+  class PriceQuote {
+    <<Value Object>>
+    price: Decimal
+    currency?: string
+    source?: string
+    quotedAt?: Date
   }
   class PortfolioSecurity {
     <<Entity>>
@@ -103,6 +111,7 @@ classDiagram
     calcActualPercentage(portfolioPrice, securityPrice?)
   }
   Security <|-- PortfolioSecurity
+  Security *-- PriceQuote
   Portfolio "1" *-- "1..*" PortfolioSecurity
 ```
 

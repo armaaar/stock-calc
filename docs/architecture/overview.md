@@ -94,7 +94,7 @@ sequenceDiagram
     alt tick in overrides
       R-->>R: use override price
     else
-      R->>P: Promise.any([justEtf.getPrice, tradingView.getPrice])
+      R->>P: justEtf.getPrice + tradingView.getPrice (first in list order wins)
     end
   end
   R->>E: new Portfolio({ securities }) (validates invariants)
@@ -114,8 +114,8 @@ Over MCP, the client calls the `rebalance` tool with `{ "portfolio": "EUR" }`. T
 For each security, independently and in parallel ([ADR-0006](adr/0006-race-multiple-price-sources.md), [ADR-0008](adr/0008-manual-price-overrides.md)):
 
 1. If the security's `tick` is a key in the overrides file, that `{ price, currency }` is used and no scraping happens.
-2. Otherwise both scrapers run concurrently with `Promise.any`. The first one that resolves wins.
-3. If both reject, `Promise.any` rejects with an `AggregateError`, and the presenter shows each driver's error. Each driver error keeps the underlying Puppeteer error as its `cause`.
+2. Otherwise both scrapers run concurrently, and the answers are taken in list order: the first source that can price the security wins (JustEtf before TradingView, ADR-0025). The quote records that source and the time.
+3. If both reject, the repository rejects with an `AggregateError` (`No price source could price <tick>`), and the presenter shows each driver's error. Each driver error keeps the underlying Puppeteer error as its `cause`.
 
 Both browsers are launched together before any price is fetched, but only if at least one security isn't overridden, so a cold start costs the slowest launch rather than the sum. They are always closed, and awaited, once the load ends. If the load failed, a browser that also fails to close doesn't replace the load's error. Pages are never closed individually, because a page may still be in use by the losing driver; closing the browser cleans them up.
 
