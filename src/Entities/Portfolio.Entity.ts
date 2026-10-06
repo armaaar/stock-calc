@@ -157,18 +157,19 @@ export class Portfolio {
     // Before sizing any shortfall: a sell that pays its fee for nothing would be covered by
     // selling more elsewhere
     this.dropLosingSells()
+    const hasBuys = () => this.securities.some((sec) => sec.shares > sec.initialShares)
+    const plannedBuys = hasBuys()
 
     // Rounding and fees can overshoot: cancel buys, or sell a little more, whichever lands closer
     this.fitToCash()
 
-    if (!this.isWithdrawal && this.securities.every((sec) => sec.shares <= sec.initialShares)) {
-      // Sells only fund buys or a withdrawal: without either they just turn holdings into fees
+    if (!hasBuys() && (plannedBuys || !this.isWithdrawal)) {
+      // Sells only fund buys or a withdrawal. Without buys left, sells sized to pay for buys
+      // only turn holdings into fees, so start again from the holdings
       this.resetShares()
-      return
     }
-
     // A withdrawal still short: sell more, only what it needs
-    this.sellUntilAffordable()
+    if (this.isWithdrawal) this.sellUntilAffordable()
   }
 
   /** Undoes every sell whose fee is at least what it raises: it only loses money. */

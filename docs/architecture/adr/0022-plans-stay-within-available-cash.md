@@ -25,7 +25,7 @@
      - **sell** the fewest more shares of a security already being sold that cover it.
 
      A cheap share often covers a small shortfall better than an expensive one, and selling a little more of an overweight holding often beats skipping a buy over its fee. When cancelling the last buy of a plan that isn't a withdrawal, the step is judged by the current holdings, because that is what the plan falls back to.
-  4. If no buys are left and `cash + deposit ≥ 0`, it plans **no trades**. Sells only exist to fund buys or a withdrawal. On their own they just turn holdings into fees.
+  4. If no buys are left and `cash + deposit ≥ 0`, it plans **no trades**. Sells only exist to fund buys or a withdrawal. On their own they just turn holdings into fees. A withdrawal whose planned buys were all cancelled also starts again from the holdings, because its sells were sized to pay for those buys.
   5. A withdrawal that is still short sells the **fewest** shares of one holding that cover the shortfall with fees, choosing the holding that leaves the weights closest to target. Only when no single holding can cover it does it sell a whole holding (the one raising the most) and go on. If nothing raises cash, for example a whole-value withdrawal that also has to pay fees, `cashAfterTrades` stays negative by the shortfall.
 - **`allocateValue(price)`** is the domain operation behind `target`. It balances, then trims the most overweight holding until the proposed value is ≤ `price`. The fees are cash paid on top of that value, and the plan reports them.
 - **Every plan reports `cashAfterTrades`** ("Cash After Trades"). `show` reports the cash held. Negative means the plan needs that much more money than it was given.

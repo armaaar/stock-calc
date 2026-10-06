@@ -624,6 +624,27 @@ describe('Portfolio', () => {
         expect(portfolio.cashAfterTrades.toNumber()).toBe(4)
       })
 
+      it('starts again from the holdings when every buy the sells paid for is cancelled', () => {
+        // Withdrawing 100: balancing buys 2 A and sells 4 B, which can't pay for both with B's
+        // 20% fee. Cancelling the A buy is closest to target, but the 4 B sells were sized for
+        // it; 3 B are all the withdrawal needs.
+        const portfolio = two(
+          {
+            price: 62.1, shares: 7, targetPercentage: 0.75,
+            tradingFeePercentage: 0.2, minimumTradingFeeFlat: 50,
+          },
+          {
+            price: 62.1, shares: 7, targetPercentage: 0.25,
+            brokerageFeeFlat: 0, tradingFeePercentage: 0.2,
+          },
+        )
+
+        portfolio.allocateCash(new Decimal(-100))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 7, B: 4 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBeCloseTo(49.04, 10)
+      })
+
       it('keeps only the sells a withdrawal needs when a buy it funded is cancelled', () => {
         // Withdrawing 10: balancing buys 1 A (250) and sells 255 B. Selling 7 more B covers
         // the shortfall and stays closer to target than cancelling the A buy.
