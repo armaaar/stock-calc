@@ -74,9 +74,10 @@ export class PortfolioRepository implements IPortfolioRepository {
           targetPercentage,
           exchange,
           currency,
-          brokerageFeeFlat,
-          tradingFeePercentage,
-          minimumTradingFeeFlat,
+          // A fee part the security doesn't set falls back to the portfolio's, part by part
+          brokerageFeeFlat: security.brokerageFeeFlat ?? brokerageFeeFlat,
+          tradingFeePercentage: security.tradingFeePercentage ?? tradingFeePercentage,
+          minimumTradingFeeFlat: security.minimumTradingFeeFlat ?? minimumTradingFeeFlat,
         } as IPortfolioSecurity
       }),
     )

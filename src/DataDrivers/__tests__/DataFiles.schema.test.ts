@@ -97,6 +97,37 @@ describe('SettingsSecuritySchema', () => {
     expect(SettingsSecuritySchema.safeParse(security).success).toBe(true)
   })
 
+  it.each([
+    ['brokerageFeeFlat', -1],
+    ['minimumTradingFeeFlat', -0.01],
+    ['tradingFeePercentage', -0.001],
+    ['tradingFeePercentage', 1.5],
+    ['brokerageFeeFlat', '3'],
+  ])('rejects a fee override %s = %j', (field, value) => {
+    const security = { ...EUR_SETTINGS.securities[0], [field]: value }
+
+    const result = SettingsSecuritySchema.safeParse(security)
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual([field])
+  })
+
+  it('accepts any subset of the fee parts as overrides', () => {
+    const security = {
+      ...EUR_SETTINGS.securities[0], brokerageFeeFlat: 3.56, tradingFeePercentage: 0,
+    }
+
+    expect(SettingsSecuritySchema.parse(security)).toEqual(security)
+  })
+
+  it('leaves the fee parts a security does not set undefined, so they fall back', () => {
+    const parsed = SettingsSecuritySchema.parse(EUR_SETTINGS.securities[0])
+
+    expect(parsed.brokerageFeeFlat).toBeUndefined()
+    expect(parsed.tradingFeePercentage).toBeUndefined()
+    expect(parsed.minimumTradingFeeFlat).toBeUndefined()
+  })
+
   it('trims tick and exchange', () => {
     const parsed = SettingsSecuritySchema.parse({
       ...EUR_SETTINGS.securities[0], tick: ' QDVE ', exchange: ' IBIS2',

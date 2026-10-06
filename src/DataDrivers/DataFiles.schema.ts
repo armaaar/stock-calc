@@ -7,18 +7,27 @@ const Fraction = z.number().min(0).max(1)
 
 const NonNegative = z.number().min(0)
 
+/** The three parts of a broker's tariff for one order. */
+const FeesShape = {
+  brokerageFeeFlat: NonNegative,
+  tradingFeePercentage: Fraction,
+  minimumTradingFeeFlat: NonNegative,
+}
+
 export const SettingsSecuritySchema = z.object({
   tick: NonEmptyString,
   exchange: NonEmptyString,
   isin: z.string().optional(),
   shares: z.number().int().min(0),
   targetPercentage: Fraction,
+  // A fee part set here replaces the portfolio's for this security's orders only
+  brokerageFeeFlat: FeesShape.brokerageFeeFlat.optional(),
+  tradingFeePercentage: FeesShape.tradingFeePercentage.optional(),
+  minimumTradingFeeFlat: FeesShape.minimumTradingFeeFlat.optional(),
 })
 
 export const SettingsSchema = z.object({
-  brokerageFeeFlat: NonNegative,
-  tradingFeePercentage: Fraction,
-  minimumTradingFeeFlat: NonNegative,
+  ...FeesShape,
   securities: z.array(SettingsSecuritySchema),
 })
 

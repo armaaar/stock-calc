@@ -37,7 +37,7 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | **Brokerage fee (flat)** | Fixed amount charged per order, whatever its size. | `brokerageFeeFlat` |
 | **Trading fee percentage** | Fraction of order value charged per order, in [0, 1]. | `tradingFeePercentage` |
 | **Minimum trading fee (flat)** | Floor for the percentage-based part of the fee. | `minimumTradingFeeFlat` |
-| **Trading fee** | Total cost of one security's order: `brokerageFeeFlat + max(tradingFeePercentage × tradedPrice, minimumTradingFeeFlat)`, or 0 if not traded. Shown in the "Trading Fee" column and summed in the "Trading Fee" summary line. | `tradingFee`, `totalTradingFee` |
+| **Trading fee** | Total cost of one security's order: `brokerageFeeFlat + max(tradingFeePercentage × |tradedPrice|, minimumTradingFeeFlat)`, or 0 if not traded. Shown in the "Trading Fee" column and summed in the "Trading Fee" summary line. | `tradingFee`, `totalTradingFee` |
 | **Order** | Buying or selling one security. Each traded security counts as exactly one order. | (implicit) |
 
 ## Operations
@@ -59,4 +59,4 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | **Price quote** | A `{ price, currency }` pair for one security. | `SecurityPriceDto` |
 | **Price source** (data driver) | A provider that can produce a price quote for a security. | `IPriceDataDriver` |
 | **Price override** | A manually set quote for a tick that replaces live price lookup. | `_overrides.<TYPE>.jsonc`, `OverridesDataDriver` |
-| **Portfolio settings** | The file that defines a portfolio: fees, plus securities with shares and targets. | `_settings.<TYPE>.jsonc`, `SettingsDto` |
+| **Portfolio settings** | The file that defines a portfolio: default fees, plus securities with shares, targets and optional fee overrides. | `_settings.<TYPE>.jsonc`, `SettingsDto` |

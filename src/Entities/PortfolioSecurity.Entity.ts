@@ -88,7 +88,8 @@ export class PortfolioSecurity extends Security {
   public get tradingFee(): Decimal {
     if (!this.isBeingTraded) return new Decimal(0)
 
-    const percentageFee = this.tradingFeePercentage.times(this.tradedPrice)
+    // Sells are orders too: the percentage applies to the order's value either way
+    const percentageFee = this.tradingFeePercentage.times(this.tradedPrice.abs())
     const variableFee = percentageFee.greaterThan(this.minimumTradingFeeFlat)
       ? percentageFee
       : this.minimumTradingFeeFlat

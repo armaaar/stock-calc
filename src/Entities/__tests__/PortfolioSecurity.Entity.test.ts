@@ -170,22 +170,36 @@ describe('PortfolioSecurity', () => {
       expect(sec.tradingFee.toNumber()).toBe(12)
     })
 
-    it('charges only the minimum on sells, however large', () => {
-      // Current behaviour: tradedPrice is negative for sells, so max(percentage × tradedPrice,
-      // minimum) always picks the minimum (docs/domain/portfolio-allocation.md known gap 1).
+    it('charges the percentage on the value of a sell, like a buy', () => {
+      // selling 100,000: 2 + max(200, 10) = 202
       const sec = build({ ...fees, price: 100, initialShares: 1000, shares: 0 })
 
       expect(sec.tradedPrice.toNumber()).toBe(-100000)
+      expect(sec.tradingFee.toNumber()).toBe(202)
+    })
+
+    it('charges the same fee to a buy and a sell of the same value', () => {
+      const buy = build({ ...fees, price: 100, initialShares: 0, shares: 70 })
+      const sell = build({ ...fees, price: 100, initialShares: 70, shares: 0 })
+
+      expect(sell.tradingFee.toNumber()).toBe(buy.tradingFee.toNumber())
+    })
+
+    it('charges flat + minimum on a small sell', () => {
+      // selling 1,000: 2 + max(2, 10) = 12
+      const sec = build({ ...fees, price: 100, initialShares: 10, shares: 0 })
+
       expect(sec.tradingFee.toNumber()).toBe(12)
     })
 
-    it('charges only the flat fee on sells when there is no minimum', () => {
+    it('charges flat + percentage on sells when there is no minimum', () => {
+      // selling 1,000: 1 + 1% of 1,000 = 11
       const sec = build({
         brokerageFeeFlat: 1, tradingFeePercentage: 0.01, minimumTradingFeeFlat: 0,
         price: 100, initialShares: 10, shares: 0,
       })
 
-      expect(sec.tradingFee.toNumber()).toBe(1)
+      expect(sec.tradingFee.toNumber()).toBe(11)
     })
 
     it('charges the flat fee per order with the example settings', () => {

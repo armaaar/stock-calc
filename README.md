@@ -19,8 +19,8 @@ To create a new portfolio, create a portfolio file under `src/data` named `_sett
 
 A portfolio object contains:
 
-- `brokerageFeeFlat`: A flat amount of money the brokage take on each order. It's added to each order no matter what the value is.
-- `tradingFeePercentage`: The trading fee is taken as a percentage of the total order value.
+- `brokerageFeeFlat`: A flat amount of money the brokerage takes on each order. It's added to each order no matter what the value is.
+- `tradingFeePercentage`: The trading fee is taken as a percentage of the total order value, for buys and sells alike.
 - `minimumTradingFeeFlat`: The minimum amount of trading fee that is taken.
 - `securities`: A list of securities in a portfolio.
 
@@ -31,6 +31,7 @@ The `securities` list consists of security objects, which contains:
 - `shares`: The number of shares the portfolio have of this security.
 - `targetPercentage`: The percentage this security contributes to in the portfolio. Must be 1 or less.
 - `isin`: (Optional) An [International Securities Identification Number (ISIN)](https://en.wikipedia.org/wiki/International_Securities_Identification_Number) is a 12-digit alphanumeric code that uniquely identifies a specific security. Can be used to find the security.
+- `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`: (Optional) This security's own fees, for a broker that charges this listing differently. Each one you leave out uses the portfolio's value. Fees are amounts in the portfolio's currency, so convert a fee quoted in another currency by hand (for example 4 USD ≈ 3.56 EUR).
 
 The price of each security is fetched automatically from public records using either the combination of the tick and exchange, or using the isin if available.
 

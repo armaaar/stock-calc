@@ -305,7 +305,7 @@ describe('PortfolioRepository', () => {
       })
     })
 
-    it('copies the fee settings to every PortfolioSecurity', async () => {
+    it('copies the portfolio fees to every security that does not set its own', async () => {
       settings.getPortfolioSettings.mockResolvedValue({
         ...EUR_SETTINGS,
         brokerageFeeFlat: 2.5,
@@ -321,6 +321,43 @@ describe('PortfolioRepository', () => {
         expect(security.tradingFeePercentage.toNumber()).toBe(0.001)
         expect(security.minimumTradingFeeFlat.toNumber()).toBe(3)
       })
+    })
+
+    it('uses the fee parts a security sets, falling back to the portfolio fees part by part', async () => {
+      settings.getPortfolioSettings.mockResolvedValue({
+        ...EUR_SETTINGS,
+        brokerageFeeFlat: 3,
+        tradingFeePercentage: 0.001,
+        minimumTradingFeeFlat: 1,
+        securities: [
+          { ...QDVE_SETTING, brokerageFeeFlat: 3.56, minimumTradingFeeFlat: 0 },
+          SPYD_SETTING,
+        ],
+      })
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+
+      const [qdve, spyd] = (await repository.getPortfolio('EUR')).securities
+
+      expect(qdve.brokerageFeeFlat.toNumber()).toBe(3.56)
+      expect(qdve.tradingFeePercentage.toNumber()).toBe(0.001)
+      expect(qdve.minimumTradingFeeFlat.toNumber()).toBe(0)
+      expect(spyd.brokerageFeeFlat.toNumber()).toBe(3)
+      expect(spyd.tradingFeePercentage.toNumber()).toBe(0.001)
+      expect(spyd.minimumTradingFeeFlat.toNumber()).toBe(1)
+    })
+
+    it('keeps a fee override of 0 instead of falling back', async () => {
+      settings.getPortfolioSettings.mockResolvedValue({
+        ...EUR_SETTINGS,
+        brokerageFeeFlat: 3,
+        securities: [{ ...QDVE_SETTING, brokerageFeeFlat: 0 }, SPYD_SETTING],
+      })
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+
+      const [qdve, spyd] = (await repository.getPortfolio('EUR')).securities
+
+      expect(qdve.brokerageFeeFlat.toNumber()).toBe(0)
+      expect(spyd.brokerageFeeFlat.toNumber()).toBe(3)
     })
 
     it('keeps an undefined isin for securities without one', async () => {
