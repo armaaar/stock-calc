@@ -20,5 +20,5 @@ justetf.com only covers ETFs and needs an ISIN. Stocks such as EGX listings need
 - A security only needs enough identifiers for **one** source to succeed.
 - If every source fails, the `AggregateError` contains one message per source, which helps diagnose bad ticks or ISINs.
 - When two sources both succeed, the winner is nondeterministic. They may disagree slightly on price, or on currency formatting, which matters for the single-currency invariant.
-- Browsers are launched even when every price is overridden, which costs startup time.
+- Browsers were launched even when every price was overridden. Since 2026-10-06 they are launched only when some security needs scraping.
 - Adding a source means adding it to the driver list **and** to the launch/close calls in the repository.

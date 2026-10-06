@@ -111,7 +111,7 @@ For each security, independently and in parallel ([ADR-0006](adr/0006-race-multi
 2. Otherwise both scrapers run concurrently with `Promise.any`. The first one that resolves wins.
 3. If both reject, `Promise.any` rejects with an `AggregateError`, and the presenter shows each driver's error. Each driver error keeps the underlying Puppeteer error as its `cause`.
 
-Both browsers are launched before any price is fetched, even if every price comes from overrides. They are closed in a `finally` block. Pages are never closed individually, because a page may still be in use by the losing driver; closing the browser cleans them up.
+Both browsers are launched before any price is fetched, but only if at least one security isn't overridden. They are closed, and awaited, in a `finally` block. Pages are never closed individually, because a page may still be in use by the losing driver; closing the browser cleans them up.
 
 ### Error handling
 
@@ -121,11 +121,17 @@ Each CLI action and each MCP tool handler is wrapped in `try/catch` and passes a
 - `ClassValidatorError`: a domain validation failure. Each violated property's constraints are listed, including nested children (as tables in the CLI, as indented lines over MCP).
 - Any other `Error`: its name and message.
 
-The CLI prints errors but **still exits with code 0**. Over MCP, invalid tool *input* is rejected by the SDK before any use case runs.
+Invalid input is rejected as early as possible, in three stages:
+
+- **CLI arguments:** commander parsers reject non-numeric numbers and invalid portfolio names with a usage error (exit code 1).
+- **MCP input:** the SDK rejects input that fails a tool's zod schema before any use case runs.
+- **Use cases:** they validate their parameters and throw `ClassValidatorError` for out-of-range values.
+
+When a command fails, the CLI prints the error and exits with code 1.
 
 ## Data and configuration
 
-- **Portfolio type** (`--pt, --portfolio <type>` in the CLI, `portfolio` in MCP tools, default `EUR`) selects `src/data/_settings.<TYPE>.jsonc` and `src/data/_overrides.<TYPE>.jsonc`. Paths are resolved relative to the `DataDrivers` source folder through `import.meta.dirname`.
+- **Portfolio type** (`--pt, --portfolio <type>` in the CLI, `portfolio` in MCP tools, default `EUR`; letters, digits, `_` and `-` only, see `src/Shared/portfolioName.ts`) selects `src/data/_settings.<TYPE>.jsonc` and `src/data/_overrides.<TYPE>.jsonc`. Paths are resolved relative to the `DataDrivers` source folder through `import.meta.dirname`.
 - Files are JSONC (comments allowed), parsed with `jsonc-parser`, and validated at runtime with zod schemas in `src/DataDrivers/DataFiles.schema.ts` ([ADR-0007](adr/0007-local-jsonc-portfolio-files.md), [ADR-0012](adr/0012-validate-data-files-with-zod.md)). The DTO types are derived from those schemas. The fields are documented in the [README](../../README.md#portfolio).
 - `.mcp.json` registers the MCP server for this project (stdio, `node node_modules/tsx/dist/cli.mjs src/McpApp/app.ts`).
 
@@ -150,7 +156,7 @@ The CLI prints errors but **still exits with code 0**. Over MCP, invalid tool *i
 
 - **Correctness of money math:** all valuation uses `Decimal`. Share counts are integers.
 - **Network and scraping fragility:** prices depend on third-party HTML (CSS selectors such as `#realtime-quotes .val` and `[data-symbol="EX:TICK"] .js-symbol-last`). Layout changes on those sites break price lookup. Overrides are the manual fallback.
-- **Performance:** each run or tool call launches two Chromium instances. Runtime is dominated by page loads and the TradingView timeout. The MCP server itself starts in about a second.
+- **Performance:** each run or tool call that needs a live price launches two Chromium instances (none when every price is overridden). Runtime is dominated by page loads and the TradingView timeout. The MCP server itself starts in about a second.
 - **Protocol hygiene:** the MCP server must never write to stdout. `src/McpApp/app.ts` redirects console output to stderr.
 - **Testability:** layers are isolated in tests with module mocks. No test uses a real browser, the network, or `src/data`.
 - **Statelessness:** nothing is persisted between runs.

@@ -17,11 +17,11 @@ Use cases hold no state between runs and persist nothing.
 | [Rebalance](#uc-2-rebalance-portfolio) | `rebalance` | `rebalance` | `balanceForPrice(totalPrice)` | `WITH_DELTA` |
 | [Invest additional amount](#uc-3-invest-an-additional-amount) | `invest <investment>` | `invest { investment }` | `balanceForPrice(totalPrice + investment)` | `WITH_DELTA` |
 | [Allocate to a target value](#uc-4-allocate-to-a-target-value) | `target <price>` | `target { price > 0 }` | `balanceForPrice(price)` | `WITH_DELTA` |
-| [Find minimal portfolio](#uc-5-find-the-minimal-portfolio) | `minimal [-p] [-s]` | `minimal { precision ∈ [0,1], sharesStep ≥ 1 integer }` | iterative search | `ONLY_NEW` |
+| [Find minimal portfolio](#uc-5-find-the-minimal-portfolio) | `minimal [-p] [-s]` | `minimal { precision ∈ (0,1], sharesStep ≥ 1 integer }` | iterative search | `ONLY_NEW` |
 
 Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfolio` input. Both default to `EUR`. **Actor:** the investor, running the CLI locally or asking an AI assistant connected to the MCP server.
 
-**Shared preconditions:** `src/data/_settings.<type>.jsonc` exists and passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the CLI prints the error(s), the MCP tool returns an `isError` result, and no plan is produced.
+**Shared preconditions:** `src/data/_settings.<type>.jsonc` exists and passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the CLI prints the error(s) and exits with code 1, the MCP tool returns an `isError` result, and no plan is produced.
 
 **Worked examples** below use the tracked example portfolio (`_settings.EUR.jsonc.example` with `_overrides.EUR.jsonc.example`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
 
@@ -78,7 +78,8 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 **Notes:**
 - This is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added. There's no "buy-only" mode.
 - Net cash needed is `investment` ± rounding, **plus fees**. It can be slightly above or below the amount entered.
-- Negative amounts are accepted by the CLI (`invest -100`), the MCP tool and the use case. They plan a withdrawal: `invest -4055` gives the same plan as `target 5000`.
+- Negative amounts plan a withdrawal: `invest -4055` gives the same plan as `target 5000`. A withdrawal larger than the portfolio's value fails with `Cannot withdraw <amount>: more than the portfolio value (<value>)`. Withdrawing exactly the whole value plans selling everything.
+- The investment must be a finite number. The CLI rejects anything else while parsing arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`investmentValue`).
 
 ---
 
@@ -92,7 +93,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Example (`target 5000`):** sell 30 QDVE and 52 SPYD. Proposed value 4972.30 EUR (40.05% / 59.95%), fees 2 EUR.
 
-**Notes:** the result may differ from `price` by up to about half a share's price per security. In the CLI, a non-numeric `price` (for example `target abc`) isn't rejected. It produces `NaN` share counts and prices, and the process still exits with code 0. The MCP tool rejects anything that isn't a positive number.
+**Notes:** the result may differ from `price` by up to about half a share's price per security. The price must be a finite number greater than 0. `target abc` is rejected while parsing CLI arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`targetPriceValue`) for 0, negative, NaN or infinite values. To plan selling everything, use `invest` with minus the portfolio value.
 
 ---
 
@@ -106,7 +107,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 | Input | Default | Constraint |
 | --- | --- | --- |
-| `precision` | 0.01 (±1 percentage point) | 0 ≤ p ≤ 1 |
+| `precision` | 0.01 (±1 percentage point) | finite, 0 < p ≤ 1 |
 | `sharesStep` | 1 | integer ≥ 1 |
 
 **Flow:**
@@ -120,12 +121,10 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 **Example (default precision):** n = 1 gives 31.4% (fails), n = 2 gives 47.8% (fails), n = 3 gives QDVE 3 / SPYD 2 = 40.73% / 59.27%. Value 209.55 EUR. With `-p 0.001`: QDVE 16 / SPYD 11, value 1138.30 EUR.
 
 **Notes and edge cases:**
-- The acceptance test is checked **before** the first iteration, on the current holdings. If they're already within precision, they're returned unchanged instead of the minimum.
-- The result doesn't depend on current holdings otherwise. It's presented as a target state only (`ONLY_NEW`, with no trades or fees).
-- The first security drives the search. A target of 0 for it divides by zero.
-- `0` (CLI or MCP) or non-numeric (CLI) values for precision and shares step silently fall back to the defaults, because the constructor tests them for truthiness.
-- A target of 0 on the **first** security makes the search divide by zero and **never terminate**, because every other weight computes as 0.
-- Smaller precision means more iterations and larger results. There's no iteration cap.
+- The search always starts from scratch (n = step, 2·step, …), so the result never depends on current holdings. It's presented as a target state only (`ONLY_NEW`, with no trades or fees).
+- The **first security with a target above 0** drives the search. Securities with a 0 target get 0 shares.
+- Only an omitted precision or shares step gets the default. Precision must be finite, > 0 and ≤ 1, and the shares step an integer ≥ 1. Anything else throws a `ClassValidatorError` (`acceptablePrecision` / `sharesStep`).
+- Smaller precision means more iterations and larger results. The search stops after `MAX_SEARCH_ITERATIONS` (100,000) with `No portfolio within precision <p> found in <n> iterations`.
 
 ---
 

@@ -15,7 +15,7 @@ npx puppeteer browsers install chrome   # only if npm install didn't download Ch
 
 The tool allows multiple portfolios to be chosen from. Portfolios are supplied in JSON format. It uses `.jsonc` extension to allow comments.
 
-To create a new portfolio, create a portfolio file under `src/data` named `_settings.<portfolio_name>.jsonc`.
+To create a new portfolio, create a portfolio file under `src/data` named `_settings.<portfolio_name>.jsonc`. Portfolio names may only contain letters, digits, `_` and `-`.
 
 A portfolio object contains:
 

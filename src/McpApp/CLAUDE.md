@@ -24,7 +24,7 @@ stdout carries the JSON-RPC stream. One stray `console.log` (or an npm banner) c
 
 Copy an existing `McpTools/*.McpTool.ts`:
 - Use the CLI command's name as the tool name, and reuse its description.
-- `inputSchema`: zod fields for the command's arguments, plus `...portfolioInput`. Validate here what the CLI only converts with `Number()` (positive prices, ranges, integers). Use the use case's `DEFAULT_*` constants as zod defaults.
+- `inputSchema`: zod fields for the command's arguments, plus `...portfolioInput`. Mirror the use case's input rules in zod (positive prices, ranges, integers, `PORTFOLIO_NAME_PATTERN`), so clients get schema errors before anything runs. The CLI does the same with commander argument parsers in `cliOptions.ts`. Use the use case's `DEFAULT_*` constants as zod defaults.
 - `outputSchema: portfolioOutputSchema`, `annotations: portfolioToolAnnotations`.
 - Wrap the handler in `try/catch` and return `ErrorMcpPresenter.present(e)`. Never throw out of a handler.
 - Pass the same `PresentMode` the CLI command uses.

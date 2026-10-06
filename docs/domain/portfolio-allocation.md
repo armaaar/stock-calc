@@ -34,17 +34,20 @@ stateDiagram-v2
 | `initialTotalPrice` | Σ security `initialTotalPrice`: the value of current holdings. |
 | `totalTradedPrice` | `totalPrice − initialTotalPrice`: net cash needed (positive) or released (negative). |
 | `totalTradingFee` | Σ security `tradingFee`: the cost of all orders. |
-| `balanceForPrice(price)` | **Domain operation.** For each security: `shares = round(price × targetPercentage ÷ securityPrice)` (rounded half-up by `Decimal.round()`). |
+| `balanceForPrice(price)` | **Domain operation.** For each security: `shares = round(price × targetPercentage ÷ securityPrice)` (rounded half-up by `Decimal.round()`). Throws `Portfolio price must be a finite number of at least 0 (<price>)` before changing anything if `price` is NaN, infinite or negative. |
 | `clone()` | Deep copy through constructors, which re-validates. Not used by any command at the moment. |
 
 ### Invariants (checked at construction)
 
+The constructor assigns the fields, runs decorator validation (P1, P4), then checks P2, P3 and P5 in that order.
+
 | # | Invariant | Enforced by | Failure |
 | --- | --- | --- | --- |
-| P1 | At least one security | `@IsArray() @ArrayNotEmpty()` | In practice P2 fails first: `Error: Portfolio percentage don't add up to 1 (0)` (see known gap 8) |
+| P1 | At least one security | `@IsArray() @ArrayNotEmpty()` | `ClassValidatorError` (`arrayNotEmpty` on `securities`) |
 | P2 | Target percentages sum to **exactly** 1 (`Decimal` equality) | constructor | `Error: Portfolio percentage don't add up to 1 (<sum>)` |
 | P3 | All securities have the same currency | constructor | `Error: Portfolio have securities with different currencies` |
 | P4 | Each security is itself valid | `@ValidateNested()` + each entity's own validation | `ClassValidatorError` |
+| P5 | Ticks are unique | constructor | `Error: Portfolio has duplicate ticks (<ticks>)` |
 
 ## Entity: `PortfolioSecurity`
 
@@ -101,7 +104,7 @@ A security's **drift** is `actualPercentage − targetPercentage`. The presenter
 | --- | --- | --- |
 | Current (`show`) | `initialTotalPrice` | portfolio `initialTotalPrice` |
 | Proposed (`rebalance`, `invest`, `target`, `minimal`) | `totalPrice` | portfolio `totalPrice` |
-| Trade only (`ONLY_DELTA`, no command uses it) | `tradedPrice` | portfolio `totalTradedPrice` |
+| Trade only (`ONLY_DELTA`, no command uses it) | `|tradedPrice|` | Σ `|tradedPrice|` (gross traded value; 0 when nothing is traded) |
 
 ## Configuration (portfolio definition)
 
@@ -126,13 +129,9 @@ The **Portfolio Configuration** context provides the input for building the aggr
 These are behaviors of the current model that may not be intended. They're recorded here so they get decided deliberately.
 
 1. **Sells pay no percentage fee.** `tradedPrice` is negative for sells, so `max(percentage × tradedPrice, minimum)` always picks the minimum. Using `|tradedPrice|` would charge sells like buys.
-2. **Invariants aren't re-checked after planning.** Use cases change `shares` directly. A non-numeric CLI argument (for example `target abc`) gives `NaN` share counts, and a negative value passed to `balanceForPrice` would give negative ones, without any error.
+2. **Invariants aren't re-checked after planning.** Use cases change `shares` directly and the entities aren't re-validated. Inputs are guarded instead: use-case parameters are validated, and `balanceForPrice` rejects NaN, infinite and negative prices, so the planning paths can no longer produce `NaN` or negative share counts.
 3. **Allocations can overspend.** `balanceForPrice` rounds to the nearest share and ignores fees, so `invest X` may need slightly more than `X` in cash.
 4. **No cash position.** Leftover cash from rounding, or money released by sells, isn't modeled.
 5. **Fee settings are duplicated per security.** They belong to the portfolio (broker) but are copied onto each `PortfolioSecurity`.
-6. **Tick uniqueness isn't enforced.** Two holdings with the same tick are accepted. They would share one override and be hard to tell apart in output.
-7. **Security mixes identity and quote.** Quote time and source aren't recorded, so a plan can't say how fresh its prices are.
-8. **P1 can never fire.** The constructor checks the percentage sum (P2) before running decorator validation, so an empty portfolio fails with the P2 message instead.
-9. **Validation is matched by class name.** `validateClassErrors` compares `constructor.name`, so a subclass that doesn't validate itself skips all checks (for example `class X extends Security {}` accepts an empty tick).
-10. **Division by a zero portfolio value.** `calcActualPercentage` maps only 0 ÷ 0 to 0. A nonzero value over a zero portfolio price gives `Infinity`. With a 0 target on the first security, the `minimal` search never terminates.
-11. **Duplicate validation messages.** `initialShares` defaults to `shares`, so one invalid share count is reported twice.
+6. **Security mixes identity and quote.** Quote time and source aren't recorded, so a plan can't say how fresh its prices are.
+7. **Subclasses must validate themselves.** `validateClassErrors` only validates when `object.constructor === cls`. This is by design: the most-derived constructor validates once all fields are set (ADR-0004). A subclass that doesn't call it skips validation.

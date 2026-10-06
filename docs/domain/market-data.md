@@ -17,9 +17,11 @@ Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/Data
 
 | Source | Identity used | How | Fails when |
 | --- | --- | --- | --- |
-| **JustEtf** | `isin` | Loads `justetf.com/en/etf-profile.html?isin=<ISIN>` and reads `#realtime-quotes .val` (text `"<CUR> <price>"`). | No ISIN in settings, or no quote within 2 s. |
-| **TradingView** | `exchange` + `tick` | Loads `tradingview.com/symbols/<EXCHANGE>-<TICK>/` and reads `.js-symbol-last` and `.js-symbol-currency` under `[data-symbol="<EXCHANGE>:<TICK>"]`. | Symbol unknown, or nothing visible within 30 s. |
-| **Override** | `tick` | Lookup in the overrides map. | Never: it either matches or doesn't apply. |
+| **JustEtf** | `isin` | Loads `justetf.com/en/etf-profile.html?isin=<ISIN>` and reads `#realtime-quotes .val` (text `"<CUR> <price>"`). | No ISIN in settings, navigation fails, no quote within 2 s, or the text isn't a valid quote. |
+| **TradingView** | `exchange` + `tick` | Loads `tradingview.com/symbols/<EXCHANGE>-<TICK>/` and reads `.js-symbol-last` and `.js-symbol-currency` under `[data-symbol="<EXCHANGE>:<TICK>"]`. | Navigation fails, symbol unknown, nothing visible within 30 s, or the text isn't a valid quote. |
+| **Override** | `tick` | Own-key lookup (`Object.hasOwn`) in the overrides map. | Never: it either matches or doesn't apply. |
+
+**Scraped quotes are validated** by `parsePriceQuote` (`src/DataDrivers/PriceQuote.parser.ts`). Whitespace (including non-breaking spaces) and thousands commas are stripped, the price must be a plain positive decimal, and the currency must not be empty. Otherwise the source rejects with its "not registered" error, with the parse error (`No price text found`, `Price '<text>' is not a positive number`, `No currency text found`) as `cause`.
 
 ## Resolution policy
 
@@ -46,17 +48,19 @@ The quote's `currency` becomes `Security.currency`. The core then enforces the *
 
 ## Operational notes
 
-- One headless Chromium per live source per run, launched before resolution and closed afterwards, even when every price is overridden.
+- One headless Chromium per live source per run. They are launched only when at least one security isn't overridden, and closed (awaited) afterwards. Concurrent `launchBrowser()` calls share one in-flight launch.
 - Selectors depend on third-party markup. When a site changes its layout, prices for that source fail. Add overrides until the driver is fixed.
 - Adding a source: implement `IPriceDataDriver` (extend `BrowserController` if it needs a browser), add an instance to the repository, add it to the `priceDataDrivers` list, and add it to the `launchBrowser` / `closeBrowser` calls.
 
+## Data file validation
+
+Portfolio files are read through `src/DataDrivers/DataFiles.reader.ts`:
+
+- **Portfolio names** must match `/^[A-Za-z0-9_-]+$/`. Otherwise reading fails with `Invalid portfolio name '<type>': use letters, digits, '_' or '-'`, so a name can't escape `src/data`.
+- **JSONC syntax errors** fail with `Invalid data file '<path>': JSONC syntax error: <Code> at <line>:<col>` (trailing commas are allowed). An empty or comments-only overrides file means no overrides. An empty settings file is an error.
+- **Schemas check ranges**, not just types: non-empty tick, exchange and currency, integer shares ≥ 0, target and fee percentages in [0, 1], non-negative flat fees, override prices > 0. Mistakes are reported with the file path and field path before any entity is built.
+
 ## Known gaps
 
-Current behaviour, pinned by tests with `// Current behaviour:` comments:
-
-1. **Scraped values aren't validated.** If a selector matches nothing or holds no text, the quote is `NaN` or `0` (TradingView gives `price: 0, currency: null`) instead of an error. Prices with thousands separators (`1,234.56`) parse as `NaN`.
-2. **Page-load failures aren't wrapped.** `page.goto` runs outside the drivers' `try`, so a navigation error surfaces as a raw Puppeteer error, not as "not registered".
-3. **Concurrent `launchBrowser()` calls start two browsers**, and the first one is never closed. The repository launches each driver once, so this doesn't happen today.
-4. **The portfolio type isn't sanitised.** It goes straight into the file path, so `../` segments can escape `src/data`. This is acceptable for a local single-user tool, but worth fixing before exposing the MCP server more widely.
-5. **JSONC syntax errors are tolerated.** `jsonc-parser` recovers from them (for example a stray `,,`), so a malformed file may still validate. An empty overrides file fails validation, while a missing one means no overrides.
-6. **The file schemas only check types.** Ranges (non-negative shares, percentages ≤ 1) are enforced later by the entities.
+- **Race winner is nondeterministic.** When both sources succeed, the faster one wins, and they may differ slightly in price or currency formatting (ADR-0006).
+- **No quote timestamp or source** is recorded on the price quote.
