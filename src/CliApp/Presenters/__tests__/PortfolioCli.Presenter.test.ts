@@ -16,6 +16,7 @@ const COLUMN_ORDER = [
   'Traded Shares',
   'Trading Price',
   'Trading Fee',
+  'Fee %',
 ]
 
 /** The example portfolio after `rebalance`: buy 27 QDVE, sell 13 SPYD. */
@@ -102,6 +103,7 @@ describe('PortfolioCliPresenter.present', () => {
         'Percentage %': 48.76,
         'Target Percentage %': 40,
         'Trading Fee': 1,
+        'Fee %': 0.13,
       },
       {
         'Tick': 'SPYD',
@@ -113,6 +115,7 @@ describe('PortfolioCliPresenter.present', () => {
         'Percentage %': 51.24,
         'Target Percentage %': 60,
         'Trading Fee': 1,
+        'Fee %': 0.12,
       },
     ])
     expect(printedLines(spies.log)).toEqual([
@@ -181,6 +184,7 @@ describe('PortfolioCliPresenter.present', () => {
         'Traded Shares': 27,
         'Trading Price': 768.15,
         'Trading Fee': 1,
+        'Fee %': 0.13,
       },
       {
         'Tick': 'SPYD',
@@ -194,6 +198,7 @@ describe('PortfolioCliPresenter.present', () => {
         'Traded Shares': -13,
         'Trading Price': -807.3,
         'Trading Fee': 1,
+        'Fee %': 0.12,
       },
     ])
     expect(Object.keys(rows[0])).toEqual(COLUMN_ORDER)
@@ -202,6 +207,22 @@ describe('PortfolioCliPresenter.present', () => {
       'Trading Price: -39.15 EUR',
       'Portfolio Price: 9015.85 EUR',
       'Cash After Trades: 37.15 EUR',
+      '',
+    ])
+  })
+
+  it('prints a warning line per expensive order after the totals', () => {
+    const portfolio = buildPortfolio([{ ...QDVE, brokerageFeeFlat: 3 }, SPYD])
+    portfolio.securities[0].shares = 110
+
+    PortfolioCliPresenter.present(portfolio, PresentMode.WITH_DELTA)
+
+    expect(printedLines(spies.log)).toEqual([
+      'Trading Fee: 3 EUR',
+      'Trading Price: 284.5 EUR',
+      'Portfolio Price: 9339.5 EUR',
+      'Cash After Trades: -287.5 EUR',
+      'Warning: QDVE: the 3 EUR fee is 1.05% of the 284.5 EUR order (more than 1%)',
       '',
     ])
   })

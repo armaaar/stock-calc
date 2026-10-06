@@ -23,6 +23,7 @@ A portfolio object contains:
 - `tradingFeePercentage`: The trading fee is taken as a percentage of the total order value, for buys and sells alike.
 - `minimumTradingFeeFlat`: The minimum amount of trading fee that is taken.
 - `cash`: (Optional) Uninvested cash you hold with the portfolio, in its currency (default 0). `rebalance` and `invest` spend it too.
+- `feeWarningPercentage`: (Optional) Plans warn about each order whose fee is more than this fraction of the order's value (default `0.01`, so 1%). Small orders with a flat fee are the usual culprits.
 - `securities`: A list of securities in a portfolio.
 
 The `securities` list consists of security objects, which contains:

@@ -30,6 +30,8 @@ export const SettingsSchema = z.object({
   ...FeesShape,
   /** Uninvested cash held with the holdings, in the portfolio's currency. */
   cash: NonNegative.optional(),
+  /** Warn about orders whose fee is more than this fraction of their value (default 0.01). */
+  feeWarningPercentage: Fraction.optional(),
   securities: z.array(SettingsSecuritySchema),
 }).strict()
 

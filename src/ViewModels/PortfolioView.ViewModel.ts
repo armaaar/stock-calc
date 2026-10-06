@@ -35,6 +35,8 @@ export type SecurityView = {
   tradedPrice?: number
   /** `ONLY_DELTA` and `WITH_DELTA`. */
   tradingFee?: number
+  /** `ONLY_DELTA` and `WITH_DELTA`: the fee as a percentage of the order's value. */
+  feePercent?: number
 }
 
 /**
@@ -57,6 +59,11 @@ export type PortfolioView = {
    * − net traded − fees). Negative: how much more money the plan needs.
    */
   cashAfterTrades?: number
+  /**
+   * `ONLY_DELTA`, `WITH_DELTA`: one message per order whose fee is more than the portfolio's
+   * fee warning percentage of its value.
+   */
+  warnings?: string[]
 }
 
 /** Throws for a value that isn't a `PresentMode` (numeric enums map only real values back). */
@@ -78,6 +85,7 @@ export function toPortfolioView(
     tradedPrice: portfolio.totalTradedPrice.toNumber(),
     tradingFee: portfolio.totalTradingFee.toNumber(),
     cashAfterTrades: portfolio.cashAfterTrades.toNumber(),
+    warnings: feeWarnings(portfolio),
   }
 
   switch (mode) {
@@ -95,6 +103,19 @@ export function toPortfolioView(
     case PresentMode.WITH_DELTA:
       return { currency, securities, portfolioPrice: portfolio.totalPrice.toNumber(), ...trades }
   }
+}
+
+/** A sentence per expensive order, e.g. "QDVE: the 3 EUR fee is 1.2% of the 250 EUR order". */
+function feeWarnings(portfolio: Portfolio): string[] {
+  const money = (value: Decimal) => (
+    portfolio.currency ? `${value.toNumber()} ${portfolio.currency}` : `${value.toNumber()}`
+  )
+  const limit = roundPercentage(portfolio.feeWarningPercentage.toNumber())
+
+  return portfolio.expensiveOrders.map((sec) => (
+    `${sec.tick}: the ${money(sec.tradingFee)} fee is ${roundPercentage(sec.feeShare.toNumber())}%`
+    + ` of the ${money(sec.tradedPrice.abs())} order (more than ${limit}%)`
+  ))
 }
 
 function toSecurityViews(portfolio: Portfolio, mode: PresentMode): SecurityView[] {
@@ -121,7 +142,7 @@ function holdingView(
   sec: PortfolioSecurity,
   mode: PresentMode,
   grossTradedPrice: Decimal,
-): Pick<SecurityView, 'shares' | 'totalPrice' | 'percent' | 'tradedShares' | 'tradedPrice' | 'tradingFee'> {
+): Omit<SecurityView, 'tick' | 'exchange' | 'currency' | 'price' | 'targetPercent'> {
   const proposed = {
     shares: sec.shares,
     totalPrice: sec.totalPrice.toNumber(),
@@ -145,6 +166,7 @@ function holdingView(
           sec.calcActualPercentage(grossTradedPrice, sec.tradedPrice.abs()).toNumber(),
         ),
         tradingFee: sec.tradingFee.toNumber(),
+        feePercent: roundPercentage(sec.feeShare.toNumber()),
       }
     case PresentMode.WITH_DELTA:
       return {
@@ -152,6 +174,7 @@ function holdingView(
         tradedShares: sec.shares - sec.initialShares,
         tradedPrice: sec.tradedPrice.toNumber(),
         tradingFee: sec.tradingFee.toNumber(),
+        feePercent: roundPercentage(sec.feeShare.toNumber()),
       }
     default:
       return proposed

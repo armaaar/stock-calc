@@ -21,6 +21,7 @@ const securitySchema = z.object({
   tradedShares: z.number().optional().describe('Positive to buy, negative to sell'),
   tradedPrice: z.number().optional().describe('Positive to buy, negative to sell'),
   tradingFee: z.number().optional(),
+  feePercent: z.number().optional().describe('The fee as a percentage of the order value'),
 }) satisfies z.ZodType<SecurityView>
 
 /** The tool output schema: a `PortfolioView`, described for clients. */
@@ -34,6 +35,9 @@ export const portfolioOutputSchema = {
   cashAfterTrades: z.number().optional().describe(
     'Cash left once the plan is carried out: cash held + money added - net traded - fees. '
     + 'Negative: how much more money the plan needs',
+  ),
+  warnings: z.array(z.string()).optional().describe(
+    'Orders whose fee is more than the portfolio\'s fee warning percentage of their value',
   ),
 }
 

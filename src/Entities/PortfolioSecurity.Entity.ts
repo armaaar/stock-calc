@@ -110,6 +110,16 @@ export class PortfolioSecurity extends Security {
     return this.brokerageFeeFlat.add(variableFee)
   }
 
+  /**
+   * The order's fee as a fraction of its value: 0.012 when 3 is paid to trade 250. It is 0 when
+   * nothing is traded, or when the order has no value to compare the fee with.
+   */
+  public get feeShare(): Decimal {
+    const orderValue = this.tradedPrice.abs()
+    if (orderValue.isZero()) return new Decimal(0)
+    return this.tradingFee.dividedBy(orderValue)
+  }
+
   public calcActualPercentage(portfolioPrice: Decimal, securityPrice?: Decimal) {
     if (portfolioPrice.isZero()) return new Decimal(0)
 

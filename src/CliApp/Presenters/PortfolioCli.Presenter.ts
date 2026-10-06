@@ -19,6 +19,7 @@ interface PortfolioSecurityTableData {
   'Traded Shares'?: number
   'Trading Price'?: number
   'Trading Fee'?: number
+  'Fee %'?: number
 }
 
 const COLUMNS: (keyof PortfolioSecurityTableData)[] = [
@@ -33,6 +34,7 @@ const COLUMNS: (keyof PortfolioSecurityTableData)[] = [
   'Traded Shares',
   'Trading Price',
   'Trading Fee',
+  'Fee %',
 ]
 
 /** Renders a `PortfolioView` as a `console.table` plus total lines. */
@@ -47,6 +49,7 @@ export class PortfolioCliPresenter {
     if (title) console.log(title)
     console.table(view.securities.map((sec) => PortfolioCliPresenter.toRow(sec)))
     PortfolioCliPresenter.getTotals(view).forEach((line) => console.log(line))
+    view.warnings?.forEach((warning) => console.log(`Warning: ${warning}`))
     console.log()
   }
 
@@ -81,6 +84,7 @@ export class PortfolioCliPresenter {
       'Traded Shares': sec.tradedShares,
       'Trading Price': sec.tradedPrice,
       'Trading Fee': sec.tradingFee,
+      'Fee %': sec.feePercent,
     }, COLUMNS)
   }
 }

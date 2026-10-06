@@ -238,6 +238,27 @@ describe('PortfolioSecurity', () => {
     })
   })
 
+  describe('feeShare', () => {
+    it('is the fee as a fraction of the order value, for buys and sells', () => {
+      const buy = build({ brokerageFeeFlat: 3, price: 25, initialShares: 0, shares: 10 })
+      const sell = build({ brokerageFeeFlat: 3, price: 25, initialShares: 10, shares: 0 })
+
+      expect(buy.feeShare.toNumber()).toBe(0.012)
+      expect(sell.feeShare.toNumber()).toBe(0.012)
+    })
+
+    it('is 0 when nothing is traded', () => {
+      expect(build({ brokerageFeeFlat: 3 }).feeShare.toNumber()).toBe(0)
+    })
+
+    it('is 0 for an order without value to compare the fee with', () => {
+      const free = build({ brokerageFeeFlat: 3, price: 0, initialShares: 0, shares: 10 })
+
+      expect(free.tradingFee.toNumber()).toBe(3)
+      expect(free.feeShare.toNumber()).toBe(0)
+    })
+  })
+
   describe('calcActualPercentage', () => {
     it('divides the proposed total price by the portfolio price by default', () => {
       const sec = build()

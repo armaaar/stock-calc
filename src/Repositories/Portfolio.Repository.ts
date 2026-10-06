@@ -49,7 +49,8 @@ export class PortfolioRepository implements IPortfolioRepository {
     const { settings, overrides: overridesDD, prices } = this.dataDrivers
 
     const {
-      brokerageFeeFlat, tradingFeePercentage, minimumTradingFeeFlat, cash, securities,
+      brokerageFeeFlat, tradingFeePercentage, minimumTradingFeeFlat, cash, feeWarningPercentage,
+      securities,
     } = await settings.getPortfolioSettings(type)
     const overrides = await overridesDD.getPortfolioOverrides(type)
 
@@ -85,6 +86,7 @@ export class PortfolioRepository implements IPortfolioRepository {
     return new Portfolio({
       securities: PortfolioSecurities.map((s) => new PortfolioSecurity(s)),
       cash,
+      feeWarningPercentage,
     })
   }
 

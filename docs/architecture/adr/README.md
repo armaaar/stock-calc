@@ -31,6 +31,7 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-001
 | [0021](0021-guard-proposed-shares.md) | Check every change to the proposed shares; the rest of the aggregate is read-only | Accepted | 2026-10-06 |
 | [0022](0022-plans-stay-within-available-cash.md) | Portfolios hold cash, and plans stay within the money available | Accepted | 2026-10-06 |
 | [0023](0023-buy-only-investing.md) | Buy-only investing by water-filling the underweight holdings | Accepted | 2026-10-06 |
+| [0024](0024-warn-about-expensive-orders.md) | Warn about orders whose fee is a large share of their value | Accepted | 2026-10-06 |
 
 ## Adding an ADR
 

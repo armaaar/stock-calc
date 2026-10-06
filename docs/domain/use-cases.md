@@ -56,7 +56,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Postconditions:** proposed weights are as close to target as whole shares allow. `cashAfterTrades ≥ 0`: the rebalance pays for its own fees.
 
-**Output:** proposed and traded shares, trade value, and fee per security, plus total fee, net traded value, proposed portfolio value, and cash after trades.
+**Output:** proposed and traded shares, trade value, fee and fee share per security, plus total fee, net traded value, proposed portfolio value, and cash after trades. Each order whose fee is above the portfolio's fee warning percentage (default 1%) gets a warning ([ADR-0024](../architecture/adr/0024-warn-about-expensive-orders.md)). `invest` and `target` show the same.
 
 **Example:** buy 27 QDVE (+768.15) and sell 13 SPYD (−807.30). Fees 2 EUR, net traded value −39.15 EUR, giving 40.08% / 59.92%, with 37.15 EUR cash after trades.
 

@@ -35,6 +35,8 @@ stateDiagram-v2
 | `totalTradedPrice` | `totalPrice − initialTotalPrice`: net cash needed (positive) or released (negative). |
 | `totalTradingFee` | Σ security `tradingFee`: the cost of all orders. |
 | `cash` | Uninvested cash held now (≥ 0, default 0), from the settings file. |
+| `feeWarningPercentage` | Fee share above which an order is flagged as expensive: a fraction in [0, 1] from the settings file, default 0.01 ([ADR-0024](../architecture/adr/0024-warn-about-expensive-orders.md)). |
+| `expensiveOrders` | The planned orders whose `feeShare` is strictly above `feeWarningPercentage`. Information only: it never changes the plan. |
 | `deposit` | Money the plan adds (negative: withdraws). Set only by `allocateCash`; 0 otherwise. |
 | `cashAfterTrades` | `cash + deposit − totalTradedPrice − totalTradingFee`: cash left once the plan is carried out. Negative means the plan needs that much more. |
 | `balanceForPrice(price)` | **Domain operation.** For each security: `shares = round(price × targetPercentage ÷ securityPrice)` (rounded half-up by `Decimal.round()`). Throws `Portfolio price must be a finite number of at least 0 (<price>)` before changing anything if `price` is NaN, infinite or negative. |
@@ -70,6 +72,7 @@ A holding of one security within a portfolio. It extends `Security`, so it carri
 | `totalPrice` / `initialTotalPrice` | `price × shares` / `price × initialShares` |
 | `tradedPrice` | `totalPrice − initialTotalPrice` (signed: + buy, − sell) |
 | `tradingFee` | See [fee model](#fee-model). |
+| `feeShare` | `tradingFee ÷ abs(tradedPrice)`: how much of the order goes to fees. 0 when not traded, or when the order has no value. |
 | `calcActualPercentage(portfolioPrice, securityPrice = totalPrice)` | `securityPrice ÷ portfolioPrice`. Returns 0 instead of NaN when both are 0. |
 
 ### Invariants
@@ -126,6 +129,7 @@ The **Portfolio Configuration** context provides the input for building the aggr
   "tradingFeePercentage": 0,      // fraction of order value
   "minimumTradingFeeFlat": 0,     // floor for the percentage part
   "cash": 0,                      // optional: uninvested cash held, default 0
+  "feeWarningPercentage": 0.01,   // optional: flag orders whose fee is above 1% of their value
   "securities": [
     { "tick": "QDVE", "exchange": "IBIS2", "isin": "IE00B3WJKG14", "shares": 100, "targetPercentage": 0.4 },
     // its own flat fee; the parts it doesn't set fall back to the portfolio's
@@ -147,4 +151,3 @@ These are behaviors of the current model that may not be intended. They're recor
 2. **Subclasses must validate themselves.** `validateClassErrors` only validates when `object.constructor === cls`. This is by design: the most-derived constructor validates once all fields are set (ADR-0004). A subclass that doesn't call it skips validation.
 3. **Fees are in the portfolio's currency only.** Every fee value is read as an amount in the portfolio's single currency (P3). A broker fee quoted in another currency, such as 4 USD on a EUR portfolio, has to be entered as a hand-converted approximation (about 3.56 EUR). It drifts with the exchange rate, by cents. This is accepted: there's deliberately no currency conversion and no currency field on fees, because the portfolio is single-currency by design.
 4. **One currency per portfolio.** P3 rejects a portfolio whose price quotes don't all share one currency. There's no FX conversion. A security listed in another currency only works if its quote arrives in the portfolio's currency, either from a source that quotes it that way or through a price override.
-5. **No warning when fees eat into an order.** Plans report each order's fee but never judge it. With a flat fee, small orders are expensive in relative terms: 3 EUR on a 500 EUR buy is 0.6%, and splitting the same 500 EUR across three holdings costs three fees, about 1.8%. A warning when an order's fee exceeds a threshold (for example 1% of the order) would show when it's better to contribute less often in bigger amounts. Fees are accurate per security and for sells since [ADR-0020](../architecture/adr/0020-per-security-fee-overrides.md), so the fee share is meaningful.

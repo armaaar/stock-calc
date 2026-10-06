@@ -1,5 +1,5 @@
 import {
-  ArrayNotEmpty, IsArray, IsNumber, Min, ValidateNested,
+  ArrayNotEmpty, IsArray, IsNumber, Max, Min, ValidateNested,
 } from 'class-validator'
 import Decimal from 'decimal.js'
 import { validateClassErrors } from '#src/Shared/ClassValidatorError'
@@ -9,7 +9,11 @@ export interface IPortfolio {
   securities: readonly PortfolioSecurity[]
   /** Uninvested cash held with the holdings, in the portfolio's currency; default 0. */
   cash?: number
+  /** Warn about an order whose fee is more than this fraction of its value; default 0.01. */
+  feeWarningPercentage?: number
 }
+
+export const DEFAULT_FEE_WARNING_PERCENTAGE = 0.01
 
 export class Portfolio {
   @IsArray()
@@ -28,15 +32,26 @@ export class Portfolio {
     return this.cash.toNumber()
   }
 
+  /** Orders whose fee is more than this fraction of their value are flagged as expensive. */
+  public readonly feeWarningPercentage: Decimal
+
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  protected get feeWarningPercentageValue(): number {
+    return this.feeWarningPercentage.toNumber()
+  }
+
   private plannedDeposit = new Decimal(0)
 
   constructor({
-    securities, cash = 0,
+    securities, cash = 0, feeWarningPercentage = DEFAULT_FEE_WARNING_PERCENTAGE,
   }: IPortfolio) {
     // A frozen copy: changing the caller's array later can't add, remove or swap securities
     this.securities = Object.freeze([...securities])
     this.currency = securities[0]?.currency
     this.cash = new Decimal(cash)
+    this.feeWarningPercentage = new Decimal(feeWarningPercentage)
 
     validateClassErrors(this, Portfolio)
 
@@ -82,6 +97,11 @@ export class Portfolio {
       (acc, sec) => acc.plus(sec.tradingFee),
       new Decimal(0),
     )
+  }
+
+  /** The planned orders whose fee is more than `feeWarningPercentage` of their value. */
+  public get expensiveOrders(): PortfolioSecurity[] {
+    return this.securities.filter((sec) => sec.feeShare.greaterThan(this.feeWarningPercentage))
   }
 
   /** Money the plan adds to the portfolio (negative: withdraws). Set by `allocateCash`. */
@@ -317,6 +337,7 @@ export class Portfolio {
     const copy = new Portfolio({
       securities: this.securities.map((sec) => sec.clone()),
       cash: this.cashValue,
+      feeWarningPercentage: this.feeWarningPercentageValue,
     })
     copy.plannedDeposit = this.plannedDeposit
     return copy

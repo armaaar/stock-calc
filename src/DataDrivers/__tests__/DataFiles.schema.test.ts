@@ -166,6 +166,13 @@ describe('SettingsSchema', () => {
     expect(SettingsSchema.parse(EUR_SETTINGS).cash).toBeUndefined()
   })
 
+  it('accepts an optional fee warning percentage in [0, 1]', () => {
+    expect(SettingsSchema.parse({ ...EUR_SETTINGS, feeWarningPercentage: 0.005 }))
+      .toMatchObject({ feeWarningPercentage: 0.005 })
+    expect(SettingsSchema.safeParse({ ...EUR_SETTINGS, feeWarningPercentage: 2 }).success)
+      .toBe(false)
+  })
+
   it.each([-0.01, '100'])('rejects cash = %j', (cash) => {
     const result = SettingsSchema.safeParse({ ...EUR_SETTINGS, cash })
 

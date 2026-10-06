@@ -331,6 +331,16 @@ describe('PortfolioRepository', () => {
       expect((await repository.getPortfolio('EUR')).cash.toNumber()).toBe(321.5)
     })
 
+    it('passes the fee warning percentage, or leaves the default', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      expect((await repository.getPortfolio('EUR')).feeWarningPercentage.toNumber()).toBe(0.01)
+
+      settings.getPortfolioSettings.mockResolvedValue({
+        ...EUR_SETTINGS, feeWarningPercentage: 0.02,
+      })
+      expect((await repository.getPortfolio('EUR')).feeWarningPercentage.toNumber()).toBe(0.02)
+    })
+
     it('uses the fee parts a security sets, falling back to the portfolio fees part by part', async () => {
       settings.getPortfolioSettings.mockResolvedValue({
         ...EUR_SETTINGS,

@@ -94,6 +94,7 @@ describe('PortfolioMcpPresenter', () => {
       tradedPrice: 284.5,
       tradingFee: 1,
       cashAfterTrades: -285.5,
+      warnings: [],
       securities: [{
         tick: 'QDVE',
         exchange: 'IBIS2',
@@ -104,6 +105,7 @@ describe('PortfolioMcpPresenter', () => {
         totalPrice: 284.5,
         percent: 100,
         tradingFee: 1,
+        feePercent: 0.35,
       }],
     })
   })
@@ -136,6 +138,7 @@ describe('PortfolioMcpPresenter', () => {
       tradedPrice: 0,
       tradingFee: 0,
       cashAfterTrades: 0,
+      warnings: [],
       securities: [],
     })
   })

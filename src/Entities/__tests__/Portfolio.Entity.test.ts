@@ -283,6 +283,44 @@ describe('Portfolio', () => {
     })
   })
 
+  describe('expensiveOrders', () => {
+    it('warns above 1% of the order value by default', () => {
+      const portfolio = buildPortfolio([
+        { ...QDVE, brokerageFeeFlat: 3 },
+        { ...SPYD, brokerageFeeFlat: 3 },
+      ])
+      expect(portfolio.feeWarningPercentage.toNumber()).toBe(0.01)
+
+      portfolio.securities[0].shares = 110 // 3 / 284.5 = 1.05%
+      portfolio.securities[1].shares = 95 // 3 / 310.5 = 0.97%
+
+      expect(portfolio.expensiveOrders.map((sec) => sec.tick)).toEqual(['QDVE'])
+    })
+
+    it('uses the portfolio\'s own warning percentage, exclusive', () => {
+      const portfolio = new Portfolio({
+        securities: [
+          new PortfolioSecurity({ ...QDVE, brokerageFeeFlat: 3, price: 30, targetPercentage: 1 }),
+        ],
+        feeWarningPercentage: 0.01,
+      })
+      portfolio.securities[0].shares = 110 // 3 / 300 = exactly 1%
+
+      expect(portfolio.expensiveOrders).toEqual([])
+    })
+
+    it('is empty without trades', () => {
+      expect(buildPortfolio().expensiveOrders).toEqual([])
+    })
+
+    it.each([-0.01, 1.01, NaN])('rejects a warning percentage of %d', (feeWarningPercentage) => {
+      expect(() => new Portfolio({
+        securities: [new PortfolioSecurity({ ...QDVE, targetPercentage: 1 })],
+        feeWarningPercentage,
+      })).toThrow(ClassValidatorError)
+    })
+  })
+
   describe('allocateCash', () => {
     it('rebalances the example portfolio with no deposit to QDVE 127 / SPYD 87', () => {
       const portfolio = buildPortfolio()
@@ -715,6 +753,7 @@ describe('Portfolio', () => {
       const copy = portfolio.clone()
 
       expect(copy.cash.toNumber()).toBe(12.5)
+      expect(copy.feeWarningPercentage.toNumber()).toBe(0.01)
       expect(copy.deposit.toNumber()).toBe(1000)
       expect(copy.cashAfterTrades.toNumber()).toBe(portfolio.cashAfterTrades.toNumber())
     })

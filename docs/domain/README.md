@@ -73,6 +73,8 @@ classDiagram
     cash: Decimal
     deposit: Decimal
     cashAfterTrades: Decimal
+    feeWarningPercentage: Decimal
+    expensiveOrders: PortfolioSecurity[]
     balanceForPrice(price: Decimal)
     allocateCash(deposit: Decimal)
     allocateValue(price: Decimal)
@@ -97,6 +99,7 @@ classDiagram
     isBeingTraded: bool
     totalPrice / initialTotalPrice / tradedPrice: Decimal
     tradingFee: Decimal
+    feeShare: Decimal
     calcActualPercentage(portfolioPrice, securityPrice?)
   }
   Security <|-- PortfolioSecurity
