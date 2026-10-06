@@ -1,5 +1,5 @@
-import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { IPortfolioSecurity, PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { IPortfolioSecurity, PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
 
 /**
  * The tracked example portfolio (`src/data/_settings.EUR.jsonc.example` priced with

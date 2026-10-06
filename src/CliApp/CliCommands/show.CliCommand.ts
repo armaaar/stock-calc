@@ -1,5 +1,5 @@
 import { Command } from '@commander-js/extra-typings'
-import { GetCurrentPortfolioUseCase } from '@/UseCases/GetCurrentPortfolio.UseCase'
+import { GetCurrentPortfolioUseCase } from '#src/UseCases/GetCurrentPortfolio.UseCase'
 import { PortfolioCliPresenter, PresentMode } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
 import { portfolioOption } from '../cliOptions'

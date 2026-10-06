@@ -1,6 +1,6 @@
 import { IsNotEmpty, Min } from 'class-validator'
 import Decimal from 'decimal.js'
-import { validateClassErrors } from '@/Shared/ClassValidatorError'
+import { validateClassErrors } from '#src/Shared/ClassValidatorError'
 
 export interface ISecurety {
   tick: string

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildPortfolio } from '@/__fixtures__/portfolio'
-import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
+import { buildPortfolio } from '#src/__fixtures__/portfolio'
+import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
 
 const mocks = vi.hoisted(() => {
   const handler = vi.fn()
@@ -19,19 +19,19 @@ const mocks = vi.hoisted(() => {
   }
 })
 
-vi.mock('@/UseCases/GetCurrentPortfolio.UseCase', () => ({
+vi.mock('#src/UseCases/GetCurrentPortfolio.UseCase', () => ({
   GetCurrentPortfolioUseCase: mocks.GetCurrentPortfolioUseCase,
 }))
-vi.mock('@/UseCases/GetRebalancedPortfolio.UseCase', () => ({
+vi.mock('#src/UseCases/GetRebalancedPortfolio.UseCase', () => ({
   GetRebalancedPortfolioUseCase: mocks.GetRebalancedPortfolioUseCase,
 }))
-vi.mock('@/UseCases/GetPortfolioWithInvestment.UseCase', () => ({
+vi.mock('#src/UseCases/GetPortfolioWithInvestment.UseCase', () => ({
   GetPortfolioWithInvestmentUseCase: mocks.GetPortfolioWithInvestmentUseCase,
 }))
-vi.mock('@/UseCases/GetPortfolioWithPrice.UseCase', () => ({
+vi.mock('#src/UseCases/GetPortfolioWithPrice.UseCase', () => ({
   GetPortfolioWithPriceUseCase: mocks.GetPortfolioWithPriceUseCase,
 }))
-vi.mock('@/UseCases/GetPortfolioWithMinimumShares.UseCase', () => ({
+vi.mock('#src/UseCases/GetPortfolioWithMinimumShares.UseCase', () => ({
   DEFAULT_ACCEPTABLE_PRECESION: 0.01,
   DEFAULT_SHARES_STEP: 1,
   GetPortfolioWithMinimumSharesUseCase: mocks.GetPortfolioWithMinimumSharesUseCase,
@@ -43,7 +43,7 @@ const originalArgv = process.argv
 async function runApp(...args: string[]) {
   process.argv = ['node', 'src/CliApp/app.ts', ...args]
   vi.resetModules()
-  await import('@/CliApp/app')
+  await import('#src/CliApp/app')
 }
 
 /** Makes process.exit throw instead of exiting and captures stdout / stderr. */

@@ -3,12 +3,12 @@ import {
 } from 'vitest'
 import type {
   SecurityPriceDto, SettingsDto, SettingsSecurityDto,
-} from '@/DataDrivers/IPriceDataDriver.type'
+} from '#src/DataDrivers/IPriceDataDriver.type'
 import {
   EUR_OVERRIDES, EUR_SETTINGS, QDVE_SETTING, SPYD_SETTING, withoutIsin,
-} from '@/__fixtures__/dataFiles'
-import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
+} from '#src/__fixtures__/dataFiles'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
 import { PortfolioRepository } from '../Portfolio.Repository'
 
 type GetPrice = (setting: SettingsSecurityDto) => Promise<SecurityPriceDto>
@@ -28,19 +28,19 @@ const dd = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('@/DataDrivers/Settings.DataDriver', () => ({
+vi.mock('#src/DataDrivers/Settings.DataDriver', () => ({
   SettingsDataDriver: class {
     getPortfolioSettings = dd.getPortfolioSettings
   },
 }))
 
-vi.mock('@/DataDrivers/Overrides.DataDriver', () => ({
+vi.mock('#src/DataDrivers/Overrides.DataDriver', () => ({
   OverridesDataDriver: class {
     getPortfolioOverrides = dd.getPortfolioOverrides
   },
 }))
 
-vi.mock('@/DataDrivers/JustEtf.DataDriver', () => ({
+vi.mock('#src/DataDrivers/JustEtf.DataDriver', () => ({
   JustEtfDataDriver: class {
     getPrice = dd.justEtf.getPrice
 
@@ -50,7 +50,7 @@ vi.mock('@/DataDrivers/JustEtf.DataDriver', () => ({
   },
 }))
 
-vi.mock('@/DataDrivers/TradingView.DataDriver', () => ({
+vi.mock('#src/DataDrivers/TradingView.DataDriver', () => ({
   TradingViewDataDriver: class {
     getPrice = dd.tradingView.getPrice
 

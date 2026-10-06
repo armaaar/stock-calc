@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP, GetPortfolioWithMinimumSharesUseCase } from '@/UseCases/GetPortfolioWithMinimumShares.UseCase'
+import { DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP, GetPortfolioWithMinimumSharesUseCase } from '#src/UseCases/GetPortfolioWithMinimumShares.UseCase'
 import { PortfolioMcpPresenter, portfolioOutputSchema } from '../Presenters/PortfolioMcp.Presenter'
 import { ErrorMcpPresenter } from '../Presenters/ErrorMcp.Presenter'
 import { portfolioInput, portfolioToolAnnotations } from '../mcpOptions'

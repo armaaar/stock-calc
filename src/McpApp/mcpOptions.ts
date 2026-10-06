@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
-import { PORTFOLIO_NAME_PATTERN } from '@/Shared/portfolioName'
+import { PORTFOLIO_NAME_PATTERN } from '#src/Shared/portfolioName'
 
 export const portfolioInput = {
   portfolio: z.string()

@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { describe, expect, it } from 'vitest'
-import { EUR_OVERRIDES, EUR_SETTINGS, withoutIsin } from '@/__fixtures__/dataFiles'
+import { EUR_OVERRIDES, EUR_SETTINGS, withoutIsin } from '#src/__fixtures__/dataFiles'
 import {
   OverridesSchema, parseDataFile, SecurityPriceSchema, SettingsSchema, SettingsSecuritySchema,
 } from '../DataFiles.schema'

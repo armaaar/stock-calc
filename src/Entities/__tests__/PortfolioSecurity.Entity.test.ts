@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
-import { QDVE } from '@/__fixtures__/portfolio'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
+import { QDVE } from '#src/__fixtures__/portfolio'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 import { IPortfolioSecurity, PortfolioSecurity } from '../PortfolioSecurity.Entity'
 
 function build(overrides: Partial<IPortfolioSecurity> = {}): PortfolioSecurity {

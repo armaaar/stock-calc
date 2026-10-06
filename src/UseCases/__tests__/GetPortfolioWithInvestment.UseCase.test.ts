@@ -1,14 +1,14 @@
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
-import { buildPortfolio } from '@/__fixtures__/portfolio'
-import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
+import { buildPortfolio } from '#src/__fixtures__/portfolio'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 import { GetPortfolioWithInvestmentUseCase } from '../GetPortfolioWithInvestment.UseCase'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
-vi.mock('@/Repositories/Portfolio.Repository', () => ({
+vi.mock('#src/Repositories/Portfolio.Repository', () => ({
   PortfolioRepository: class {
     getPortfolio = getPortfolio
   },

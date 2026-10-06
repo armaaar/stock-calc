@@ -1,6 +1,6 @@
 import type {
   SecurityPriceDto, SettingsDto, SettingsSecurityDto,
-} from '@/DataDrivers/IPriceDataDriver.type'
+} from '#src/DataDrivers/IPriceDataDriver.type'
 import { QDVE, SPYD } from './portfolio'
 
 /**

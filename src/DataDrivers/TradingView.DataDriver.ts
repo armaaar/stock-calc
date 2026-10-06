@@ -1,4 +1,4 @@
-import { BrowserController } from '@/Shared/BrowserController.abstract'
+import { BrowserController } from '#src/Shared/BrowserController.abstract'
 import { IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto } from './IPriceDataDriver.type'
 import { parsePriceQuote } from './PriceQuote.parser'
 

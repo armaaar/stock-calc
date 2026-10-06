@@ -2,9 +2,9 @@ import Decimal from 'decimal.js'
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
-import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
+import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 import {
   DEFAULT_ACCEPTABLE_PRECESION,
   DEFAULT_SHARES_STEP,
@@ -14,7 +14,7 @@ import {
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
-vi.mock('@/Repositories/Portfolio.Repository', () => ({
+vi.mock('#src/Repositories/Portfolio.Repository', () => ({
   PortfolioRepository: class {
     getPortfolio = getPortfolio
   },

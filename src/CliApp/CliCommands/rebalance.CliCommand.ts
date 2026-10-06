@@ -1,7 +1,7 @@
 import { Command } from '@commander-js/extra-typings'
 import { PortfolioCliPresenter, PresentMode } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
-import { GetRebalancedPortfolioUseCase } from '@/UseCases/GetRebalancedPortfolio.UseCase'
+import { GetRebalancedPortfolioUseCase } from '#src/UseCases/GetRebalancedPortfolio.UseCase'
 import { portfolioOption } from '../cliOptions'
 
 export const rebalanceCli = new Command()

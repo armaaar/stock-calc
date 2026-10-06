@@ -1,7 +1,7 @@
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
-import { createFakeBrowser, FakeBrowser } from '@/__fixtures__/puppeteer'
+import { createFakeBrowser, FakeBrowser } from '#src/__fixtures__/puppeteer'
 import { BrowserController } from '../BrowserController.abstract'
 
 const puppeteer = vi.hoisted(() => ({ launch: vi.fn() }))

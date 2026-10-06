@@ -1,6 +1,6 @@
 import { IsNumber } from 'class-validator'
 import Decimal from 'decimal.js'
-import { validateClassErrors } from '@/Shared/ClassValidatorError'
+import { validateClassErrors } from '#src/Shared/ClassValidatorError'
 import { PortfolioUserCase } from './PortfolioUseCase.abstract'
 
 export class GetPortfolioWithInvestmentUseCase extends PortfolioUserCase {

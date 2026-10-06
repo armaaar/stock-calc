@@ -1,13 +1,13 @@
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
-import { buildPortfolio } from '@/__fixtures__/portfolio'
-import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
+import { buildPortfolio } from '#src/__fixtures__/portfolio'
+import { PortfolioRepository } from '#src/Repositories/Portfolio.Repository'
 import { PortfolioUserCase } from '../PortfolioUseCase.abstract'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
-vi.mock('@/Repositories/Portfolio.Repository', () => ({
+vi.mock('#src/Repositories/Portfolio.Repository', () => ({
   PortfolioRepository: class {
     getPortfolio = getPortfolio
   },

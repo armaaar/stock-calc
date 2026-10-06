@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import Decimal from 'decimal.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { roundPercentage } from '@/Shared/utils'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { roundPercentage } from '#src/Shared/utils'
 
 const securitySchema = z.object({
   tick: z.string(),

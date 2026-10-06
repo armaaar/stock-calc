@@ -1,5 +1,5 @@
-import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { PortfolioRepository } from '#src/Repositories/Portfolio.Repository'
 
 export abstract class PortfolioUserCase<R = unknown> {
   protected portfolioRepo = new PortfolioRepository()

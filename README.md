@@ -164,7 +164,7 @@ cd stock-calc
 npm install
 ```
 
-Then point the client at the entry point with tsx. Pass `--tsconfig` because clients start the server in another folder, and without it tsx can't resolve the project's imports:
+Then point the client at the entry point with tsx. Pass `--tsconfig` because clients start the server in another folder, where tsx can't find the project's decorator settings, and the server crashes on start without them:
 
 ```json
 {

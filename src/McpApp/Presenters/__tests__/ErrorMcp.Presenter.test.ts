@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ValidationError } from 'class-validator'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
-import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
+import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
 import { ErrorMcpPresenter } from '../ErrorMcp.Presenter'
 
 function textOf(error: unknown): string {

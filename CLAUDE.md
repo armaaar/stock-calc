@@ -27,7 +27,7 @@ npx vitest run -t "rebalance"                          # tests whose name matche
 
 ## Architecture
 
-Clean-architecture layers under `src/`. Imports across layers use the `@/*` → `src/*` alias (tsconfig `paths`, mirrored in `vitest.config.ts`). Read `docs/architecture/overview.md` for the full picture.
+Clean-architecture layers under `src/`. Imports across layers use the `#src/*` → `src/*.ts` alias, defined once in the `imports` field of `package.json` (Node subpath imports, ADR-0017). Node, tsx, tsc and Vitest all read it. Node rejects `#/`, so the prefix is `#src/`. Read `docs/architecture/overview.md` for the full picture.
 
 ```
 CliApp | McpApp  (interfaces; never import each other)
@@ -47,7 +47,7 @@ CliApp | McpApp  (interfaces; never import each other)
   - `portfolio.ts`: `buildPortfolio()`, the example portfolio QDVE 28.45 × 100 @ 40% and SPYD 62.10 × 100 @ 60%, 1 EUR flat fee.
   - `dataFiles.ts`, `puppeteer.ts` (`createFakePage`), `console.ts` (`spyOnConsole`, `printedLines`).
 - There is no dependency injection, so isolate layers with `vi.mock` on module paths, using `vi.hoisted` for shared mock functions:
-  - interface and use-case tests mock `@/Repositories/Portfolio.Repository`,
+  - interface and use-case tests mock `#src/Repositories/Portfolio.Repository`,
   - repository tests mock the data-driver modules,
   - driver tests mock `puppeteer` / `fs`.
   Never launch a browser, hit the network, or write to `src/data` in tests.

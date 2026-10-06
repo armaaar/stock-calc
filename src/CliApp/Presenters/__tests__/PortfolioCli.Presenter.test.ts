@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
-import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
 import { PortfolioCliPresenter, PresentMode } from '../PortfolioCli.Presenter'
 
 const COLUMN_ORDER = [

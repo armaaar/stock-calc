@@ -4,6 +4,9 @@
   "description": "Portfolio share calculator: a CLI and an MCP server",
   "type": "module",
   "main": "src/CliApp/app.ts",
+  "imports": {
+    "#src/*": "./src/*.ts"
+  },
   "engines": {
     "node": ">=22.12.0"
   },

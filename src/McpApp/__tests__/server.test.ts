@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { buildPortfolio } from '@/__fixtures__/portfolio'
+import { buildPortfolio } from '#src/__fixtures__/portfolio'
 import { createMcpServer } from '../server'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
 // The real use cases run against the example portfolio; only data loading is faked
-vi.mock('@/Repositories/Portfolio.Repository', () => ({
+vi.mock('#src/Repositories/Portfolio.Repository', () => ({
   PortfolioRepository: class {
     getPortfolio = getPortfolio
   },

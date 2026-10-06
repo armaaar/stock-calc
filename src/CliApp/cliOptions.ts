@@ -1,5 +1,5 @@
 import { InvalidArgumentError, Option } from '@commander-js/extra-typings'
-import { PORTFOLIO_NAME_PATTERN } from '@/Shared/portfolioName'
+import { PORTFOLIO_NAME_PATTERN } from '#src/Shared/portfolioName'
 
 /** commander argument parser: a portfolio name made of letters, digits, '_' or '-'. */
 export function parsePortfolioName(value: string): string {

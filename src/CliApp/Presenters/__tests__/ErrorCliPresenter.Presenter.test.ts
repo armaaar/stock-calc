@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ValidationError } from 'class-validator'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
-import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
-import { QDVE } from '@/__fixtures__/portfolio'
-import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
+import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
+import { QDVE } from '#src/__fixtures__/portfolio'
+import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
 import { ErrorCliPresenter } from '../ErrorCliPresenter.Presenter'
 
 class Holding {}

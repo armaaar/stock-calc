@@ -1,6 +1,6 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { ValidationError } from 'class-validator'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 
 export class ErrorMcpPresenter {
   public static present(error: unknown): CallToolResult {

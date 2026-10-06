@@ -11,7 +11,7 @@ stdout carries the JSON-RPC stream. One stray `console.log` (or an npm banner) c
 
 ## Running from GitHub
 
-- `bin/stock-calc-mcp.js` registers tsx with the package's own `tsconfig.json`, then `bin/alias-hooks.js`, then imports `app.ts`. The hook maps `@/x` to `src/x.ts`, because tsx ignores tsconfig `paths` inside `node_modules`, which is where npx installs the package. Keep every `@/` import pointing at a `.ts` file.
+- `bin/stock-calc-mcp.js` registers tsx with the package's own `tsconfig.json`, which carries the decorator settings, then imports `app.ts`. npx starts the process in the user's folder, so tsx wouldn't find the tsconfig on its own. Node resolves `#src/*` imports from `package.json`, inside `node_modules` too (ADR-0017). Don't reintroduce tsconfig `paths`: tsx ignores them inside `node_modules`.
 - Runtime code may only import `dependencies`, never devDependencies; `tsx` is a dependency for this reason.
 - `files` in `package.json` decides what an install contains. After adding a runtime folder, check `npm pack --dry-run`. Personal `src/data/_*.jsonc` files must never appear in it.
 - Before changing the launcher, test the installed path rather than the repo path: `npm pack`, then from another folder `npm exec --yes --package <tgz> -- stock-calc-mcp` with `STOCK_CALC_DATA_DIR` set, connected through the SDK's `StdioClientTransport`.
@@ -39,6 +39,6 @@ Copy an existing `McpTools/*.McpTool.ts`:
 
 ## Testing
 
-`__tests__/server.test.ts` connects a real SDK `Client` through `InMemoryTransport.createLinkedPair()`. It mocks only `@/Repositories/Portfolio.Repository` (returning `buildPortfolio()`), so the real use cases and domain run. `__tests__/app.test.ts` mocks the stdio transport.
+`__tests__/server.test.ts` connects a real SDK `Client` through `InMemoryTransport.createLinkedPair()`. It mocks only `#src/Repositories/Portfolio.Repository` (returning `buildPortfolio()`), so the real use cases and domain run. `__tests__/app.test.ts` mocks the stdio transport.
 
 For a manual end-to-end check, spawn the exact `.mcp.json` command with the SDK's `StdioClientTransport` against a throwaway `--pt` data type (see the root CLAUDE.md).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
+import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
 import { PortfolioMcpPresenter, PresentMode } from '../PortfolioMcp.Presenter'
 
 function plannedPortfolio() {

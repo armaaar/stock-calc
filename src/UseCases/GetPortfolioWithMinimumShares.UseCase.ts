@@ -2,9 +2,9 @@ import {
   IsInt, IsNumber, IsPositive, Max, Min,
 } from 'class-validator'
 import Decimal from 'decimal.js'
-import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
-import { roundToClosestMultiply } from '@/Shared/utils'
-import { validateClassErrors } from '@/Shared/ClassValidatorError'
+import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
+import { roundToClosestMultiply } from '#src/Shared/utils'
+import { validateClassErrors } from '#src/Shared/ClassValidatorError'
 import { PortfolioUserCase } from './PortfolioUseCase.abstract'
 
 export const DEFAULT_ACCEPTABLE_PRECESION = 0.01

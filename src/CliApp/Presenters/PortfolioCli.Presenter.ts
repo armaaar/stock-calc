@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 import Decimal from 'decimal.js'
-import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
-import { roundPercentage, sortObjectByKey } from '@/Shared/utils'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
+import { roundPercentage, sortObjectByKey } from '#src/Shared/utils'
 
 interface StaticTableData {
   'Tick': string

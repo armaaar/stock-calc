@@ -1,5 +1,5 @@
 import { Command } from '@commander-js/extra-typings'
-import { GetPortfolioWithPriceUseCase } from '@/UseCases/GetPortfolioWithPrice.UseCase'
+import { GetPortfolioWithPriceUseCase } from '#src/UseCases/GetPortfolioWithPrice.UseCase'
 import { PortfolioCliPresenter, PresentMode } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
 import { parseFiniteNumber, portfolioOption } from '../cliOptions'

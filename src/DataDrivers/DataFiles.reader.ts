@@ -1,7 +1,7 @@
 import os from 'os'
 import path from 'path'
 import { parse, ParseError, printParseErrorCode, stripComments } from 'jsonc-parser'
-import { PORTFOLIO_NAME_PATTERN } from '@/Shared/portfolioName'
+import { PORTFOLIO_NAME_PATTERN } from '#src/Shared/portfolioName'
 
 /** How many JSONC syntax errors an "Invalid data file" message lists. */
 const MAX_REPORTED_SYNTAX_ERRORS = 3

@@ -23,7 +23,8 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-001
 | [0013](0013-node22-esm-toolchain.md) | Node 22 native ESM toolchain with tsx | Accepted | 2026-10-06 |
 | [0014](0014-mcp-server-interface.md) | Expose the use cases through an MCP server | Accepted | 2026-10-06 |
 | [0015](0015-vitest-with-coverage-gate.md) | Unit tests with Vitest and a 95% coverage gate | Accepted | 2026-10-06 |
-| [0016](0016-run-mcp-server-from-github.md) | Run the MCP server straight from GitHub | Accepted | 2026-10-06 |
+| [0016](0016-run-mcp-server-from-github.md) | Run the MCP server straight from GitHub | Accepted (alias hook replaced by 0017) | 2026-10-06 |
+| [0017](0017-node-subpath-imports.md) | Resolve internal imports with Node subpath imports | Accepted | 2026-10-06 |
 
 ## Adding an ADR
 

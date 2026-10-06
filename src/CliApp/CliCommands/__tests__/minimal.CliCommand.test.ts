@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ValidationError } from 'class-validator'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
-import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
-import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
+import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
 import {
   DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP,
-} from '@/UseCases/GetPortfolioWithMinimumShares.UseCase'
+} from '#src/UseCases/GetPortfolioWithMinimumShares.UseCase'
 import { PortfolioCliPresenter } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
 import { minimalCli } from '../minimal.CliCommand'
@@ -18,8 +18,8 @@ const { UseCase, handler } = vi.hoisted(() => {
   return { UseCase, handler }
 })
 
-vi.mock('@/UseCases/GetPortfolioWithMinimumShares.UseCase', async (importOriginal) => ({
-  ...await importOriginal<typeof import('@/UseCases/GetPortfolioWithMinimumShares.UseCase')>(),
+vi.mock('#src/UseCases/GetPortfolioWithMinimumShares.UseCase', async (importOriginal) => ({
+  ...await importOriginal<typeof import('#src/UseCases/GetPortfolioWithMinimumShares.UseCase')>(),
   GetPortfolioWithMinimumSharesUseCase: UseCase,
 }))
 

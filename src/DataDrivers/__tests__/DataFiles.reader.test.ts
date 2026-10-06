@@ -1,11 +1,11 @@
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { EUR_SETTINGS, EUR_SETTINGS_JSONC } from '@/__fixtures__/dataFiles'
+import { EUR_SETTINGS, EUR_SETTINGS_JSONC } from '#src/__fixtures__/dataFiles'
 import {
   assertPortfolioName, DATA_DIR_ENV, dataDirectory, dataFilePath, isBlankJsonc, parseJsonc,
 } from '../DataFiles.reader'
-import { PORTFOLIO_NAME_PATTERN } from '@/Shared/portfolioName'
+import { PORTFOLIO_NAME_PATTERN } from '#src/Shared/portfolioName'
 
 const FILE = '/data/_settings.TEST.jsonc'
 

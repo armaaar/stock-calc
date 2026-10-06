@@ -1,7 +1,7 @@
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
-import { EUR_SETTINGS, EUR_SETTINGS_JSONC } from '@/__fixtures__/dataFiles'
+import { EUR_SETTINGS, EUR_SETTINGS_JSONC } from '#src/__fixtures__/dataFiles'
 import { SettingsDataDriver } from '../Settings.DataDriver'
 
 const fsMock = vi.hoisted(() => ({

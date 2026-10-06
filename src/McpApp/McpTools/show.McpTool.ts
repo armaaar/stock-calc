@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { GetCurrentPortfolioUseCase } from '@/UseCases/GetCurrentPortfolio.UseCase'
+import { GetCurrentPortfolioUseCase } from '#src/UseCases/GetCurrentPortfolio.UseCase'
 import { PortfolioMcpPresenter, PresentMode, portfolioOutputSchema } from '../Presenters/PortfolioMcp.Presenter'
 import { ErrorMcpPresenter } from '../Presenters/ErrorMcp.Presenter'
 import { portfolioInput, portfolioToolAnnotations } from '../mcpOptions'

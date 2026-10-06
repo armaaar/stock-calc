@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
-import { ConsoleSpies, printedLines, spyOnConsole } from '@/__fixtures__/console'
+import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
 import { PortfolioCliPresenter, PresentMode } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
 import { investCli } from '../invest.CliCommand'
@@ -13,7 +13,7 @@ const { UseCase, handler } = vi.hoisted(() => {
   return { UseCase, handler }
 })
 
-vi.mock('@/UseCases/GetPortfolioWithInvestment.UseCase', () => ({
+vi.mock('#src/UseCases/GetPortfolioWithInvestment.UseCase', () => ({
   GetPortfolioWithInvestmentUseCase: UseCase,
 }))
 

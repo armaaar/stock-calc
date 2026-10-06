@@ -1,5 +1,5 @@
 import { Command } from '@commander-js/extra-typings'
-import { DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP, GetPortfolioWithMinimumSharesUseCase } from '@/UseCases/GetPortfolioWithMinimumShares.UseCase'
+import { DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP, GetPortfolioWithMinimumSharesUseCase } from '#src/UseCases/GetPortfolioWithMinimumShares.UseCase'
 import { PortfolioCliPresenter } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
 import { parseFiniteNumber, portfolioOption } from '../cliOptions'

@@ -1,7 +1,7 @@
 import { Command } from '@commander-js/extra-typings'
 import { PortfolioCliPresenter, PresentMode } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
-import { GetPortfolioWithInvestmentUseCase } from '@/UseCases/GetPortfolioWithInvestment.UseCase'
+import { GetPortfolioWithInvestmentUseCase } from '#src/UseCases/GetPortfolioWithInvestment.UseCase'
 import { parseFiniteNumber, portfolioOption } from '../cliOptions'
 
 export const investCli = new Command()

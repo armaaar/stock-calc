@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 import { Security } from '../Security.Entity'
 
 describe('Security', () => {

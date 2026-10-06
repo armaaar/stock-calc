@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
-import { ClassValidatorError } from '@/Shared/ClassValidatorError'
+import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 import { Portfolio } from '../Portfolio.Entity'
 import { IPortfolioSecurity, PortfolioSecurity } from '../PortfolioSecurity.Entity'
 

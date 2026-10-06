@@ -2,7 +2,7 @@ import {
   ArrayNotEmpty, IsArray, ValidateNested,
 } from 'class-validator'
 import Decimal from 'decimal.js'
-import { validateClassErrors } from '@/Shared/ClassValidatorError'
+import { validateClassErrors } from '#src/Shared/ClassValidatorError'
 import { PortfolioSecurity } from './PortfolioSecurity.Entity'
 
 export interface IPortfolio {

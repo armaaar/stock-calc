@@ -2,7 +2,7 @@ import {
   IsInt, Max, Min, ValidateIf,
 } from 'class-validator'
 import Decimal from 'decimal.js'
-import { validateClassErrors } from '@/Shared/ClassValidatorError'
+import { validateClassErrors } from '#src/Shared/ClassValidatorError'
 import { ISecurety, Security } from './Security.Entity'
 
 export interface IPortfolioSecurity extends ISecurety {

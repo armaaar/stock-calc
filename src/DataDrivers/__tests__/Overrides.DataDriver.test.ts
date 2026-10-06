@@ -1,7 +1,7 @@
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
-import { EUR_OVERRIDES, EUR_OVERRIDES_JSONC } from '@/__fixtures__/dataFiles'
+import { EUR_OVERRIDES, EUR_OVERRIDES_JSONC } from '#src/__fixtures__/dataFiles'
 import { OverridesDataDriver } from '../Overrides.DataDriver'
 
 const fsMock = vi.hoisted(() => ({

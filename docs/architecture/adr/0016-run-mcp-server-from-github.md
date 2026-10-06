@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-06
 - **Amends:** [ADR-0014](0014-mcp-server-interface.md) (how `.mcp.json` launches the server)
+- **Amended by:** [ADR-0017](0017-node-subpath-imports.md) (`bin/alias-hooks.js` replaced by subpath imports)
 
 ## Context
 

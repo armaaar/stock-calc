@@ -1,10 +1,10 @@
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
-import { QDVE_SETTING, withoutIsin } from '@/__fixtures__/dataFiles'
+import { QDVE_SETTING, withoutIsin } from '#src/__fixtures__/dataFiles'
 import {
   createFakeBrowser, createFakePage, FakeBrowser, FakeSelectorResult,
-} from '@/__fixtures__/puppeteer'
+} from '#src/__fixtures__/puppeteer'
 import { JustEtfDataDriver } from '../JustEtf.DataDriver'
 
 const puppeteer = vi.hoisted(() => ({ launch: vi.fn() }))

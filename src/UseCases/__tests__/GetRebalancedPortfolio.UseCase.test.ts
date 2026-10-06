@@ -1,12 +1,12 @@
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
+import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
 import { GetRebalancedPortfolioUseCase } from '../GetRebalancedPortfolio.UseCase'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
-vi.mock('@/Repositories/Portfolio.Repository', () => ({
+vi.mock('#src/Repositories/Portfolio.Repository', () => ({
   PortfolioRepository: class {
     getPortfolio = getPortfolio
   },

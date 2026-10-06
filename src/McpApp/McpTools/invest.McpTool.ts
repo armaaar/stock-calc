@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { GetPortfolioWithInvestmentUseCase } from '@/UseCases/GetPortfolioWithInvestment.UseCase'
+import { GetPortfolioWithInvestmentUseCase } from '#src/UseCases/GetPortfolioWithInvestment.UseCase'
 import { PortfolioMcpPresenter, PresentMode, portfolioOutputSchema } from '../Presenters/PortfolioMcp.Presenter'
 import { ErrorMcpPresenter } from '../Presenters/ErrorMcp.Presenter'
 import { portfolioInput, portfolioToolAnnotations } from '../mcpOptions'
