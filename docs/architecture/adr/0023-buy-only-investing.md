@@ -14,7 +14,7 @@
   1. **Water-filling.** It finds the portfolio value `L` up to which the money lifts the underweight securities. Each security with a target and a price above 0 gets `max(0, L × target − current value)`. The most underweight security is filled first, and others join as `L` rises past their current weight. Overweight securities get nothing.
   2. Each buy is rounded to the **nearest** whole share. That way an expensive security just short of one share's worth isn't skipped, which would leave its money to pile into cheaper, already overweight ones.
   3. If rounding up or fees overshoot, it cancels buys: each step cancels just enough shares of one buy to cover the shortfall (or the whole buy), choosing the buy whose cancellation leaves the weights closest to target (least Σ squared drift). A cheap share often covers a small shortfall better than an expensive one.
-  4. **Remainder.** It spends what's left only on securities still at least half a share below their target, measured against the holdings plus the remaining cash. The most underweight goes first, several shares at a time when far short, as long as the plan can pay for them with fees. A security already over its target never gets the remainder.
+  4. **Remainder.** It spends what's left only on securities still at least half a share below their target, measured against the holdings plus the remaining cash. The most underweight goes first, several shares at a time when far short (halving the count while the fee makes it too many), as long as the plan can pay for them with fees. A security already over its target never gets the remainder.
 - Like every plan, the result reports `cashAfterTrades ≥ 0`.
 
 ## Consequences

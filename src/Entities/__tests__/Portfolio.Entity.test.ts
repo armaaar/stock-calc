@@ -645,6 +645,71 @@ describe('Portfolio', () => {
         expect(portfolio.cashAfterTrades.toNumber()).toBeCloseTo(49.04, 10)
       })
 
+      it('hands back sells meant for a buy that rounded to no shares', () => {
+        // Withdrawing 3: balancing wants 55% in A (62.10 a share) but rounds it to 0, and
+        // still sells 4 B for it. One B covers the 3 and its fee.
+        const portfolio = two(
+          { price: 62.1, shares: 0, targetPercentage: 0.55, brokerageFeeFlat: 0 },
+          {
+            price: 5, shares: 6, targetPercentage: 0.45,
+            brokerageFeeFlat: 0, tradingFeePercentage: 0.01,
+          },
+        )
+
+        portfolio.allocateCash(new Decimal(-3))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 0, B: 5 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(1.95)
+      })
+
+      it('hands back whole sells, and parts of others, down to what the withdrawal needs', () => {
+        // Withdrawing 3: balancing sells 3 B and 3 C (30) toward an A it can't buy. Keeping all
+        // 3 B and 2 of the C sells still leaves the withdrawal covered.
+        const portfolio = new Portfolio({
+          securities: [
+            security({ tick: 'A', price: 62.1, shares: 0, targetPercentage: 0.5, brokerageFeeFlat: 0 }),
+            security({ tick: 'B', price: 5, shares: 6, targetPercentage: 0.25, brokerageFeeFlat: 0 }),
+            security({ tick: 'C', price: 5, shares: 6, targetPercentage: 0.25, brokerageFeeFlat: 0 }),
+          ],
+        })
+
+        portfolio.allocateCash(new Decimal(-3))
+
+        expect(portfolio.securities.map((sec) => sec.initialShares - sec.shares).sort())
+          .toEqual([0, 0, 1])
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(2)
+      })
+
+      it('hands back first the sell whose return lands closest to target', () => {
+        // Balancing sells 4 B and 3 C toward an A it can't buy. Keeping the C sells (30% target)
+        // is closer to target than keeping the B ones (20%); then 3 of the B sells fit too.
+        const portfolio = new Portfolio({
+          securities: [
+            security({ tick: 'A', price: 62.1, shares: 0, targetPercentage: 0.5, brokerageFeeFlat: 0 }),
+            security({ tick: 'B', price: 5, shares: 6, targetPercentage: 0.2, brokerageFeeFlat: 0 }),
+            security({ tick: 'C', price: 5, shares: 6, targetPercentage: 0.3, brokerageFeeFlat: 0 }),
+          ],
+        })
+
+        portfolio.allocateCash(new Decimal(-3))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 0, B: 5, C: 6 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(2)
+      })
+
+      it('hands back all of a sell when keeping it saves its fee', () => {
+        // Withdrawing 14.5 from 7 B (28.45, flat 1): one B covers it
+        const portfolio = two(
+          { price: 250, shares: 0, targetPercentage: 0.5 },
+          { price: 28.45, shares: 7, targetPercentage: 0.5 },
+        )
+
+        portfolio.allocateCash(new Decimal(-14.5))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 0, B: 6 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(12.95)
+      })
+
       it('keeps only the sells a withdrawal needs when a buy it funded is cancelled', () => {
         // Withdrawing 10: balancing buys 1 A (250) and sells 255 B. Selling 7 more B covers
         // the shortfall and stays closer to target than cancelling the A buy.

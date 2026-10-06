@@ -27,6 +27,7 @@
      A cheap share often covers a small shortfall better than an expensive one, and selling a little more of an overweight holding often beats skipping a buy over its fee. When cancelling the last buy of a plan that isn't a withdrawal, the step is judged by the current holdings, because that is what the plan falls back to.
   4. If no buys are left and `cash + deposit ≥ 0`, it plans **no trades**. Sells only exist to fund buys or a withdrawal. On their own they just turn holdings into fees. A withdrawal whose planned buys were all cancelled also starts again from the holdings, because its sells were sized to pay for those buys.
   5. A withdrawal that is still short sells the **fewest** shares of one holding that cover the shortfall with fees, choosing the holding that leaves the weights closest to target. Only when no single holding can cover it does it sell a whole holding (the one raising the most) and go on. If nothing raises cash, for example a whole-value withdrawal that also has to pay fees, `cashAfterTrades` stays negative by the shortfall.
+  6. A withdrawal left without buys then **hands back** sells it doesn't need, for example sells meant for a buy that rounded to 0 shares. Each step keeps as many sold shares of one security as the spare cash allows (all of them when that also saves the order's fee), choosing the one that lands closest to target.
 - **`allocateValue(price)`** is the domain operation behind `target`. It balances, then trims the most overweight holding until the proposed value is ≤ `price`. The fees are cash paid on top of that value, and the plan reports them.
 - **Every plan reports `cashAfterTrades`** ("Cash After Trades"). `show` reports the cash held. Negative means the plan needs that much more money than it was given.
 - The planned deposit is plan state like `shares`. It can only be set through `allocateCash` (and `buyWithCash`, [ADR-0023](0023-buy-only-investing.md)), and the cash held is read-only ([ADR-0021](0021-guard-proposed-shares.md)).
@@ -34,6 +35,7 @@
 ## Consequences
 
 - `invest X` never needs more than `X` plus the cash already held, fees included, and `rebalance` never needs new money. The one exception is a withdrawal that even selling everything can't cover after fees, where `cashAfterTrades` shows the shortfall. The worked examples are unchanged (rebalance 127 / 87, invest 1000 141 / 97, target 5000 70 / 48), because none of them overspent.
+- Which holding a withdrawal sells is chosen by weights, not by fees. With very different fees per holding, it can sell where the order costs more. That's accepted: weights are what the plan is for, and the fee warning ([ADR-0024](0024-warn-about-expensive-orders.md)) points out expensive orders.
 - Trimming is greedy (one step at a time, in bulk, closest to target first). It isn't a globally optimal fit, but it is deterministic, fast, and leaves weights close to target.
 - CLI output gains a "Cash" line (`show`) or a "Cash After Trades" line (plans). The MCP output gains `cash` / `cashAfterTrades`.
 - `minimal` is unaffected. It searches for a target state from scratch and has no budget.

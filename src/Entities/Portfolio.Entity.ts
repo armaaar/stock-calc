@@ -168,8 +168,53 @@ export class Portfolio {
       // only turn holdings into fees, so start again from the holdings
       this.resetShares()
     }
-    // A withdrawal still short: sell more, only what it needs
-    if (this.isWithdrawal) this.sellUntilAffordable()
+    if (!this.isWithdrawal) return
+    // A withdrawal still short sells more, only what it needs. Without buys, sells beyond what
+    // it needs (e.g. for a buy that rounded to 0 shares) are handed back
+    this.sellUntilAffordable()
+    if (!hasBuys()) this.keepOnlyNeededSells()
+  }
+
+  /**
+   * Un-sells shares while the plan stays affordable. Each step un-sells, for one sold security,
+   * as many shares as the spare cash allows, choosing the security that leaves the weights
+   * closest to target.
+   */
+  private keepOnlyNeededSells() {
+    for (;;) {
+      const options = this.securities
+        .filter((sec) => sec.shares < sec.initialShares)
+        .flatMap((sec) => {
+          const count = this.mostSharesToUnsell(sec)
+          return count === 0 ? [] : [{ sec, count: -count }]
+        })
+      if (options.length === 0) return
+      const scored = options.map((option) => (
+        { ...option, distance: this.distanceAfter(option) }
+      ))
+      const best = scored.reduce((a, b) => (b.distance.lessThan(a.distance) ? b : a))
+      best.sec.shares -= best.count
+    }
+  }
+
+  /**
+   * The most sold shares of `sec` that can be kept while the plan stays affordable. Keeping
+   * more costs more, except keeping all of them, which also saves the order's fee.
+   */
+  private mostSharesToUnsell(sec: PortfolioSecurity): number {
+    const sold = sec.initialShares - sec.shares
+    if (this.cashChange(sec, -sold).plus(this.cashAfterTrades).greaterThanOrEqualTo(0)) return sold
+    const affordable = (count: number) => (
+      this.cashChange(sec, -count).plus(this.cashAfterTrades).greaterThanOrEqualTo(0)
+    )
+    let low = 0
+    let high = sold - 1
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2)
+      if (affordable(middle)) low = middle
+      else high = middle - 1
+    }
+    return low
   }
 
   /** Undoes every sell whose fee is at least what it raises: it only loses money. */
