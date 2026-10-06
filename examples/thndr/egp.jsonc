@@ -13,7 +13,7 @@
       // source lists it: its daily NAV goes in egp.overrides.jsonc
       "tick": "BMM",
       "exchange": "EGX",
-      "shares": 500,
+      "shares": 150,
       "targetPercentage": 0.2,
       // Optional: this security's own fees. Each part set here replaces the portfolio's and the
       // broker's for this security's orders; the others fall back.
