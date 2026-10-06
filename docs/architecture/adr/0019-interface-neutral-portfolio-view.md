@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-06
 - **Amends:** [ADR-0014](0014-mcp-server-interface.md) (the follow-up it named: "extract an interface-neutral view model")
+- **Amended by:** [ADR-0028](0028-multi-currency-portfolios.md) (the view names the portfolio and its rates; the CLI heads the table with them, drops the Currency column and adds a Listed column)
 
 ## Context
 

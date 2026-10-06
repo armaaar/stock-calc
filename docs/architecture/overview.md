@@ -95,28 +95,35 @@ sequenceDiagram
       R-->>R: use override price
     else
       R->>P: justEtf.getPrice + tradingView.getPrice (first in list order wins)
-      R->>P: tradingView.getRate(from, to) per other listing currency (unless overridden)
     end
   end
-  R->>E: new Portfolio({ securities }) (validates invariants)
+  loop each other quote currency (in parallel)
+    alt pair in overrides
+      R-->>R: use override rate
+    else
+      R->>P: tradingView.getRate(from, portfolio currency)
+    end
+  end
+  R->>E: new Portfolio({ id, currency, securities }) (validates invariants)
   R->>P: closeBrowser() (finally)
   R-->>UC: Portfolio
   UC->>E: allocateCash(0)
   UC-->>C: Portfolio (shares mutated, initialShares kept)
   C->>V: present(portfolio, WITH_DELTA)
   V->>V: toPortfolioView(portfolio, WITH_DELTA)
-  V-->>U: table + trading fee / traded price / portfolio price / cash after trades
+  V-->>U: heading + table + totals + one Rate line per converted currency + warnings
 ```
 
-Over MCP, the client calls the `rebalance` tool with `{ "portfolio": "EUR" }`. The SDK validates the input against the tool's zod schema, and `PortfolioMcpPresenter` returns the same `PortfolioView` the CLI renders as `structuredContent` (plus the same JSON as text) instead of printing a table.
+Over MCP, the client calls the `rebalance` tool with `{ "portfolio": "ibkr/eur" }`. The SDK validates the input against the tool's zod schema, and `PortfolioMcpPresenter` returns the same `PortfolioView` the CLI renders as `structuredContent` (plus the same JSON as text) instead of printing a table.
 
 ### Price resolution
 
 For each security, independently and in parallel ([ADR-0006](adr/0006-race-multiple-price-sources.md), [ADR-0008](adr/0008-manual-price-overrides.md)):
 
 1. If the security's `tick` is a key in the overrides file, that `{ price, currency }` is used and no scraping happens.
-2. Otherwise both scrapers run concurrently, and the answers are taken in list order: the first source that can price the security wins (JustEtf before TradingView, ADR-0025). The quote records that source and the time.
-3. If both reject, the repository rejects with an `AggregateError` (`No price source could price <tick>`), and the presenter shows each driver's error. Each driver error keeps the underlying Puppeteer error as its `cause`.
+2. Otherwise both scrapers run concurrently, and the answers are taken in list order: the first source that can price the security wins (JustEtf before TradingView, ADR-0025). The quote records that source and the time. When the security sets the `currency` it's traded in, an answer in another currency (another listing) counts as a failure, so the next source is used ([ADR-0028](adr/0028-multi-currency-portfolios.md)).
+3. If both reject, the repository rejects with an `AggregateError` (`No price source could price '<tick>': check its tick, exchange and isin, or add its price to the overrides`), and the presenter shows each driver's error. Each driver error keeps the underlying Puppeteer error as its `cause`.
+4. Once every price is known, each quote currency other than the portfolio's `currency` gets one exchange rate: a `<FROM>/<TO>` override, or the first rate source (TradingView's `FX_IDC` pairs) that can give it. The browsers for rates launch only if some rate isn't overridden.
 
 Both browsers are launched together before any price is fetched, but only if at least one security isn't overridden, so a cold start costs the slowest launch rather than the sum. They are always closed, and awaited, once the load ends. If the load failed, a browser that also fails to close doesn't replace the load's error. Pages are never closed individually, because a page may still be in use by the losing driver; closing the browser cleans them up.
 
