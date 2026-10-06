@@ -6,7 +6,7 @@ Terms used consistently across the code, settings files, CLI output, and these d
 
 | Term | Definition | Code | CLI column |
 | --- | --- | --- | --- |
-| **Portfolio** | A set of securities held together, priced in one currency, with target weights that sum to 100%. The aggregate root. | `Portfolio` | |
+| **Portfolio** | A set of securities held together, valued in one currency (the one orders are paid in), with target weights that sum to 100%. The aggregate root. | `Portfolio` | |
 | **Broker** | Where a portfolio is held, such as IBKR or Thndr: a folder of portfolios that share its fees. Just a name; there's no code per broker. | `<broker>/`, `_broker.jsonc`, `BrokerSchema` | |
 | **Portfolio id** | `<broker>/<portfolio>`, such as `ibkr/eur`: selects a portfolio's files. Optional when there's only one portfolio. | `portfolioId`, `--portfolio` / `--pt`, MCP `portfolio` input | |
 | **Security** | A tradable instrument identified by tick and exchange (and optionally ISIN), with a current price and currency. | `Security` | |
@@ -18,7 +18,10 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | **Initial shares** | Number of units held **now**, as loaded from settings. Never changed by use cases. | `initialShares` | Shares (in `show`) |
 | **Target percentage** (target weight) | The fraction of portfolio value a security should make up, as a decimal in [0, 1]. All targets sum to exactly 1. Shown ×100. | `targetPercentage` | Target Percentage % |
 | **Actual percentage** (actual weight) | A security's value divided by the portfolio's value, in a given state. | `calcActualPercentage()` | Percentage % |
-| **Currency** | The currency of a quote. All securities in a portfolio must share one currency. | `currency` | Currency |
+| **Currency** | The portfolio's currency: what orders are paid in, and what every price, fee and amount is in. | `Portfolio.currency`, `PortfolioSecurity.currency` | heading (`ibkr/eur (EUR)`) |
+| **Listing currency** | The currency a security is quoted in. When it isn't the portfolio's, the price is converted. A security can name the currency it's traded in, so sources quoting another listing are skipped. | `quote.currency`, security `currency` setting | Listed |
+| **Exchange rate** | What one unit of a listing currency is worth in the portfolio's currency, with where and when it was quoted. | `ExchangeRate`, `<FROM>/<TO>` override | Listed, `Rate:` line |
+| **FX fee** | What exchanging the currency costs on an order in a converted security: a fraction of the order's value. Part of the trading fee. | `fxFeePercentage`, `fxFee` | Trading Fee |
 
 ## Valuation
 
@@ -66,6 +69,7 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | --- | --- | --- |
 | **Price quote** | A `{ price, currency }` pair for one security. | `SecurityPriceDto` |
 | **Price source** (data driver) | A provider that can produce a price quote for a security. | `IPriceDataDriver` |
-| **Price override** | A manually set quote for a tick that replaces live price lookup. | `<broker>/<portfolio>.overrides.jsonc`, `OverridesDataDriver` |
+| **Rate source** | A provider that can give an exchange rate between two currencies. | `IExchangeRateDataDriver` |
+| **Price override** | A manually set quote for a tick (or rate for a `<FROM>/<TO>` pair) that replaces live lookup. | `<broker>/<portfolio>.overrides.jsonc`, `OverridesDataDriver` |
 | **Portfolio settings** | The file that defines a portfolio: optional fees and cash, plus securities with shares, targets and optional fee overrides. What it leaves out comes from its broker's settings. | `<broker>/<portfolio>.jsonc`, `SettingsDto` |
 | **Broker settings** | What a broker's portfolios share unless they set their own: fee parts and the fee warning percentage. | `<broker>/_broker.jsonc`, `BrokerDto` |

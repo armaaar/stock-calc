@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-06
 - **Amends:** [ADR-0011](0011-fee-model-per-security-order.md) (where fee settings come from, and how sells are charged)
-- **Amended by:** [ADR-0027](0027-portfolios-grouped-by-broker.md) (portfolio fees are optional and fall back to the broker's `_broker.jsonc`, then 0)
+- **Amended by:** [ADR-0027](0027-portfolios-grouped-by-broker.md) (portfolio fees are optional and fall back to the broker's `_broker.jsonc`, then 0), [ADR-0028](0028-multi-currency-portfolios.md) (a fourth part, `fxFeePercentage`)
 
 ## Context
 

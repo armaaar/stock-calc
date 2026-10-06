@@ -11,9 +11,9 @@ Infrastructure: reads the portfolio data files and scrapes prices. Returns plain
   - `listPortfolioIds(dataDir)` lists every `<broker>/<portfolio>`; `readOptionalDataFile()` reads a file that may be missing, empty or only comments.
   - `parseJsonc()` rejects JSONC syntax errors with line and column.
   - After that, `parseDataFile()` validates against the schema and throws `Invalid data file '<path>'` with the failing field paths.
-- The schemas check ranges as well as types (integer shares ≥ 0, fractions in [0, 1], fees ≥ 0, override prices > 0, non-empty strings). The settings schemas are `.strict()`: an unknown key, such as a misspelled per-security fee, is an error rather than a silent fallback.
+- The schemas check ranges as well as types (integer shares ≥ 0, fractions in [0, 1], fees ≥ 0, override prices and rates > 0, 3-letter currency codes, non-empty strings). `OverridesSchema` splits the overrides file into `prices` (keyed by tick) and `rates` (keyed `<FROM>/<TO>`), re-reporting each entry's issues under its key. The settings schemas are `.strict()`: an unknown key, such as a misspelled per-security fee, is an error rather than a silent fallback.
 - `SettingsDataDriver.resolvePortfolioId(requested?)` returns the requested id if its file exists, or the only portfolio when none is requested. Otherwise it throws, listing the portfolios found (and how to move files from before broker folders). `getPortfolioSettings(id)` returns the portfolio's settings with what it leaves out taken from `_broker.jsonc` (optional), so the repository only falls back security → portfolio. A missing, empty or comments-only overrides or broker file means nothing set.
-- When a schema changes, update the tracked examples in `examples/demo/`. `__tests__/DataFiles.schema.test.ts` reads them through the drivers. Everything in `src/data` is personal and git-ignored: never read those files into output, logs or commits.
+- When a schema changes, update the tracked examples in `examples/`. `__tests__/DataFiles.schema.test.ts` reads them through the drivers. Everything in `src/data` is personal and git-ignored: never read those files into output, logs or commits.
 
 ## Price scrapers
 
@@ -23,4 +23,5 @@ Infrastructure: reads the portfolio data files and scrapes prices. Returns plain
 - Scraped text must go through `parsePriceQuote()` (`PriceQuote.parser.ts`), which strips whitespace and thousands commas and requires a positive price and a non-empty currency.
 - Everything from `page.goto` onwards is inside the driver's `try`. Any failure becomes the driver's descriptive "not registered" error, with the underlying error as `cause`.
 - A new source must implement `IPriceDataDriver` (`DataDrivers.type.ts`) and be added to the `prices` list in `src/compositionRoot.ts`. The repository launches, asks (in list order) and closes whatever it's given.
+- Exchange rates come from `IExchangeRateDataDriver` sources (the `rates` list): `getRate(from, to)` returns what one `from` is worth in `to`. `TradingView.DataDriver.ts` implements it with the `FX_IDC:<FROM><TO>` page and rejects a rate quoted in another currency than `to`. The same instance is in both lists; the repository launches it for each and closes it once.
 - Scraper tests inject `fakeLauncher(...)` with fake browsers and pages (`src/__fixtures__/puppeteer.ts`). File-driver tests use real files in a temporary folder (`createDataDir`). Never hit the real sites in tests.

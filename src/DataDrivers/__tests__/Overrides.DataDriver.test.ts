@@ -8,6 +8,9 @@ import {
 } from '#src/__fixtures__/dataFiles'
 import { OverridesDataDriver } from '../Overrides.DataDriver'
 
+/** What a portfolio without overrides gets. */
+const NONE = { prices: {}, rates: {} }
+
 describe('OverridesDataDriver', () => {
   let dataDir: string
 
@@ -51,20 +54,33 @@ describe('OverridesDataDriver', () => {
     const driver = givenFile(undefined)
     const readFileSync = vi.spyOn(fs, 'readFileSync')
 
-    await expect(driver.getPortfolioOverrides('ibkr/eur')).resolves.toEqual({})
+    await expect(driver.getPortfolioOverrides('ibkr/eur')).resolves.toEqual(NONE)
     expect(readFileSync).not.toHaveBeenCalled()
   })
 
   it('does not read the overrides file of another portfolio', async () => {
     const driver = givenFile(EUR_OVERRIDES_JSONC, 'ibkr/eur')
 
-    await expect(driver.getPortfolioOverrides('thndr/egp')).resolves.toEqual({})
+    await expect(driver.getPortfolioOverrides('thndr/egp')).resolves.toEqual(NONE)
   })
 
   it('returns {} for a file with an empty object', async () => {
     const driver = givenFile('{ /* nothing overridden */ }')
 
-    await expect(driver.getPortfolioOverrides('ibkr/eur')).resolves.toEqual({})
+    await expect(driver.getPortfolioOverrides('ibkr/eur')).resolves.toEqual(NONE)
+  })
+
+  it('reads exchange rates keyed by currency pair beside the prices', async () => {
+    const driver = givenFile(`{
+      "QDVE": { "price": 28.45, "currency": "EUR" },
+      // One USD is worth 0.92 EUR
+      "USD/EUR": { "rate": 0.92, "asOf": "2026-10-01" }
+    }`)
+
+    await expect(driver.getPortfolioOverrides('ibkr/eur')).resolves.toEqual({
+      prices: { QDVE: { price: 28.45, currency: 'EUR' } },
+      rates: { 'USD/EUR': { rate: 0.92, asOf: '2026-10-01' } },
+    })
   })
 
   it('throws an "Invalid data file" error with the field path for an invalid shape', async () => {
@@ -83,7 +99,7 @@ describe('OverridesDataDriver', () => {
   ])('returns {} for an %s file, like a missing one', async (_case, content) => {
     const driver = givenFile(content)
 
-    await expect(driver.getPortfolioOverrides('ibkr/eur')).resolves.toEqual({})
+    await expect(driver.getPortfolioOverrides('ibkr/eur')).resolves.toEqual(NONE)
   })
 
   it('reports JSONC syntax errors with the code and line:column instead of recovering', async () => {

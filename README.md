@@ -13,62 +13,92 @@ npx puppeteer browsers install chrome   # only if npm install didn't download Ch
 
 ## Portfolio
 
-Portfolios live in the data folder (`src/data`, or `STOCK_CALC_DATA_DIR`), in a folder per broker. A broker is just a folder name, so any broker works, and a broker can hold several portfolios:
+Portfolios live in the data folder (`src/data`, or the folder `STOCK_CALC_DATA_DIR` names), in a folder per broker. A broker is just a folder name, so any broker works, and a broker can hold several portfolios:
 
 ```
 src/data/
   ibkr/
-    _broker.jsonc          optional: fees every IBKR portfolio shares
+    _broker.jsonc          optional: settings every IBKR portfolio shares, such as fees
     eur.jsonc              the portfolio ibkr/eur
-    eur.overrides.jsonc    optional: price overrides for ibkr/eur
+    eur.overrides.jsonc    optional: price and exchange-rate overrides for ibkr/eur
     growth.jsonc           the portfolio ibkr/growth
   thndr/
     egp.jsonc              the portfolio thndr/egp
 ```
 
-To create a portfolio, create `src/data/<broker>/<portfolio>.jsonc`, and select it with `--pt <broker>/<portfolio>` (for example `--pt ibkr/eur`). Broker and portfolio names may contain letters, digits, `_` and `-`, and start with a letter or digit. With only one portfolio in the data folder, `--pt` can be left out. The files use the `.jsonc` extension, so comments are allowed. Everything in `src/data` is git-ignored.
+To create a portfolio, create `src/data/<broker>/<portfolio>.jsonc`, and select it with `--pt <broker>/<portfolio>` (for example `--pt ibkr/eur`). Broker and portfolio names may contain letters, digits, `_` and `-`, and start with a letter or digit. With only one portfolio in the data folder, `--pt` can be left out; with several, the error lists them. The files use the `.jsonc` extension, so comments are allowed. Everything in `src/data` is git-ignored.
 
-`examples/` is a complete data folder with a `demo` broker. Every price in it is overridden, so it runs offline:
+### Examples
+
+[`examples/`](examples/README.md) is a complete data folder to copy from: an `ibkr` broker with a EUR portfolio and a portfolio that pays in EUR for a security traded in USD, and a `thndr` broker with an EGP portfolio. Every price in it is overridden, so it runs offline:
 
 ```sh
-STOCK_CALC_DATA_DIR=examples npm run cli -- rebalance --pt demo/eur
+STOCK_CALC_DATA_DIR=examples npm run cli -- rebalance --pt ibkr/mixed
 ```
 
-A portfolio file contains:
+```jsonc
+// examples/ibkr/mixed.jsonc
+{
+  "currency": "EUR",                 // what orders are paid in
+  "securities": [
+    { "tick": "QDVE", "exchange": "IBIS2", "isin": "IE00B3WJKG14", "shares": 100, "targetPercentage": 0.4 },
+    { "tick": "CSPX", "exchange": "LSE", "isin": "IE00B5BMR087", "currency": "USD", "shares": 5, "targetPercentage": 0.6 }
+  ]
+}
+```
+
+### Portfolio file
+
+`<broker>/<portfolio>.jsonc` contains:
 
 - `securities`: A list of securities in a portfolio.
+- `currency`: (Optional) The currency you pay for orders in, as a 3-letter code such as `EUR`. Every price, fee, cash amount and total is in it. A security quoted in another currency is converted at an [exchange rate](#currencies). By default, the currency of the first security's price.
 - `cash`: (Optional) Uninvested cash you hold with the portfolio, in its currency (default 0). `rebalance` and `invest` spend it too. Cash a broker account holds for several portfolios is split by hand: give each portfolio the part it may use.
 - `brokerageFeeFlat`: (Optional) A flat amount of money the brokerage takes on each order. It's added to each order no matter what the value is.
 - `tradingFeePercentage`: (Optional) The trading fee is taken as a percentage of the total order value, for buys and sells alike.
 - `minimumTradingFeeFlat`: (Optional) The minimum amount of trading fee that is taken.
+- `fxFeePercentage`: (Optional) The fee for exchanging currency, as a fraction of the value of an order in a security quoted in another currency than the portfolio's. For example `0.0003` for IBKR's automatic conversion (0.03%).
 - `feeWarningPercentage`: (Optional) Plans warn about each order whose fee is more than this fraction of the order's value (default `0.01`, so 1%). Small orders with a flat fee are the usual culprits.
-
-`<broker>/_broker.jsonc` (optional) holds the fee settings (`brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`, `feeWarningPercentage`) that the broker's portfolios share. Each fee part is taken from the most specific place that sets it: the security, then the portfolio, then the broker. A part set nowhere is 0.
 
 The `securities` list consists of security objects, which contains:
 
 - `tick`: The tick of the security.
-- `exchange`: The exchange symbol for the security, used with the tick to determine the correct security.
+- `exchange`: The exchange symbol for the security, as [tradingview.com](https://www.tradingview.com) names it (its page is `tradingview.com/symbols/<EXCHANGE>-<TICK>/`, for example `LSE` for the London Stock Exchange).
 - `shares`: The number of shares the portfolio have of this security.
 - `targetPercentage`: The percentage this security contributes to in the portfolio. Must be 1 or less.
 - `isin`: (Optional) An [International Securities Identification Number (ISIN)](https://en.wikipedia.org/wiki/International_Securities_Identification_Number) is a 12-digit alphanumeric code that uniquely identifies a specific security. Can be used to find the security.
-- `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`: (Optional) This security's own fees, for a broker that charges this listing differently. Fees are amounts in the portfolio's currency, so convert a fee quoted in another currency by hand (for example 4 USD ≈ 3.56 EUR). A portfolio has one currency: give a security listed in another currency a [price override](#price-overrides) in the portfolio's currency.
+- `currency`: (Optional) The currency the security is traded in, as a 3-letter code. Set it when a source could quote another listing of it: justetf.com, for example, may quote a USD-traded ETF from a EUR listing. A quote in another currency is then skipped, so the next source prices the listing you trade.
+- `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`, `fxFeePercentage`: (Optional) This security's own fees, for a broker that charges this listing differently. Fees are amounts in the portfolio's currency, so convert a fee quoted in another currency by hand (for example 4 USD ≈ 3.56 EUR).
 
-The price of each security is fetched automatically from public records using either the combination of the tick and exchange, or using the isin if available.
+The price of each security is fetched automatically from public records using either the combination of the tick and exchange, or using the isin if available. When both sites can price a security, justetf.com's price is used, so the same portfolio always gets the same prices.
+
+### Broker file
+
+`<broker>/_broker.jsonc` (optional) holds what the broker's portfolios share: `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`, `fxFeePercentage` and `feeWarningPercentage`. Each fee part is taken from the most specific place that sets it: the security, then the portfolio, then the broker. A part set nowhere is 0.
+
+### Currencies
+
+A portfolio can hold securities quoted in other currencies than the one you pay in. Each one's price is converted at the exchange rate into the portfolio's `currency`, fetched live from tradingview.com (the `FX_IDC:<FROM><TO>` pair), and every order in it pays the `fxFeePercentage` fee on top of its trading fee. Plans show the converted price in `Price`, the price as listed and the rate in `Listed` (`702.5 USD @ 0.89`), and a line per rate with where and when it was quoted:
+
+```
+ibkr/mixed (EUR)
+… table …
+Rate: USD/EUR 0.89 (override 2026-10-06)
+```
 
 ### Price overrides
 
-To skip fetching for some securities (for example, when no source lists them), create `<broker>/<portfolio>.overrides.jsonc` next to the portfolio, keyed by tick:
+To skip fetching for some securities (for example, when no source lists them), create `<broker>/<portfolio>.overrides.jsonc` next to the portfolio. Prices are keyed by tick, and exchange rates by `<FROM>/<TO>`:
 
 ```jsonc
 {
-  "QDVE": { "price": 28.45, "currency": "EUR" }
+  "QDVE": { "price": 28.45, "currency": "EUR" },
+  "CSPX": { "price": 702.5, "currency": "USD", "asOf": "2026-10-06" },
+  "USD/EUR": { "rate": 0.89, "asOf": "2026-10-06" } // one USD is worth 0.89 EUR
 }
 ```
 
-The override currency must match the rest of the portfolio. Add `"asOf": "YYYY-MM-DD"` to record when you looked the price up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), so a stale override is easy to spot. See `examples/demo/` for templates.
-
-When both sites can price a security, justetf.com's price is used, so the same portfolio always gets the same prices.
+Add `"asOf": "YYYY-MM-DD"` to record when you looked a price or rate up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), and each rate's on its `Rate:` line, so a stale override is easy to spot.
 
 ## Documentation
 

@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
-import { QDVE } from '#src/__fixtures__/portfolio'
+import { ICOM, QDVE, USD_EUR } from '#src/__fixtures__/portfolio'
 import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 import { IPortfolioSecurity, PortfolioSecurity } from '../PortfolioSecurity.Entity'
 
@@ -296,6 +296,89 @@ describe('PortfolioSecurity', () => {
       const sec = build()
 
       expect(sec.calcActualPercentage(new Decimal(0), new Decimal(-50)).toNumber()).toBe(0)
+    })
+  })
+
+  describe('listed in another currency', () => {
+    const icom = (overrides: Partial<IPortfolioSecurity> = {}) => (
+      new PortfolioSecurity({ ...ICOM, ...overrides })
+    )
+
+    it('prices a share in the portfolio\'s currency, keeping the listed quote', () => {
+      const sec = icom()
+
+      expect(sec.price.toNumber()).toBe(37.08)
+      expect(sec.currency).toBe('EUR')
+      expect(sec.quote.price.toNumber()).toBe(41.2)
+      expect(sec.quote.currency).toBe('USD')
+      expect(sec.exchangeRate?.toValues()).toEqual(USD_EUR)
+      expect(sec.totalPrice.toNumber()).toBe(3708)
+    })
+
+    it('uses the quote as it is without an exchange rate', () => {
+      const sec = icom({ exchangeRate: undefined })
+
+      expect(sec.price.toNumber()).toBe(41.2)
+      expect(sec.currency).toBe('USD')
+      expect(sec.exchangeRate).toBeUndefined()
+    })
+
+    it('adds the FX fee, a share of the order value, to the fee of a buy and of a sell', () => {
+      // 10 shares × 37.08 EUR = 370.8 EUR; 0.03% of it is 0.11124 EUR
+      const buy = icom({ shares: 110, initialShares: 100 })
+      const sell = icom({ shares: 90, initialShares: 100 })
+
+      expect(buy.fxFee.toNumber()).toBe(0.11124)
+      expect(buy.tradingFee.toNumber()).toBe(1.11124)
+      expect(sell.fxFee.toNumber()).toBe(0.11124)
+      expect(sell.tradingFee.toNumber()).toBe(1.11124)
+      expect(buy.feeShare.toNumber()).toBeCloseTo(1.11124 / 370.8, 12)
+    })
+
+    it('charges no FX fee when nothing is traded', () => {
+      expect(icom().fxFee.isZero()).toBe(true)
+      expect(icom().tradingFee.isZero()).toBe(true)
+    })
+
+    it('charges no FX fee for a security in the portfolio currency', () => {
+      const sec = build({ shares: 110, initialShares: 100, fxFeePercentage: 0.5 })
+
+      expect(sec.fxFee.isZero()).toBe(true)
+      expect(sec.tradingFee.toNumber()).toBe(1)
+    })
+
+    it('defaults the FX fee percentage to 0', () => {
+      const sec = icom({ fxFeePercentage: undefined, shares: 110, initialShares: 100 })
+
+      expect(sec.fxFeePercentage.isZero()).toBe(true)
+      expect(sec.tradingFee.toNumber()).toBe(1)
+    })
+
+    it.each([-0.01, 1.5])('rejects the FX fee percentage %d', (fxFeePercentage) => {
+      expect(validationErrorOf(() => icom({ fxFeePercentage })).errors.map((e) => e.property))
+        .toEqual(['fxFeePercentageValue'])
+    })
+
+    it('rejects an invalid exchange rate', () => {
+      expect(() => icom({ exchangeRate: { ...USD_EUR, rate: 0 } })).toThrow(ClassValidatorError)
+    })
+
+    it('rejects a rate that converts from another currency than the quote', () => {
+      expect(() => icom({ exchangeRate: { ...USD_EUR, from: 'GBP' } })).toThrow(
+        'The exchange rate for \'ICOM\' converts from GBP, but \'ICOM\' is quoted in USD',
+      )
+      expect(() => icom({ currency: undefined })).toThrow(
+        'The exchange rate for \'ICOM\' converts from USD, but \'ICOM\' is quoted in an unknown currency',
+      )
+    })
+
+    it('keeps the exchange rate and the FX fee percentage in a clone', () => {
+      const copy = icom({ shares: 110, initialShares: 100 }).clone()
+
+      expect(copy.exchangeRate?.toValues()).toEqual(USD_EUR)
+      expect(copy.fxFeePercentage.toNumber()).toBe(0.0003)
+      expect(copy.price.toNumber()).toBe(37.08)
+      expect(copy.tradingFee.toNumber()).toBe(1.11124)
     })
   })
 

@@ -1,6 +1,8 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import {
+  buildPortfolio, ICOM, QDVE, SPYD, USD_EUR,
+} from '#src/__fixtures__/portfolio'
 import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 import { Portfolio } from '../Portfolio.Entity'
 import { IPortfolioSecurity, PortfolioSecurity } from '../PortfolioSecurity.Entity'
@@ -74,16 +76,63 @@ describe('Portfolio', () => {
         .toThrow(`Portfolio percentage don't add up to 1 (${sum})`)
     })
 
-    it('rejects securities with mixed currencies, naming each one\'s currency and the fix', () => {
+    it('rejects securities priced in another currency, naming each one and the fix', () => {
       expect(() => buildPortfolio([QDVE, { ...SPYD, currency: 'USD' }])).toThrow(
-        'Portfolio has securities in different currencies (QDVE: EUR, SPYD: USD). '
-        + 'Price them all in one currency, for example with a price override',
+        'Portfolio in EUR has securities priced in other currencies (QDVE: EUR, SPYD: USD). '
+        + 'Set the currency you pay in, and the others are converted at an exchange rate',
       )
     })
 
     it('treats a missing currency as a currency of its own', () => {
       expect(() => buildPortfolio([QDVE, { ...SPYD, currency: undefined }]))
-        .toThrow('Portfolio has securities in different currencies (QDVE: EUR, SPYD: unknown)')
+        .toThrow('Portfolio in EUR has securities priced in other currencies (QDVE: EUR, SPYD: unknown)')
+    })
+
+    it('names an unknown portfolio currency when the first security has none', () => {
+      expect(() => buildPortfolio([{ ...QDVE, currency: undefined }, SPYD])).toThrow(
+        'Portfolio in an unknown currency has securities priced in other currencies '
+        + '(QDVE: unknown, SPYD: EUR)',
+      )
+    })
+
+    it('defaults its currency to the first security\'s, and its id to none', () => {
+      const portfolio = buildPortfolio()
+
+      expect(portfolio.currency).toBe('EUR')
+      expect(portfolio.id).toBeUndefined()
+    })
+
+    it('keeps the currency and id it is given', () => {
+      const portfolio = new Portfolio({
+        id: 'ibkr/eur',
+        currency: 'EUR',
+        securities: [security({ ...QDVE, targetPercentage: 1 })],
+      })
+
+      expect(portfolio.id).toBe('ibkr/eur')
+      expect(portfolio.currency).toBe('EUR')
+    })
+
+    it('rejects securities that are not in the currency it is given', () => {
+      expect(() => new Portfolio({
+        currency: 'USD',
+        securities: [security({ ...QDVE, targetPercentage: 1 })],
+      })).toThrow('Portfolio in USD has securities priced in other currencies (QDVE: EUR)')
+    })
+
+    it('accepts a security listed in another currency once it is converted', () => {
+      const portfolio = new Portfolio({
+        currency: 'EUR',
+        securities: [security({ ...QDVE, targetPercentage: 0.4 }), security(ICOM)],
+      })
+
+      expect(portfolio.currency).toBe('EUR')
+      expect(portfolio.totalPrice.toNumber()).toBe(6553)
+    })
+
+    it('rejects an empty id', () => {
+      expect(() => new Portfolio({ id: '', securities: [security({ ...QDVE, targetPercentage: 1 })] }))
+        .toThrow(ClassValidatorError)
     })
 
     it('accepts securities that all lack a currency', () => {
@@ -1073,6 +1122,72 @@ describe('Portfolio', () => {
       expect(() => portfolio.allocateValue(new Decimal(-1)))
         .toThrow('Portfolio price must be a finite number of at least 0 (-1)')
       expect(sharesOf(portfolio)).toEqual({ QDVE: 100, SPYD: 100 })
+    })
+  })
+
+  describe('with a security listed in another currency', () => {
+    // QDVE 28.45 EUR × 100 @ 40%, ICOM 41.20 USD = 37.08 EUR × 100 @ 60%: 6553 EUR
+    const mixed = () => new Portfolio({
+      id: 'ibkr/eur',
+      currency: 'EUR',
+      securities: [security({ ...QDVE, targetPercentage: 0.4 }), security(ICOM)],
+    })
+
+    it('rebalances on the converted price, paying the FX fee on the converted order', () => {
+      const portfolio = mixed()
+
+      portfolio.allocateCash(new Decimal(0))
+
+      // 40% of 6553 is 92.13 QDVE; 60% is 106.04 ICOM at 37.08 EUR
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 92, ICOM: 106 })
+      const icom = portfolio.securities[1]
+      expect(icom.tradedPrice.toNumber()).toBe(222.48)
+      expect(icom.fxFee.toNumber()).toBe(0.066744)
+      expect(portfolio.totalTradingFee.toNumber()).toBe(2.066744)
+      // 8 QDVE sold (227.60) pay for 6 ICOM (222.48) and both fees
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(3.053256)
+    })
+
+    it('invests on the converted price', () => {
+      const portfolio = mixed()
+
+      portfolio.allocateCash(new Decimal(1000))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 106, ICOM: 122 })
+      expect(portfolio.securities[1].fxFee.toNumber()).toBe(0.244728)
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(11.295272)
+    })
+
+    it('buys only on the converted price', () => {
+      const portfolio = mixed()
+
+      portfolio.buyWithCash(new Decimal(500))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 100, ICOM: 113 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(16.815388)
+    })
+
+    it('counts the FX fee when flagging expensive orders', () => {
+      // One ICOM (37.08 EUR) with a 0.3 EUR flat fee: 0.81% of it. A 1% FX fee makes it 1.81%
+      const portfolio = new Portfolio({
+        currency: 'EUR',
+        securities: [security({
+          ...ICOM, targetPercentage: 1, shares: 1, initialShares: 0, brokerageFeeFlat: 0.3,
+          fxFeePercentage: 0.01,
+        })],
+      })
+
+      expect(portfolio.expensiveOrders.map((sec) => sec.tick)).toEqual(['ICOM'])
+      expect(portfolio.securities[0].feeShare.toNumber()).toBeCloseTo(0.3 / 37.08 + 0.01, 12)
+    })
+
+    it('keeps its id, its currency and the exchange rates in a clone', () => {
+      const copy = mixed().clone()
+
+      expect(copy.id).toBe('ibkr/eur')
+      expect(copy.currency).toBe('EUR')
+      expect(copy.securities[1].exchangeRate?.toValues()).toEqual(USD_EUR)
+      expect(copy.totalPrice.toNumber()).toBe(6553)
     })
   })
 

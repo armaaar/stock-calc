@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
-import { PortfolioMcpPresenter, PresentMode } from '../PortfolioMcp.Presenter'
+import { z } from 'zod'
+import {
+  buildPortfolio, ICOM, QDVE, SPYD, USD_EUR,
+} from '#src/__fixtures__/portfolio'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
+import {
+  PortfolioMcpPresenter, portfolioOutputSchema, PresentMode,
+} from '../PortfolioMcp.Presenter'
 
 function plannedPortfolio() {
   // Buy 27 QDVE and sell 13 SPYD (the rebalance plan of the example portfolio)
@@ -175,5 +182,33 @@ describe('PortfolioMcpPresenter', () => {
   it('throws on an unknown present mode', () => {
     expect(() => PortfolioMcpPresenter.present(buildPortfolio(), 42 as PresentMode))
       .toThrow('Unknown present mode \'42\'')
+  })
+
+  it('returns the portfolio id, converted prices with their listed price, and the rates', () => {
+    const portfolio = new Portfolio({
+      id: 'ibkr/eur',
+      currency: 'EUR',
+      securities: [
+        new PortfolioSecurity({ ...QDVE, targetPercentage: 0.4 }),
+        new PortfolioSecurity({ ...ICOM, shares: 110, initialShares: 100 }),
+      ],
+    })
+
+    const { structuredContent } = PortfolioMcpPresenter.present(portfolio, PresentMode.WITH_DELTA)
+
+    // What clients validate against
+    expect(z.object(portfolioOutputSchema).strict().parse(structuredContent))
+      .toEqual(structuredContent)
+    expect(structuredContent).toMatchObject({
+      portfolio: 'ibkr/eur',
+      currency: 'EUR',
+      rates: [USD_EUR],
+      securities: [
+        { tick: 'QDVE', price: 28.45 },
+        {
+          tick: 'ICOM', price: 37.08, listedPrice: 41.2, listedCurrency: 'USD', exchangeRate: 0.9,
+        },
+      ],
+    })
   })
 })

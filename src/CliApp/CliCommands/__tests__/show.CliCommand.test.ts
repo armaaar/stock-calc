@@ -55,9 +55,9 @@ describe('show command', () => {
   })
 
   it('accepts the --portfolio=<type> form', async () => {
-    await showCli.parseAsync(['--portfolio=demo/eur'], { from: 'user' })
+    await showCli.parseAsync(['--portfolio=ibkr/eur'], { from: 'user' })
 
-    expect(show.execute).toHaveBeenCalledWith({ portfolio: 'demo/eur' })
+    expect(show.execute).toHaveBeenCalledWith({ portfolio: 'ibkr/eur' })
   })
 
   it('falls back to the default again on the next parse', async () => {

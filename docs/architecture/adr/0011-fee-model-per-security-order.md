@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2023-10-08
-- **Amended by:** [ADR-0020](0020-per-security-fee-overrides.md) (per-security fee overrides; the percentage applies to sells too), [ADR-0022](0022-plans-stay-within-available-cash.md) (`invest` and `rebalance` budget the fees)
+- **Amended by:** [ADR-0020](0020-per-security-fee-overrides.md) (per-security fee overrides; the percentage applies to sells too), [ADR-0022](0022-plans-stay-within-available-cash.md) (`invest` and `rebalance` budget the fees), [ADR-0028](0028-multi-currency-portfolios.md) (an FX fee on orders in securities quoted in another currency)
 - **Introduced in:** `7b4f3a4` "feat: add trading fees"
 
 ## Context

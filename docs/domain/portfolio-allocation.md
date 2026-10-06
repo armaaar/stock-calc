@@ -28,8 +28,9 @@ stateDiagram-v2
 
 | Member | Meaning |
 | --- | --- |
+| `id` | The portfolio id (`<broker>/<portfolio>`) when it was loaded from the data folder. |
 | `securities` | The holdings: one or more `PortfolioSecurity`. |
-| `currency` | The single currency shared by all securities (taken from the first). |
+| `currency` | The currency orders are paid in, and every price, fee and amount is in. From the portfolio file, or the first security's ([ADR-0028](../architecture/adr/0028-multi-currency-portfolios.md)). |
 | `totalPrice` | Σ security `totalPrice`: the value of the proposed state. |
 | `initialTotalPrice` | Σ security `initialTotalPrice`: the value of current holdings. |
 | `totalTradedPrice` | `totalPrice − initialTotalPrice`: net cash needed (positive) or released (negative). |
@@ -55,7 +56,7 @@ The constructor assigns the fields, runs decorator validation (P1, P4), then che
 | --- | --- | --- | --- |
 | P1 | At least one security | `@IsArray() @ArrayNotEmpty()` | `ClassValidatorError` (`arrayNotEmpty` on `securities`) |
 | P2 | Target percentages sum to **exactly** 1 (`Decimal` equality) | constructor | `Error: Portfolio percentage don't add up to 1 (<sum>)` |
-| P3 | All securities have the same currency | constructor | `Error: Portfolio has securities in different currencies (<tick>: <currency>, …). Price them all in one currency, for example with a price override` |
+| P3 | Every security's price is in the portfolio's currency: quoted in it, or converted by its exchange rate | constructor | `Error: Portfolio in <currency> has securities priced in other currencies (<tick>: <currency>, …). Set the currency you pay in, and the others are converted at an exchange rate` |
 | P4 | Each security is itself valid | `@ValidateNested()` + each entity's own validation | `ClassValidatorError` |
 | P5 | Ticks are unique | constructor | `Error: Portfolio has duplicate ticks (<ticks>)` |
 
@@ -67,7 +68,10 @@ A holding of one security within a portfolio. It extends `Security`, so it carri
 | --- | --- |
 | `shares` / `initialShares` | Proposed and current whole-share counts. `initialShares` defaults to `shares`. |
 | `targetPercentage` | Target weight in [0, 1]. |
-| `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat` | The fee tariff for this security's orders: the security's own value for each part it sets in the settings file, otherwise the portfolio's ([ADR-0020](../architecture/adr/0020-per-security-fee-overrides.md)). |
+| `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`, `fxFeePercentage` | The fee tariff for this security's orders: the security's own value for each part it sets, otherwise the portfolio's, otherwise the broker's, otherwise 0 ([ADR-0020](../architecture/adr/0020-per-security-fee-overrides.md), [ADR-0027](../architecture/adr/0027-portfolios-grouped-by-broker.md)). |
+| `exchangeRate` | Set when the security is quoted in another currency than the portfolio's: an `ExchangeRate` value object (`from` = the quote's currency, `to`, `rate`, `source`, `quotedAt`). |
+| `price` / `currency` | The price of one share in the portfolio's currency: `quote.price × rate`, or `quote.price` when not converted. `quote` keeps the listed price and currency. |
+| `fxFee` | `fxFeePercentage × abs(tradedPrice)` for a converted security, else 0. Part of `tradingFee`. |
 | `isBeingTraded` | `shares !== initialShares` |
 | `totalPrice` / `initialTotalPrice` | `price × shares` / `price × initialShares` |
 | `tradedPrice` | `totalPrice − initialTotalPrice` (signed: + buy, − sell) |
@@ -82,8 +86,9 @@ A holding of one security within a portfolio. It extends `Security`, so it carri
 | S1 | `shares`, `initialShares` are integers ≥ 0 | `@IsInt() @Min(0)` at construction; the `shares` setter on every later change ([ADR-0021](../architecture/adr/0021-guard-proposed-shares.md)) |
 | S2 | `0 ≤ targetPercentage ≤ 1` | `@Min(0) @Max(1)` on getter |
 | S3 | `brokerageFeeFlat ≥ 0`, `minimumTradingFeeFlat ≥ 0` | `@Min(0)` on getters |
-| S4 | `0 ≤ tradingFeePercentage ≤ 1` | `@Min(0) @Max(1)` on getter |
+| S4 | `0 ≤ tradingFeePercentage ≤ 1`, `0 ≤ fxFeePercentage ≤ 1` | `@Min(0) @Max(1)` on getters |
 | S5 | `tick` not empty, `price ≥ 0` | inherited from `Security` |
+| S6 | An exchange rate is valid (currencies not empty, `rate > 0`) and converts from the quote's currency | `ExchangeRate` validation; constructor: `The exchange rate for '<tick>' converts from <from>, but '<tick>' is quoted in <currency>` |
 
 ## `Security`
 
@@ -101,6 +106,8 @@ Per security (one order per traded security), from [ADR-0011](../architecture/ad
 if not isBeingTraded:  tradingFee = 0
 else:                  tradingFee = brokerageFeeFlat
                                   + max(tradingFeePercentage × |tradedPrice|, minimumTradingFeeFlat)
+                                  + fxFee
+fxFee = fxFeePercentage × |tradedPrice|   for a security converted at an exchange rate, else 0
 ```
 
 Portfolio total: `totalTradingFee = Σ tradingFee`.
@@ -127,9 +134,11 @@ The **Portfolio Configuration** context provides the input for building the aggr
 
 ```jsonc
 {
+  "currency": "EUR",              // optional: what orders are paid in
   "brokerageFeeFlat": 1,          // per order
   "tradingFeePercentage": 0,      // fraction of order value
   "minimumTradingFeeFlat": 0,     // floor for the percentage part
+  "fxFeePercentage": 0.0003,      // fraction of a converted order's value
   "cash": 0,                      // optional: uninvested cash held, default 0
   "feeWarningPercentage": 0.01,   // optional: flag orders whose fee is above 1% of their value
   "securities": [
@@ -143,7 +152,7 @@ The **Portfolio Configuration** context provides the input for building the aggr
 
 The three portfolio-level fees are the default tariff. A security may set any of them, and each part it doesn't set falls back to the portfolio's on its own. An explicit `0` is an override. Unknown keys, such as a misspelled fee, are rejected.
 
-`PortfolioRepository` combines each security's settings with its [price quote](market-data.md) and its fees (falling back to the portfolio's part by part) to build each `PortfolioSecurity`, then builds the `Portfolio`. That step is where invariants P1–P4 and S1–S5 are checked.
+`PortfolioRepository` combines each security's settings with its [price quote](market-data.md), its exchange rate when it's quoted in another currency, and its fees (falling back to the portfolio's part by part) to build each `PortfolioSecurity`, then builds the `Portfolio`. That step is where invariants P1–P4 and S1–S5 are checked.
 
 ## Known gaps and open questions
 
@@ -153,6 +162,8 @@ None open. Every gap recorded here has been resolved or decided. New ones go her
 
 These are deliberate. Changing them needs a new decision record, not a fix.
 
-- **One currency per portfolio, with fees in that currency** ([ADR-0026](../architecture/adr/0026-single-currency-portfolios.md)). P3 rejects a portfolio whose quotes don't share one currency, and names each security's currency. A security listed in another currency needs a price in the portfolio's currency, from a source or an override. A fee quoted in another currency is entered converted by hand (4 USD ≈ 3.56 EUR), so it drifts with the exchange rate by cents. There's no FX conversion and no fee currency field.
+- **Fees are amounts in the portfolio's currency** ([ADR-0028](../architecture/adr/0028-multi-currency-portfolios.md)). A commission a broker charges in a listing's currency (4 USD on a USD listing) is entered converted by hand, so it drifts with the exchange rate by cents. Prices are converted; fee settings aren't.
+- **The FX fee is a plain percentage, with no minimum** ([ADR-0028](../architecture/adr/0028-multi-currency-portfolios.md)). That matches IBKR's automatic conversion, not a manual conversion with a minimum charge.
+- **A quote in a minor unit, such as GBX (pence), can't be converted live**, since there's no `FX_IDC` pair for it. Such a security needs a price override in a major currency.
 - **Withdrawals choose what to sell by weights, not fees** ([ADR-0022](../architecture/adr/0022-plans-stay-within-available-cash.md)). When holdings have very different fees, a withdrawal can sell where the order costs more, for example paying a 10 minimum fee when a fee-free holding would have covered it. The fee warning points such orders out.
 - **Only the most-derived class validates** ([ADR-0004](../architecture/adr/0004-self-validating-entities.md)). `validateClassErrors` only runs when `object.constructor === cls`, so every class with validation decorators, and every subclass of one, must call it on itself. `src/__tests__/validationGuard.test.ts` scans `src` and fails when a class doesn't.

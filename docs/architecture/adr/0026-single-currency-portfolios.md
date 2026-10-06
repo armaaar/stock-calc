@@ -1,6 +1,6 @@
 # ADR-0026: Portfolios are single-currency, with fees in that currency and no FX conversion
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0028](0028-multi-currency-portfolios.md)
 - **Date:** 2026-10-06
 
 ## Context

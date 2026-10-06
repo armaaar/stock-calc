@@ -2,14 +2,14 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import type {
-  SecurityPriceDto, SettingsDto, SettingsSecurityDto,
+  OverridesDto, SettingsDto, SettingsSecurityDto,
 } from '#src/DataDrivers/DataDrivers.type'
 import { QDVE, SPYD } from './portfolio'
 
 /**
  * DTO counterparts of the shared QDVE / SPYD fixtures, i.e. what the settings and overrides
- * data drivers return for the tracked `examples/demo/eur.jsonc` (with its broker's fees) and
- * `eur.overrides.jsonc`.
+ * data drivers return for the tracked `examples/ibkr/eur.jsonc` (with its broker's fees, except
+ * the FX fee) and `eur.overrides.jsonc`.
  */
 export const QDVE_SETTING: SettingsSecurityDto = {
   tick: QDVE.tick,
@@ -41,9 +41,17 @@ export const EUR_SETTINGS: SettingsDto = {
   securities: [QDVE_SETTING, SPYD_SETTING],
 }
 
-export const EUR_OVERRIDES: Record<string, SecurityPriceDto> = {
-  QDVE: { price: QDVE.price, currency: QDVE.currency as string },
-  SPYD: { price: SPYD.price, currency: SPYD.currency as string },
+export const EUR_OVERRIDES: OverridesDto = {
+  prices: {
+    QDVE: { price: QDVE.price, currency: QDVE.currency as string },
+    SPYD: { price: SPYD.price, currency: SPYD.currency as string },
+  },
+  rates: {},
+}
+
+/** Overrides of these prices only, and of no exchange rate. */
+export function priceOverrides(prices: OverridesDto['prices']): OverridesDto {
+  return { prices, rates: {} }
 }
 
 /** The JSONC text of `EUR_SETTINGS`, with comments in the places users put them. */
@@ -69,17 +77,21 @@ export const EUR_OVERRIDES_JSONC = `{
 }
 `
 
-/** The tracked examples folder, a data folder holding the `demo` broker. */
+/** The tracked examples folder: a data folder with an `ibkr` and a `thndr` broker. */
 export const EXAMPLES_DIR = path.resolve(import.meta.dirname, '../../examples')
 
 /**
- * The `demo` broker's files (`examples/demo`), keyed by their path in a data folder, for
+ * The example brokers' files, keyed by their path in a data folder (`ibkr/eur.jsonc`), for
  * `createDataDir`. Every price in them is overridden, so they load without a browser.
  */
 export function exampleFiles(): Record<string, string> {
-  const folder = path.join(EXAMPLES_DIR, 'demo')
-  return Object.fromEntries(fs.readdirSync(folder).map((name) => (
-    [`demo/${name}`, fs.readFileSync(path.join(folder, name), 'utf8')]
+  const brokers = fs.readdirSync(EXAMPLES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+  return Object.fromEntries(brokers.flatMap((broker) => (
+    fs.readdirSync(path.join(EXAMPLES_DIR, broker.name)).map((name) => [
+      `${broker.name}/${name}`,
+      fs.readFileSync(path.join(EXAMPLES_DIR, broker.name, name), 'utf8'),
+    ])
   )))
 }
 

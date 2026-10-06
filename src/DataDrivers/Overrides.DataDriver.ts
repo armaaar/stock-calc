@@ -9,6 +9,6 @@ export class OverridesDataDriver implements IOverridesDataDriver {
   public async getPortfolioOverrides(portfolioId: string): Promise<OverridesDto> {
     const { overrides } = portfolioFiles(this.dataDir, portfolioId)
     // A missing, empty or comments-only file means no overrides
-    return readOptionalDataFile(OverridesSchema, overrides) ?? {}
+    return readOptionalDataFile(OverridesSchema, overrides) ?? { prices: {}, rates: {} }
   }
 }

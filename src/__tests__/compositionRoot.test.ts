@@ -32,8 +32,8 @@ describe('composePortfolioUseCases', () => {
     const examples = exampleFiles()
     dataDir = createDataDir({
       ...examples,
-      'demo/live.jsonc': LIVE_SETTINGS,
-      'demo/live.overrides.jsonc': examples['demo/eur.overrides.jsonc'],
+      'ibkr/live.jsonc': LIVE_SETTINGS,
+      'ibkr/live.overrides.jsonc': examples['ibkr/eur.overrides.jsonc'],
     })
   })
 
@@ -51,7 +51,7 @@ describe('composePortfolioUseCases', () => {
 
   it('wires the real use cases, repository and file drivers on the given data folder', async () => {
     const portfolio = await composePortfolioUseCases(dataDir).invest.execute({
-      portfolio: 'demo/eur', investment: 1000,
+      portfolio: 'ibkr/eur', investment: 1000,
     })
 
     expect(shares(portfolio)).toEqual([['QDVE', 141], ['SPYD', 97]])
@@ -68,7 +68,7 @@ describe('composePortfolioUseCases', () => {
   it('reads the data folder from STOCK_CALC_DATA_DIR by default', async () => {
     vi.stubEnv('STOCK_CALC_DATA_DIR', dataDir)
 
-    const portfolio = await composePortfolioUseCases().show.execute({ portfolio: 'demo/eur' })
+    const portfolio = await composePortfolioUseCases().show.execute({ portfolio: 'ibkr/eur' })
 
     expect(shares(portfolio)).toEqual([['QDVE', 100], ['SPYD', 100]])
   })
@@ -76,9 +76,9 @@ describe('composePortfolioUseCases', () => {
   it('uses the only portfolio in the data folder when none is named', async () => {
     const examples = exampleFiles()
     const single = createDataDir({
-      'ibkr/_broker.jsonc': examples['demo/_broker.jsonc'],
-      'ibkr/eur.jsonc': examples['demo/eur.jsonc'],
-      'ibkr/eur.overrides.jsonc': examples['demo/eur.overrides.jsonc'],
+      'ibkr/_broker.jsonc': examples['ibkr/_broker.jsonc'],
+      'ibkr/eur.jsonc': examples['ibkr/eur.jsonc'],
+      'ibkr/eur.overrides.jsonc': examples['ibkr/eur.overrides.jsonc'],
     })
 
     try {
@@ -98,7 +98,7 @@ describe('composePortfolioUseCases', () => {
 
     // The fake pages never show a price, so both scrapers fail
     const error = await composePortfolioUseCases(dataDir).show
-      .execute({ portfolio: 'demo/live' })
+      .execute({ portfolio: 'ibkr/live' })
       .catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(AggregateError)

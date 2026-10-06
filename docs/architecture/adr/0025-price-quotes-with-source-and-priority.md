@@ -1,6 +1,7 @@
 # ADR-0025: Price quotes record their source and time, and sources answer in priority order
 
 - **Status:** Accepted
+- **Amended by:** [ADR-0028](0028-multi-currency-portfolios.md) (exchange rates are sourced the same way; a source quoting another listing than the security's `currency` is skipped)
 - **Date:** 2026-10-06
 - **Amends:** [ADR-0006](0006-race-multiple-price-sources.md) (the race becomes a priority order), [ADR-0008](0008-manual-price-overrides.md) (overrides can be dated)
 

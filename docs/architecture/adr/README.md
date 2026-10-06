@@ -33,8 +33,9 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-001
 | [0023](0023-buy-only-investing.md) | Buy-only investing by water-filling the underweight holdings | Accepted | 2026-10-06 |
 | [0024](0024-warn-about-expensive-orders.md) | Warn about orders whose fee is a large share of their value | Accepted | 2026-10-06 |
 | [0025](0025-price-quotes-with-source-and-priority.md) | Price quotes record their source and time, and sources answer in priority order | Accepted | 2026-10-06 |
-| [0026](0026-single-currency-portfolios.md) | Portfolios are single-currency, with fees in that currency and no FX conversion | Accepted | 2026-10-06 |
+| [0026](0026-single-currency-portfolios.md) | Portfolios are single-currency, with fees in that currency and no FX conversion | Superseded by 0028 | 2026-10-06 |
 | [0027](0027-portfolios-grouped-by-broker.md) | Portfolios live in a folder per broker | Accepted | 2026-10-06 |
+| [0028](0028-multi-currency-portfolios.md) | Securities listed in another currency are converted at an exchange rate, with an FX fee | Accepted | 2026-10-06 |
 
 ## Adding an ADR
 

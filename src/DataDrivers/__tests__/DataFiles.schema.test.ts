@@ -148,6 +148,38 @@ describe('SettingsSchema', () => {
     expect(SettingsSchema.parse({ securities: [] })).toEqual({ securities: [] })
   })
 
+  it('accepts the currency orders are paid in, and an FX fee percentage', () => {
+    const settings = SettingsSchema.parse({ currency: 'EUR', fxFeePercentage: 0.0003, securities: [] })
+
+    expect(settings).toEqual({ currency: 'EUR', fxFeePercentage: 0.0003, securities: [] })
+  })
+
+  it.each(['eur', 'EURO', 'E', ''])('rejects the currency %j', (currency) => {
+    const result = SettingsSchema.safeParse({ currency, securities: [] })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual(['currency'])
+    expect(result.error?.issues[0].message).toBe('Must be a 3-letter currency code, such as EUR')
+  })
+
+  it.each([-0.01, 1.5])('rejects the FX fee percentage %j', (fxFeePercentage) => {
+    expect(SettingsSchema.safeParse({ fxFeePercentage, securities: [] }).success).toBe(false)
+    expect(BrokerSchema.safeParse({ fxFeePercentage }).success).toBe(false)
+  })
+
+  it('accepts the currency a security is traded in', () => {
+    const security = { ...EUR_SETTINGS.securities[0], currency: 'USD' }
+
+    expect(SettingsSecuritySchema.parse(security).currency).toBe('USD')
+    expect(SettingsSecuritySchema.safeParse({ ...security, currency: 'usd' }).success).toBe(false)
+  })
+
+  it('accepts an FX fee percentage for one security', () => {
+    const security = { ...EUR_SETTINGS.securities[0], fxFeePercentage: 0.002 }
+
+    expect(SettingsSecuritySchema.parse(security).fxFeePercentage).toBe(0.002)
+  })
+
   it.each([
     ['brokerageFeeFlat', -1],
     ['minimumTradingFeeFlat', -0.01],
@@ -220,22 +252,35 @@ describe('SettingsSchema', () => {
 })
 
 describe('OverridesSchema', () => {
+  const PRICES = { QDVE: { price: 28.45, currency: 'EUR' }, SPYD: { price: 62.1, currency: 'EUR' } }
+
+  it('splits the entries into prices by tick and rates by currency pair', () => {
+    expect(OverridesSchema.parse({ ...PRICES, 'USD/EUR': { rate: 0.92 } }))
+      .toEqual({ prices: PRICES, rates: { 'USD/EUR': { rate: 0.92 } } })
+  })
+
   it('accepts a tick → price map', () => {
-    expect(OverridesSchema.parse(EUR_OVERRIDES)).toEqual(EUR_OVERRIDES)
+    expect(OverridesSchema.parse(PRICES)).toEqual(EUR_OVERRIDES)
   })
 
   it('accepts an empty map', () => {
-    expect(OverridesSchema.parse({})).toEqual({})
+    expect(OverridesSchema.parse({})).toEqual({ prices: {}, rates: {} })
   })
 
-  it('accepts an optional asOf date recording when the price was looked up', () => {
-    const overrides = { QDVE: { ...EUR_OVERRIDES.QDVE, asOf: '2026-10-01' } }
+  it('accepts an optional asOf date recording when a price or rate was looked up', () => {
+    const overrides = {
+      'QDVE': { ...PRICES.QDVE, asOf: '2026-10-01' },
+      'USD/EUR': { rate: 0.92, asOf: '2026-10-02' },
+    }
 
-    expect(OverridesSchema.parse(overrides)).toEqual(overrides)
+    expect(OverridesSchema.parse(overrides)).toEqual({
+      prices: { QDVE: overrides.QDVE },
+      rates: { 'USD/EUR': overrides['USD/EUR'] },
+    })
   })
 
   it.each(['01.10.2026', '2026-13-01', 'yesterday'])('rejects the asOf %j', (asOf) => {
-    const result = OverridesSchema.safeParse({ QDVE: { ...EUR_OVERRIDES.QDVE, asOf } })
+    const result = OverridesSchema.safeParse({ QDVE: { ...PRICES.QDVE, asOf } })
 
     expect(result.success).toBe(false)
     expect(result.error?.issues[0].path).toEqual(['QDVE', 'asOf'])
@@ -264,6 +309,40 @@ describe('OverridesSchema', () => {
 
     expect(result.success).toBe(false)
     expect(result.error?.issues[0].path).toEqual(['QDVE', 'currency'])
+  })
+
+  it.each([0, -0.9, '0.9'])('rejects the rate %j, reporting the pair in the path', (rate) => {
+    const result = OverridesSchema.safeParse({ 'USD/EUR': { rate } })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual(['USD/EUR', 'rate'])
+  })
+
+  it('rejects a price given for a currency pair, and unknown keys in a rate', () => {
+    const result = OverridesSchema.safeParse({ 'USD/EUR': { price: 0.92, currency: 'EUR' } })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((issue) => issue.path))
+      .toEqual(expect.arrayContaining([['USD/EUR', 'rate'], ['USD/EUR']]))
+  })
+
+  it.each(['usd/eur', 'USD/EURO', 'USD/', '/EUR', 'USD/EUR/GBP', 'EUR/EUR'])(
+    'rejects the currency pair %j',
+    (pair) => {
+      const result = OverridesSchema.safeParse({ [pair]: { rate: 1 } })
+
+      expect(result.success).toBe(false)
+      expect(result.error?.issues[0].path).toEqual([pair])
+      expect(result.error?.issues[0].message).toBe(
+        'A rate is keyed <FROM>/<TO> with two different 3-letter currency codes, such as USD/EUR',
+      )
+    },
+  )
+
+  it('names the entry in the file error', () => {
+    expect(() => parseDataFile(OverridesSchema, { 'USD/EUR': { rate: -1 } }, FILE)).toThrow(
+      `Invalid data file '${FILE}':\n✖ Too small: expected number to be >0\n  → at ["USD/EUR"].rate`,
+    )
   })
 })
 
@@ -306,22 +385,36 @@ describe('tracked example data files', () => {
   const settings = new SettingsDataDriver(EXAMPLES_DIR)
   const overrides = new OverridesDataDriver(EXAMPLES_DIR)
 
-  it('are the demo broker, outside the data folder, read through the data drivers', () => {
-    expect(listPortfolioIds(EXAMPLES_DIR)).toEqual(['demo/egp', 'demo/eur'])
+  it('are two brokers outside the data folder, read through the data drivers', () => {
+    expect(listPortfolioIds(EXAMPLES_DIR)).toEqual(['ibkr/eur', 'ibkr/mixed', 'thndr/egp'])
   })
 
-  it('demo/eur is the example portfolio, with its fees from the broker file', async () => {
-    await expect(settings.getPortfolioSettings('demo/eur')).resolves.toEqual(EUR_SETTINGS)
-    await expect(overrides.getPortfolioOverrides('demo/eur')).resolves.toEqual(EUR_OVERRIDES)
+  it('ibkr/eur is the example portfolio, with its fees from the broker file', async () => {
+    await expect(settings.getPortfolioSettings('ibkr/eur'))
+      .resolves.toEqual({ ...EUR_SETTINGS, fxFeePercentage: 0.0003 })
+    await expect(overrides.getPortfolioOverrides('ibkr/eur')).resolves.toEqual(EUR_OVERRIDES)
   })
 
-  it('demo/egp sets its own fees, a per-security fee, and dated overrides', async () => {
-    const egp = await settings.getPortfolioSettings('demo/egp')
+  it('ibkr/mixed pays in EUR for a security traded in USD, with an overridden rate', async () => {
+    const mixed = await settings.getPortfolioSettings('ibkr/mixed')
+    const { prices, rates } = await overrides.getPortfolioOverrides('ibkr/mixed')
 
-    expect(egp.brokerageFeeFlat).toBe(2)
+    expect(mixed.currency).toBe('EUR')
+    expect(mixed.fxFeePercentage).toBe(0.0003)
+    expect(mixed.securities.map((sec) => sec.currency)).toEqual([undefined, 'USD'])
+    expect(prices.CSPX.currency).toBe('USD')
+    expect(rates['USD/EUR'].rate).toBe(0.89)
+  })
+
+  it('thndr/egp takes its broker\'s fees, with cash, a per-security fee and dated overrides', async () => {
+    const egp = await settings.getPortfolioSettings('thndr/egp')
+
+    expect(egp).toMatchObject({
+      brokerageFeeFlat: 2, tradingFeePercentage: 0.002, minimumTradingFeeFlat: 10, cash: 150,
+    })
     expect(egp.securities.map((sec) => sec.minimumTradingFeeFlat)).toEqual([undefined, 5])
     // Every security is overridden, so the example runs offline
-    const prices = await overrides.getPortfolioOverrides('demo/egp')
+    const { prices } = await overrides.getPortfolioOverrides('thndr/egp')
     expect(Object.keys(prices)).toEqual(egp.securities.map((sec) => sec.tick))
     expect(prices.ESRS.asOf).toBe('2026-10-01')
   })

@@ -19,8 +19,15 @@ export enum PresentMode {
 export type SecurityView = {
   tick: string
   exchange?: string
+  /** The portfolio's currency, which `price` and every amount are in. */
   currency?: string
   price: number
+  /** Listed in another currency only: the quoted price, in `listedCurrency`. */
+  listedPrice?: number
+  /** Listed in another currency only: the currency it's quoted in. */
+  listedCurrency?: string
+  /** Listed in another currency only: what one unit of `listedCurrency` is worth. */
+  exchangeRate?: number
   /** Where the price came from, such as `justetf.com` or `override`, when known. */
   priceSource?: string
   /** When the price was quoted, when known: an ISO 8601 UTC timestamp, or a date for overrides. */
@@ -43,13 +50,28 @@ export type SecurityView = {
   feePercent?: number
 }
 
+/** An exchange rate the plan uses, with where and when it was quoted. */
+export type RateView = {
+  from: string
+  to: string
+  /** What one unit of `from` is worth in `to`. */
+  rate: number
+  source?: string
+  /** An ISO 8601 UTC timestamp, or a date for overrides. */
+  quotedAt?: string
+}
+
 /**
  * A planned portfolio as the interfaces show it, independent of how they render it (CLI table,
  * MCP structured content). Totals a mode doesn't have are left out.
  */
 export type PortfolioView = {
+  /** The portfolio's id, such as `ibkr/eur`, when it was loaded from the data folder. */
+  portfolio?: string
   currency?: string
   securities: SecurityView[]
+  /** The exchange rates the prices were converted at, one per pair; left out when none. */
+  rates?: RateView[]
   /** Proposed value (`ONLY_NEW`, `WITH_DELTA`) or current value (`ONLY_INITIAL`). */
   portfolioPrice?: number
   /** `ONLY_DELTA`, `WITH_DELTA`: net cash needed (positive) or released (negative). */
@@ -84,7 +106,13 @@ export function toPortfolioView(
   assertPresentMode(mode)
 
   const securities = toSecurityViews(portfolio, mode)
-  const { currency } = portfolio
+  const rates = rateViews(portfolio)
+  const header = {
+    ...(portfolio.id === undefined ? {} : { portfolio: portfolio.id }),
+    currency: portfolio.currency,
+    securities,
+    ...(rates.length === 0 ? {} : { rates }),
+  }
   const trades = {
     tradedPrice: portfolio.totalTradedPrice.toNumber(),
     tradingFee: portfolio.totalTradingFee.toNumber(),
@@ -94,19 +122,34 @@ export function toPortfolioView(
 
   switch (mode) {
     case PresentMode.ONLY_NEW:
-      return { currency, securities, portfolioPrice: portfolio.totalPrice.toNumber() }
+      return { ...header, portfolioPrice: portfolio.totalPrice.toNumber() }
     case PresentMode.ONLY_INITIAL:
       return {
-        currency,
-        securities,
+        ...header,
         portfolioPrice: portfolio.initialTotalPrice.toNumber(),
         cash: portfolio.cash.toNumber(),
       }
     case PresentMode.ONLY_DELTA:
-      return { currency, securities, ...trades }
+      return { ...header, ...trades }
     case PresentMode.WITH_DELTA:
-      return { currency, securities, portfolioPrice: portfolio.totalPrice.toNumber(), ...trades }
+      return { ...header, portfolioPrice: portfolio.totalPrice.toNumber(), ...trades }
   }
+}
+
+/** Each exchange rate once, in the order the securities first use it. */
+function rateViews(portfolio: Portfolio): RateView[] {
+  const rates = new Map<string, RateView>()
+  for (const { exchangeRate } of portfolio.securities) {
+    if (exchangeRate && !rates.has(exchangeRate.from)) {
+      const {
+        from, to, rate, source, quotedAt,
+      } = exchangeRate.toValues()
+      rates.set(from, {
+        from, to, rate, source, quotedAt,
+      })
+    }
+  }
+  return [...rates.values()]
 }
 
 /** A sentence per expensive order, e.g. "QDVE: the 3 EUR fee is 1.06% of the 284.5 EUR order". */
@@ -140,6 +183,11 @@ function toSecurityViews(portfolio: Portfolio, mode: PresentMode): SecurityView[
       exchange: sec.exchange,
       currency: sec.currency,
       price: sec.price.toNumber(),
+      ...(sec.exchangeRate && {
+        listedPrice: sec.quote.price.toNumber(),
+        listedCurrency: sec.quote.currency,
+        exchangeRate: sec.exchangeRate.rate.toNumber(),
+      }),
       priceSource: sec.quote.source,
       pricedAt: sec.quote.quotedAt,
       targetPercent: roundPercentage(sec.targetPercentage.toNumber()),
@@ -152,7 +200,7 @@ function holdingView(
   sec: PortfolioSecurity,
   mode: PresentMode,
   grossTradedPrice: Decimal,
-): Omit<SecurityView, 'tick' | 'exchange' | 'currency' | 'price' | 'priceSource' | 'pricedAt' | 'targetPercent'> {
+): Omit<SecurityView, 'tick' | 'exchange' | 'currency' | 'price' | 'listedPrice' | 'listedCurrency' | 'exchangeRate' | 'priceSource' | 'pricedAt' | 'targetPercent'> {
   const proposed = {
     shares: sec.shares,
     totalPrice: sec.totalPrice.toNumber(),

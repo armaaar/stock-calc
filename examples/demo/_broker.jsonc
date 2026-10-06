@@ -1,7 +1,0 @@
-{
-  // Optional. What every portfolio in this folder shares unless it sets its own. Fees are in
-  // each portfolio's currency; a fee part set nowhere is 0.
-  "brokerageFeeFlat": 1,
-  "tradingFeePercentage": 0,
-  "minimumTradingFeeFlat": 0
-}

@@ -1,0 +1,10 @@
+{
+  // Optional. What every portfolio in this broker folder shares, unless a portfolio or one of
+  // its securities sets its own. Fees are in each portfolio's currency; a part set nowhere is 0.
+  "brokerageFeeFlat": 1,
+  "tradingFeePercentage": 0,
+  "minimumTradingFeeFlat": 0,
+  // Buying or selling a security listed in another currency than the portfolio's goes through
+  // a currency exchange: 0.03% of the order's value.
+  "fxFeePercentage": 0.0003
+}

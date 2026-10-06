@@ -1,0 +1,6 @@
+{
+  // Thndr's tariff, shared by every portfolio in this folder
+  "brokerageFeeFlat": 2,
+  "tradingFeePercentage": 0.002,
+  "minimumTradingFeeFlat": 10
+}

@@ -16,10 +16,13 @@ import { createPortfolioUseCases, PortfolioUseCases } from '#src/UseCases/Portfo
 export function composePortfolioUseCases(dataDir: string = dataDirectory()): PortfolioUseCases {
   const launchBrowser = () => launch({ headless: true })
 
+  // TradingView prices securities and exchange rates, in one browser
+  const tradingView = new TradingViewDataDriver(launchBrowser)
   const portfolioRepo = new PortfolioRepository({
     settings: new SettingsDataDriver(dataDir),
     overrides: new OverridesDataDriver(dataDir),
-    prices: [new JustEtfDataDriver(launchBrowser), new TradingViewDataDriver(launchBrowser)],
+    prices: [new JustEtfDataDriver(launchBrowser), tradingView],
+    rates: [tradingView],
   })
 
   return createPortfolioUseCases(portfolioRepo)

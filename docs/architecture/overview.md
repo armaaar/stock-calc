@@ -23,8 +23,8 @@ flowchart LR
 | External system | Used for | Lookup key | Notes |
 | --- | --- | --- | --- |
 | justetf.com | ETF quotes | `isin` | Only works for securities with an ISIN. 2 s selector timeout. |
-| tradingview.com | Any listed symbol | `exchange` + `tick` | 30 s selector timeout. |
-| Local JSONC files | Broker fees, portfolio definition and price overrides | Portfolio id `<broker>/<portfolio>` (`--pt`/`--portfolio` or the `portfolio` tool input; optional with one portfolio) | Git-ignored. The tracked examples are the `demo` broker in `examples/`. |
+| tradingview.com | Any listed symbol, and exchange rates | `exchange` + `tick`; `FX_IDC:<FROM><TO>` for rates | 30 s selector timeout. |
+| Local JSONC files | Broker fees, portfolio definition and price overrides | Portfolio id `<broker>/<portfolio>` (`--pt`/`--portfolio` or the `portfolio` tool input; optional with one portfolio) | Git-ignored. The tracked examples are the `ibkr` and `thndr` brokers in `examples/`. |
 | MCP clients (Claude Code, …) | Calling the use cases as tools | Tool name | Configured by the project's `.mcp.json`. |
 
 ## Layers
@@ -95,6 +95,7 @@ sequenceDiagram
       R-->>R: use override price
     else
       R->>P: justEtf.getPrice + tradingView.getPrice (first in list order wins)
+      R->>P: tradingView.getRate(from, to) per other listing currency (unless overridden)
     end
   end
   R->>E: new Portfolio({ securities }) (validates invariants)

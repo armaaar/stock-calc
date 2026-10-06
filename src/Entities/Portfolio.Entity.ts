@@ -1,11 +1,18 @@
 import {
-  ArrayNotEmpty, IsArray, IsNumber, Max, Min, ValidateNested,
+  ArrayNotEmpty, IsArray, IsNotEmpty, IsNumber, IsOptional, Max, Min, ValidateNested,
 } from 'class-validator'
 import Decimal from 'decimal.js'
 import { validateClassErrors } from '#src/Shared/ClassValidatorError'
 import { PortfolioSecurity } from './PortfolioSecurity.Entity'
 
 export interface IPortfolio {
+  /** Which portfolio this is, such as `ibkr/eur`, when it was loaded from the data folder. */
+  id?: string
+  /**
+   * The currency orders are paid in, and every price, fee and amount is in. By default, the
+   * first security's.
+   */
+  currency?: string
   securities: readonly PortfolioSecurity[]
   /** Uninvested cash held with the holdings, in the portfolio's currency; default 0. */
   cash?: number
@@ -16,6 +23,10 @@ export interface IPortfolio {
 export const DEFAULT_FEE_WARNING_PERCENTAGE = 0.01
 
 export class Portfolio {
+  @IsOptional()
+  @IsNotEmpty()
+  public readonly id?: string
+
   @IsArray()
   @ArrayNotEmpty()
   @ValidateNested()
@@ -45,11 +56,12 @@ export class Portfolio {
   private plannedDeposit = new Decimal(0)
 
   constructor({
-    securities, cash = 0, feeWarningPercentage = DEFAULT_FEE_WARNING_PERCENTAGE,
+    id, currency, securities, cash = 0, feeWarningPercentage = DEFAULT_FEE_WARNING_PERCENTAGE,
   }: IPortfolio) {
+    this.id = id
     // A frozen copy: changing the caller's array later can't add, remove or swap securities
     this.securities = Object.freeze([...securities])
-    this.currency = securities[0]?.currency
+    this.currency = currency ?? securities[0]?.currency
     this.cash = new Decimal(cash)
     this.feeWarningPercentage = new Decimal(feeWarningPercentage)
 
@@ -66,8 +78,9 @@ export class Portfolio {
     if (!securities.every((sec) => sec.currency === this.currency)) {
       const quotes = securities.map((sec) => `${sec.tick}: ${sec.currency ?? 'unknown'}`)
       throw Error(
-        `Portfolio has securities in different currencies (${quotes.join(', ')}). `
-        + 'Price them all in one currency, for example with a price override',
+        `Portfolio in ${this.currency ?? 'an unknown currency'} has securities priced in other `
+        + `currencies (${quotes.join(', ')}). Set the currency you pay in, and the others are `
+        + 'converted at an exchange rate',
       )
     }
 
@@ -471,6 +484,8 @@ export class Portfolio {
 
   public clone(): Portfolio {
     const copy = new Portfolio({
+      id: this.id,
+      currency: this.currency,
       securities: this.securities.map((sec) => sec.clone()),
       cash: this.cashValue,
       feeWarningPercentage: this.feeWarningPercentageValue,

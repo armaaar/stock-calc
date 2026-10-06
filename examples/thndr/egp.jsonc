@@ -1,0 +1,21 @@
+{
+  // Fees come from _broker.jsonc
+  "cash": 150, // optional: uninvested cash, in the portfolio's currency
+  "securities": [
+    {
+      "tick": "ETEL",
+      "exchange": "EGX",
+      "shares": 32,
+      "targetPercentage": 0.8
+    },
+    {
+      "tick": "ESRS",
+      "exchange": "EGX",
+      "shares": 5,
+      "targetPercentage": 0.2,
+      // Optional: this security's own fees. Each part set here replaces the portfolio's and the
+      // broker's for this security's orders; the others fall back.
+      "minimumTradingFeeFlat": 5
+    }
+  ]
+}

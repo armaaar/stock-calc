@@ -42,4 +42,4 @@ Copy an existing `McpTools/*.McpTool.ts`:
 
 `__tests__/server.test.ts` connects a real SDK `Client` through `InMemoryTransport.createLinkedPair()` to `createMcpServer(useCasesOver(fakePortfolioRepository()))`, so the real use cases and domain run on `buildPortfolio()` with no module mocks. `__tests__/app.test.ts` mocks only the stdio transport (the process boundary) and runs the real composition root against a temporary data folder.
 
-For a manual end-to-end check, spawn the exact `.mcp.json` command with the SDK's `StdioClientTransport` with `STOCK_CALC_DATA_DIR=examples` and the `demo/eur` portfolio (see the root CLAUDE.md).
+For a manual end-to-end check, spawn the exact `.mcp.json` command with the SDK's `StdioClientTransport` with `STOCK_CALC_DATA_DIR=examples` and the `ibkr/eur` portfolio (see the root CLAUDE.md).

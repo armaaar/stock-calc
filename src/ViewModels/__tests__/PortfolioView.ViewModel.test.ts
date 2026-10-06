@@ -1,6 +1,8 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import {
+  buildPortfolio, ICOM, QDVE, SPYD, USD_EUR,
+} from '#src/__fixtures__/portfolio'
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
 import {
@@ -280,5 +282,74 @@ describe('toPortfolioView', () => {
   it('throws on an unknown mode', () => {
     expect(() => toPortfolioView(buildPortfolio(), 42 as PresentMode))
       .toThrow('Unknown present mode \'42\'')
+  })
+
+  describe('with a security listed in another currency', () => {
+    /** ibkr/eur: QDVE in EUR, ICOM listed at 41.20 USD and converted at 0.9. */
+    const mixed = () => new Portfolio({
+      id: 'ibkr/eur',
+      currency: 'EUR',
+      securities: [
+        new PortfolioSecurity({ ...QDVE, targetPercentage: 0.4 }),
+        new PortfolioSecurity({ ...ICOM, shares: 110, initialShares: 100 }),
+      ],
+    })
+
+    it.each([
+      PresentMode.ONLY_NEW,
+      PresentMode.ONLY_INITIAL,
+      PresentMode.ONLY_DELTA,
+      PresentMode.WITH_DELTA,
+    ])('mode %i names the portfolio and lists the rates it was converted at', (mode) => {
+      const view = toPortfolioView(mixed(), mode)
+
+      expect(view.portfolio).toBe('ibkr/eur')
+      expect(view.currency).toBe('EUR')
+      expect(view.rates).toEqual([USD_EUR])
+    })
+
+    it('prices a converted security in the portfolio\'s currency, with its listed price', () => {
+      const [qdve, icom] = toPortfolioView(mixed(), PresentMode.WITH_DELTA).securities
+
+      expect(icom).toMatchObject({
+        tick: 'ICOM',
+        currency: 'EUR',
+        price: 37.08,
+        listedPrice: 41.2,
+        listedCurrency: 'USD',
+        exchangeRate: 0.9,
+        tradedPrice: 370.8,
+        tradingFee: 1.11124,
+      })
+      expect(qdve).not.toHaveProperty('listedPrice')
+      expect(qdve).not.toHaveProperty('listedCurrency')
+      expect(qdve).not.toHaveProperty('exchangeRate')
+    })
+
+    it('lists each rate once, in the order the securities first use it', () => {
+      const GBP_EUR = { from: 'GBP', to: 'EUR', rate: 1.15 }
+      const portfolio = new Portfolio({
+        currency: 'EUR',
+        securities: [
+          new PortfolioSecurity({
+            ...ICOM, tick: 'IGLN', currency: 'GBP', targetPercentage: 0.2, exchangeRate: GBP_EUR,
+          }),
+          new PortfolioSecurity({ ...ICOM, targetPercentage: 0.4 }),
+          new PortfolioSecurity({ ...ICOM, tick: 'CSPX', targetPercentage: 0.4 }),
+        ],
+      })
+
+      expect(toPortfolioView(portfolio).rates).toEqual([
+        { ...GBP_EUR, source: undefined, quotedAt: undefined },
+        USD_EUR,
+      ])
+    })
+
+    it('leaves the portfolio and the rates out when there are none', () => {
+      const view = toPortfolioView(buildPortfolio())
+
+      expect(view).not.toHaveProperty('portfolio')
+      expect(view).not.toHaveProperty('rates')
+    })
   })
 })

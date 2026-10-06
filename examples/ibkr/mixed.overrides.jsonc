@@ -1,0 +1,6 @@
+{
+  "QDVE": { "price": 28.45, "currency": "EUR" },
+  "CSPX": { "price": 702.5, "currency": "USD" },
+  // A rate is keyed <FROM>/<TO>: one USD is worth 0.89 EUR. Without it, the rate is fetched live.
+  "USD/EUR": { "rate": 0.89, "asOf": "2026-10-06" }
+}

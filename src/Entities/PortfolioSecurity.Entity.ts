@@ -3,6 +3,7 @@ import {
 } from 'class-validator'
 import Decimal from 'decimal.js'
 import { validateClassErrors } from '#src/Shared/ClassValidatorError'
+import { ExchangeRate, IExchangeRate } from './ExchangeRate.ValueObject'
 import { ISecurety, Security } from './Security.Entity'
 
 export interface IPortfolioSecurity extends ISecurety {
@@ -12,6 +13,13 @@ export interface IPortfolioSecurity extends ISecurety {
   brokerageFeeFlat?: number
   tradingFeePercentage?: number
   minimumTradingFeeFlat?: number
+  /**
+   * Converts the quote into the portfolio's currency when the security is listed in another
+   * one. Its `from` must be the quote's currency.
+   */
+  exchangeRate?: IExchangeRate
+  /** The fraction of a converted order's value the broker charges to exchange the currency. */
+  fxFeePercentage?: number
 }
 
 export class PortfolioSecurity extends Security {
@@ -43,6 +51,17 @@ export class PortfolioSecurity extends Security {
   @Min(0)
   protected get minimumTradingFeeFlatValue(): number {
     return this.minimumTradingFeeFlat.toNumber()
+  }
+
+  /** Set when the security is listed in another currency than the portfolio's. */
+  public readonly exchangeRate?: ExchangeRate
+
+  public readonly fxFeePercentage: Decimal
+
+  @Min(0)
+  @Max(1)
+  protected get fxFeePercentageValue(): number {
+    return this.fxFeePercentage.toNumber()
   }
 
   private proposedShares: number
@@ -78,8 +97,28 @@ export class PortfolioSecurity extends Security {
     this.brokerageFeeFlat = new Decimal(args.brokerageFeeFlat ?? 0)
     this.tradingFeePercentage = new Decimal(args.tradingFeePercentage ?? 0)
     this.minimumTradingFeeFlat = new Decimal(args.minimumTradingFeeFlat ?? 0)
+    // It validates itself, so a bad rate fails before the holding is checked
+    this.exchangeRate = args.exchangeRate && new ExchangeRate(args.exchangeRate)
+    this.fxFeePercentage = new Decimal(args.fxFeePercentage ?? 0)
 
     validateClassErrors(this, PortfolioSecurity)
+
+    if (this.exchangeRate && this.exchangeRate.from !== this.quote.currency) {
+      throw Error(
+        `The exchange rate for '${this.tick}' converts from ${this.exchangeRate.from}, but `
+        + `'${this.tick}' is quoted in ${this.quote.currency ?? 'an unknown currency'}`,
+      )
+    }
+  }
+
+  /** The price of one share in the portfolio's currency: the quote, converted if need be. */
+  public override get price(): Decimal {
+    return this.exchangeRate ? this.exchangeRate.convert(this.quote.price) : this.quote.price
+  }
+
+  /** The portfolio's currency: the one the price is in. `quote.currency` is the listing's. */
+  public override get currency(): string | undefined {
+    return this.exchangeRate ? this.exchangeRate.to : this.quote.currency
   }
 
   public get isBeingTraded(): boolean {
@@ -107,7 +146,13 @@ export class PortfolioSecurity extends Security {
       ? percentageFee
       : this.minimumTradingFeeFlat
 
-    return this.brokerageFeeFlat.add(variableFee)
+    return this.brokerageFeeFlat.add(variableFee).add(this.fxFee)
+  }
+
+  /** What exchanging the currency costs for this order: 0 unless the price is converted. */
+  public get fxFee(): Decimal {
+    if (!this.exchangeRate) return new Decimal(0)
+    return this.fxFeePercentage.times(this.tradedPrice.abs())
   }
 
   /**
@@ -145,6 +190,8 @@ export class PortfolioSecurity extends Security {
       brokerageFeeFlat: this.brokerageFeeFlatValue,
       tradingFeePercentage: this.tradingFeePercentageValue,
       minimumTradingFeeFlat: this.minimumTradingFeeFlatValue,
+      exchangeRate: this.exchangeRate?.toValues(),
+      fxFeePercentage: this.fxFeePercentageValue,
     })
   }
 }

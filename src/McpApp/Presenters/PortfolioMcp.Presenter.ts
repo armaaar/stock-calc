@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import {
-  PortfolioView, PresentMode, SecurityView, toPortfolioView,
+  PortfolioView, PresentMode, RateView, SecurityView, toPortfolioView,
 } from '#src/ViewModels/PortfolioView.ViewModel'
 
 export { PresentMode }
@@ -10,8 +10,14 @@ export { PresentMode }
 const securitySchema = z.object({
   tick: z.string(),
   exchange: z.string().optional(),
-  currency: z.string().optional(),
+  currency: z.string().optional().describe('The portfolio\'s currency, which price is in'),
   price: z.number(),
+  listedPrice: z.number().optional()
+    .describe('Listed in another currency only: the quoted price, in listedCurrency'),
+  listedCurrency: z.string().optional()
+    .describe('Listed in another currency only: the currency it is quoted in'),
+  exchangeRate: z.number().optional()
+    .describe('Listed in another currency only: what one unit of listedCurrency is worth'),
   priceSource: z.string().optional().describe('Where the price came from, e.g. justetf.com or override'),
   pricedAt: z.string().optional()
     .describe('When the price was quoted: ISO 8601 UTC timestamp, or a date for overrides'),
@@ -27,10 +33,22 @@ const securitySchema = z.object({
   feePercent: z.number().optional().describe('The fee as a percentage of the order value'),
 }) satisfies z.ZodType<SecurityView>
 
+const rateSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  rate: z.number().describe('What one unit of from is worth in to'),
+  source: z.string().optional().describe('Where the rate came from, e.g. tradingview.com or override'),
+  quotedAt: z.string().optional()
+    .describe('When the rate was quoted: ISO 8601 UTC timestamp, or a date for overrides'),
+}) satisfies z.ZodType<RateView>
+
 /** The tool output schema: a `PortfolioView`, described for clients. */
 export const portfolioOutputSchema = {
-  currency: z.string().optional(),
+  portfolio: z.string().optional().describe('The portfolio id, <broker>/<portfolio>'),
+  currency: z.string().optional().describe('The currency every price and amount is in'),
   securities: z.array(securitySchema),
+  rates: z.array(rateSchema).optional()
+    .describe('The exchange rates securities listed in another currency were converted at'),
   portfolioPrice: z.number().optional(),
   tradedPrice: z.number().optional().describe('Net cash needed (positive) or released (negative)'),
   tradingFee: z.number().optional(),

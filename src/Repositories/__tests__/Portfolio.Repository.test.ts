@@ -2,10 +2,11 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
 import type {
-  IOverridesDataDriver, IPriceDataDriver, ISettingsDataDriver, SecurityPriceDto,
+  IExchangeRateDataDriver, IOverridesDataDriver, IPriceDataDriver, ISettingsDataDriver,
+  SecurityPriceDto,
 } from '#src/DataDrivers/DataDrivers.type'
 import {
-  EUR_OVERRIDES, EUR_SETTINGS, QDVE_SETTING, SPYD_SETTING, withoutIsin,
+  EUR_OVERRIDES, EUR_SETTINGS, priceOverrides, QDVE_SETTING, SPYD_SETTING, withoutIsin,
 } from '#src/__fixtures__/dataFiles'
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
@@ -25,19 +26,24 @@ function fakeSettingsDataDriver() {
 function fakeOverridesDataDriver() {
   return {
     getPortfolioOverrides: vi.fn<IOverridesDataDriver['getPortfolioOverrides']>()
-      .mockResolvedValue({}),
+      .mockResolvedValue(priceOverrides({})),
   } satisfies IOverridesDataDriver
 }
 
-/** A price source that can't price anything; its browser launches and closes fine. */
+/**
+ * A price and exchange-rate source that can't price or convert anything; its browser launches
+ * and closes fine.
+ */
 function fakePriceDataDriver(name: string) {
   return {
     name,
     getPrice: vi.fn<IPriceDataDriver['getPrice']>()
       .mockRejectedValue(Error(`${name}: not found`)),
+    getRate: vi.fn<IExchangeRateDataDriver['getRate']>()
+      .mockRejectedValue(Error(`${name}: no rate`)),
     launchBrowser: vi.fn<IPriceDataDriver['launchBrowser']>().mockResolvedValue(undefined),
     closeBrowser: vi.fn<IPriceDataDriver['closeBrowser']>().mockResolvedValue(undefined),
-  } satisfies IPriceDataDriver
+  } satisfies IPriceDataDriver & IExchangeRateDataDriver
 }
 
 type FakePriceDataDriver = ReturnType<typeof fakePriceDataDriver>
@@ -65,10 +71,16 @@ describe('PortfolioRepository', () => {
   let tradingView: FakePriceDataDriver
   let repository: PortfolioRepository
 
-  /** A repository over the shared settings / overrides fakes and the given price drivers. */
-  const repositoryWith = (prices: IPriceDataDriver[]) => (
-    new PortfolioRepository({ settings, overrides, prices })
-  )
+  /**
+   * A repository over the shared settings / overrides fakes and the given price drivers, with
+   * no rate source unless some are given.
+   */
+  const repositoryWith = (
+    prices: IPriceDataDriver[],
+    rates: IExchangeRateDataDriver[] = [],
+  ) => new PortfolioRepository({
+    settings, overrides, prices, rates,
+  })
 
   function expectBrowsersClosed() {
     expect(justEtf.closeBrowser).toHaveBeenCalledOnce()
@@ -138,7 +150,9 @@ describe('PortfolioRepository', () => {
     })
 
     it('scrapes only the ticks that are not overridden', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR_OVERRIDES.prices.QDVE,
+      }))
       tradingView.getPrice.mockResolvedValue(EUR(62.1))
 
       const portfolio = await repository.getPortfolio('ibkr/eur')
@@ -149,7 +163,10 @@ describe('PortfolioRepository', () => {
     })
 
     it('an override wins even when a scraper could price the security', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR(1), SPYD: EUR(2) })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR(1),
+        SPYD: EUR(2),
+      }))
       justEtf.getPrice.mockResolvedValue(EUR(999))
 
       const portfolio = await repository.getPortfolio('ibkr/eur')
@@ -204,7 +221,9 @@ describe('PortfolioRepository', () => {
       justEtf.getPrice.mockResolvedValue(EUR(10))
 
       const portfolio = await new PortfolioRepository(
-        { settings, overrides, prices: [justEtf] },
+        {
+          settings, overrides, prices: [justEtf], rates: [],
+        },
         () => now,
       ).getPortfolio('ibkr/eur')
 
@@ -224,10 +243,10 @@ describe('PortfolioRepository', () => {
     })
 
     it('marks overridden prices as overrides, dated by their optional asOf', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({
-        QDVE: { ...EUR_OVERRIDES.QDVE, asOf: '2026-10-01' },
-        SPYD: EUR_OVERRIDES.SPYD,
-      })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: { ...EUR_OVERRIDES.prices.QDVE, asOf: '2026-10-01' },
+        SPYD: EUR_OVERRIDES.prices.SPYD,
+      }))
 
       const [qdve, spyd] = (await repository.getPortfolio('ibkr/eur')).securities
 
@@ -269,7 +288,9 @@ describe('PortfolioRepository', () => {
     })
 
     it('one unpriceable security fails the whole portfolio', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR_OVERRIDES.prices.QDVE,
+      }))
 
       await expect(repository.getPortfolio('ibkr/eur')).rejects.toBeInstanceOf(AggregateError)
     })
@@ -324,7 +345,9 @@ describe('PortfolioRepository', () => {
     })
 
     it('names the un-overridden security when there is no price driver', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR_OVERRIDES.prices.QDVE,
+      }))
 
       await expect(repositoryWith([]).getPortfolio('ibkr/eur'))
         .rejects.toThrow('No price source for \'SPYD\': add its price to the overrides')
@@ -365,7 +388,7 @@ describe('PortfolioRepository', () => {
           shares: setting.shares,
           initialShares: setting.shares,
         })
-        expect(security.price.toNumber()).toBe(EUR_OVERRIDES[setting.tick].price)
+        expect(security.price.toNumber()).toBe(EUR_OVERRIDES.prices[setting.tick].price)
         expect(security.targetPercentage.toNumber()).toBe(setting.targetPercentage)
       })
     })
@@ -460,10 +483,10 @@ describe('PortfolioRepository', () => {
     })
 
     it('takes the currency from the price quote', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
         QDVE: { price: 28.45, currency: 'USD' },
         SPYD: { price: 62.1, currency: 'USD' },
-      })
+      }))
 
       const portfolio = await repository.getPortfolio('ibkr/eur')
 
@@ -471,14 +494,247 @@ describe('PortfolioRepository', () => {
     })
 
     it('propagates Portfolio invariant errors (mixed currencies)', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
         QDVE: { price: 28.45, currency: 'EUR' },
         SPYD: { price: 62.1, currency: 'USD' },
-      })
+      }))
 
       await expect(repository.getPortfolio('ibkr/eur'))
-        .rejects.toThrow('Portfolio has securities in different currencies (QDVE: EUR, SPYD: USD)')
+        .rejects.toThrow('Portfolio in EUR has securities priced in other currencies (QDVE: EUR, SPYD: USD)')
+      // Without a portfolio currency, nothing is converted, so no rate is asked for
+      expect(tradingView.getRate).not.toHaveBeenCalled()
       expectBrowsersClosed()
+    })
+
+    it('names the portfolio by its id', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+
+      expect((await repository.getPortfolio('thndr/egp')).id).toBe('thndr/egp')
+      expect((await repository.getPortfolio()).id).toBe('ibkr/eur')
+    })
+  })
+
+  describe('a security traded in a set currency', () => {
+    const SPYD_USD = { ...SPYD_SETTING, currency: 'USD' }
+
+    beforeEach(() => {
+      settings.getPortfolioSettings.mockResolvedValue({
+        ...EUR_SETTINGS, currency: 'EUR', securities: [QDVE_SETTING, SPYD_USD],
+      })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR_OVERRIDES.prices.QDVE,
+      }))
+      tradingView.getRate.mockResolvedValue(0.9)
+    })
+
+    it('skips a source that quotes another listing, and takes the next one', async () => {
+      justEtf.getPrice.mockResolvedValue(EUR(62.1))
+      tradingView.getPrice.mockResolvedValue({ price: 69, currency: 'USD' })
+
+      const spyd = (await repositoryWith([justEtf, tradingView], [tradingView])
+        .getPortfolio('ibkr/eur')).securities[1]
+
+      expect(spyd.quote.currency).toBe('USD')
+      expect(spyd.quote.source).toBe('tradingview')
+      expect(spyd.exchangeRate?.rate.toNumber()).toBe(0.9)
+      expect(spyd.price.toNumber()).toBe(62.1)
+    })
+
+    it('reports the sources that quoted another currency when none quotes it in its own', async () => {
+      justEtf.getPrice.mockResolvedValue(EUR(62.1))
+
+      const error = await repositoryWith([justEtf, tradingView], [tradingView])
+        .getPortfolio('ibkr/eur').catch((e: unknown) => e)
+
+      expect((error as AggregateError).message).toBe('No price source could price \'SPYD\' in USD')
+      expect((error as AggregateError).errors.map((e: Error) => e.message)).toEqual([
+        'justetf quoted \'SPYD\' in EUR, but it is traded in USD',
+        'tradingview: not found',
+      ])
+    })
+
+    it('rejects an override in another currency', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+
+      await expect(repositoryWith([justEtf, tradingView]).getPortfolio('ibkr/eur'))
+        .rejects.toThrow('The override for \'SPYD\' is in EUR, but it is traded in USD')
+    })
+
+    it('accepts an override in its own currency', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR_OVERRIDES.prices.QDVE,
+        SPYD: { price: 69, currency: 'USD' },
+      }))
+
+      const spyd = (await repositoryWith([justEtf], [tradingView]).getPortfolio('ibkr/eur'))
+        .securities[1]
+
+      expect(spyd.quote.currency).toBe('USD')
+      expect(justEtf.getPrice).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('exchange rates', () => {
+    const NOW = new Date('2026-10-06T09:30:00Z')
+
+    /** EUR settings with SPYD listed in USD, paying 0.03% to exchange. */
+    function givenUsdSpyd(rateOverrides: Record<string, { rate: number, asOf?: string }> = {}) {
+      settings.getPortfolioSettings.mockResolvedValue({
+        ...EUR_SETTINGS, currency: 'EUR', fxFeePercentage: 0.0003,
+      })
+      overrides.getPortfolioOverrides.mockResolvedValue({
+        prices: { QDVE: EUR_OVERRIDES.prices.QDVE, SPYD: { price: 69, currency: 'USD' } },
+        rates: rateOverrides,
+      })
+    }
+
+    const clockedRepository = (rates: IExchangeRateDataDriver[] = [tradingView]) => (
+      new PortfolioRepository({
+        settings, overrides, prices: [justEtf, tradingView], rates,
+      }, () => NOW)
+    )
+
+    it('converts a security listed in another currency at a live rate, stamped like a price', async () => {
+      givenUsdSpyd()
+      tradingView.getRate.mockResolvedValue(0.9)
+
+      const portfolio = await clockedRepository().getPortfolio('ibkr/eur')
+
+      expect(tradingView.getRate.mock.calls).toEqual([['USD', 'EUR']])
+      const [qdve, spyd] = portfolio.securities
+      expect(qdve.exchangeRate).toBeUndefined()
+      expect(spyd.exchangeRate?.toValues()).toEqual({
+        from: 'USD', to: 'EUR', rate: 0.9, source: 'tradingview', quotedAt: '2026-10-06T09:30:00.000Z',
+      })
+      expect(spyd.price.toNumber()).toBe(62.1)
+      expect(spyd.quote.price.toNumber()).toBe(69)
+      expect(portfolio.currency).toBe('EUR')
+      expect(portfolio.totalPrice.toNumber()).toBe(9055)
+    })
+
+    it('gives every security the FX fee part it sets, or the portfolio\'s', async () => {
+      givenUsdSpyd()
+      settings.getPortfolioSettings.mockResolvedValue({
+        ...EUR_SETTINGS,
+        currency: 'EUR',
+        fxFeePercentage: 0.0003,
+        securities: [QDVE_SETTING, { ...SPYD_SETTING, fxFeePercentage: 0.002 }],
+      })
+      tradingView.getRate.mockResolvedValue(0.9)
+
+      const [qdve, spyd] = (await clockedRepository().getPortfolio('ibkr/eur')).securities
+
+      expect(qdve.fxFeePercentage.toNumber()).toBe(0.0003)
+      expect(spyd.fxFeePercentage.toNumber()).toBe(0.002)
+    })
+
+    it('uses an overridden rate, dated by its asOf, without launching any browser', async () => {
+      givenUsdSpyd({ 'USD/EUR': { rate: 0.92, asOf: '2026-10-01' } })
+
+      const portfolio = await clockedRepository().getPortfolio('ibkr/eur')
+
+      expect(portfolio.securities[1].exchangeRate?.toValues()).toEqual({
+        from: 'USD', to: 'EUR', rate: 0.92, source: 'override', quotedAt: '2026-10-01',
+      })
+      expect(tradingView.getRate).not.toHaveBeenCalled()
+      expect(justEtf.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
+      expectBrowsersClosed()
+    })
+
+    it('ignores an overridden rate into another currency', async () => {
+      givenUsdSpyd({ 'USD/GBP': { rate: 0.75 } })
+      tradingView.getRate.mockResolvedValue(0.9)
+
+      const portfolio = await clockedRepository().getPortfolio('ibkr/eur')
+
+      expect(portfolio.securities[1].exchangeRate?.rate.toNumber()).toBe(0.9)
+    })
+
+    it('launches only the rate sources when every price is overridden', async () => {
+      givenUsdSpyd()
+      tradingView.getRate.mockResolvedValue(0.9)
+
+      await clockedRepository().getPortfolio('ibkr/eur')
+
+      expect(justEtf.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
+      expect(firstCall(tradingView.launchBrowser)).toBeLessThan(firstCall(tradingView.getRate))
+      expectBrowsersClosed()
+    })
+
+    it('asks once per currency, however many securities are listed in it', async () => {
+      settings.getPortfolioSettings.mockResolvedValue({ ...EUR_SETTINGS, currency: 'EUR' })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: { price: 31.6, currency: 'USD' },
+        SPYD: { price: 69, currency: 'USD' },
+      }))
+      tradingView.getRate.mockResolvedValue(0.9)
+
+      const portfolio = await clockedRepository().getPortfolio('ibkr/eur')
+
+      expect(tradingView.getRate).toHaveBeenCalledOnce()
+      expect(portfolio.securities.map((sec) => sec.currency)).toEqual(['EUR', 'EUR'])
+    })
+
+    it('asks for no rate when every security is in the portfolio currency', async () => {
+      settings.getPortfolioSettings.mockResolvedValue({ ...EUR_SETTINGS, currency: 'EUR' })
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+
+      await clockedRepository().getPortfolio('ibkr/eur')
+
+      expect(tradingView.getRate).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
+    })
+
+    it('takes the first rate source in the list that can convert, however fast the others are', async () => {
+      givenUsdSpyd()
+      const slow = deferred<number>()
+      justEtf.getRate.mockReturnValue(slow.promise)
+      tradingView.getRate.mockResolvedValue(0.9)
+
+      const result = clockedRepository([justEtf, tradingView]).getPortfolio('ibkr/eur')
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      slow.resolve(0.95)
+
+      const spyd = (await result).securities[1]
+      expect(spyd.exchangeRate?.rate.toNumber()).toBe(0.95)
+      expect(spyd.exchangeRate?.source).toBe('justetf')
+    })
+
+    it('reports every source that could not convert', async () => {
+      givenUsdSpyd()
+
+      const error = await clockedRepository([justEtf, tradingView])
+        .getPortfolio('ibkr/eur').catch((e: unknown) => e)
+
+      expect(error).toBeInstanceOf(AggregateError)
+      expect((error as AggregateError).message).toBe('No exchange-rate source could convert USD/EUR')
+      expect((error as AggregateError).errors.map((e: Error) => e.message))
+        .toEqual(['justetf: no rate', 'tradingview: no rate'])
+      expectBrowsersClosed()
+    })
+
+    it('asks to override a rate when there is no rate source', async () => {
+      givenUsdSpyd()
+
+      await expect(clockedRepository([]).getPortfolio('ibkr/eur'))
+        .rejects.toThrow('No exchange-rate source for USD/EUR: add "USD/EUR" to the overrides')
+    })
+
+    it('closes a source that gives prices and rates once, launching it as both', async () => {
+      givenUsdSpyd()
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR_OVERRIDES.prices.QDVE,
+      }))
+      tradingView.getPrice.mockResolvedValue({ price: 69, currency: 'USD' })
+      tradingView.getRate.mockResolvedValue(0.9)
+
+      await clockedRepository().getPortfolio('ibkr/eur')
+
+      expect(tradingView.launchBrowser).toHaveBeenCalledTimes(2)
+      expect(tradingView.closeBrowser).toHaveBeenCalledOnce()
+      expect(justEtf.closeBrowser).toHaveBeenCalledOnce()
     })
   })
 
@@ -505,7 +761,9 @@ describe('PortfolioRepository', () => {
     })
 
     it('launches the browsers after reading the data files', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR_OVERRIDES.prices.QDVE,
+      }))
       justEtf.getPrice.mockResolvedValue(EUR(62.1))
 
       await repository.getPortfolio('ibkr/eur')
@@ -560,7 +818,9 @@ describe('PortfolioRepository', () => {
     })
 
     it('launches both browsers when a single security is not overridden', async () => {
-      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      overrides.getPortfolioOverrides.mockResolvedValue(priceOverrides({
+        QDVE: EUR_OVERRIDES.prices.QDVE,
+      }))
       tradingView.getPrice.mockResolvedValue(EUR(62.1))
 
       await repository.getPortfolio('ibkr/eur')

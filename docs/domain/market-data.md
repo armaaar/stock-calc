@@ -11,7 +11,8 @@ Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/Data
 | **Security identity** (lookup request) | `SettingsSecurityDto`: `tick`, `exchange`, `isin?` (plus `shares` and `targetPercentage`, which drivers ignore) | Each source uses a different part of the identity. |
 | **Price quote** | `SecurityPriceDto`: `{ price: number, currency: string }` from a source; in the core, the `PriceQuote` value object (price, currency, `source`, `quotedAt`) | The repository adds the source's `name` and the time it was quoted ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md)). |
 | **Price source** | `IPriceDataDriver`: a `name` and `getPrice(identity) → Promise<SecurityPriceDto>` | Rejects when the source can't price the security. |
-| **Price override** | `Record<tick, { price, currency, asOf? }>` from `<broker>/<portfolio>.overrides.jsonc` | Per portfolio. Optional file. Sourced `override`, dated by `asOf` (`YYYY-MM-DD`) when given. |
+| **Exchange rate** | `IExchangeRateDataDriver.getRate(from, to) → Promise<number>` from a source; `{ rate, asOf? }` keyed `<FROM>/<TO>` in the overrides file; in the core, the `ExchangeRate` value object | One per listing currency other than the portfolio's, sourced and stamped like prices ([ADR-0028](../architecture/adr/0028-multi-currency-portfolios.md)). TradingView reads `FX_IDC:<FROM><TO>`. |
+| **Price override** | `prices: Record<tick, { price, currency, asOf? }>` from `<broker>/<portfolio>.overrides.jsonc` | Per portfolio. Optional file. Sourced `override`, dated by `asOf` (`YYYY-MM-DD`) when given. |
 
 ## Sources
 
@@ -44,7 +45,9 @@ All securities are resolved in parallel (`Promise.all` in the repository).
 
 `PortfolioRepository` is the **anti-corruption layer**. It merges each `SettingsSecurityDto` with its `SecurityPriceDto` and its fees (each part the security doesn't set falls back to the portfolio's) into an `IPortfolioSecurity`, then builds the `PortfolioSecurity` and `Portfolio` entities. From then on the core domain sees only `Decimal` prices and validated entities, never DTOs, URLs, or browsers.
 
-The quote becomes `Security.quote`, a `PriceQuote` with the price, currency, source and time. `Security.price` and `Security.currency` read from it. The core then enforces the **single-currency invariant**, so the currency strings from different sources and overrides have to match exactly (for example `"EUR"` from both).
+The quote becomes `Security.quote`, a `PriceQuote` with the price, currency, source and time. When the portfolio sets a `currency` and the quote is in another one, the repository adds an exchange rate into it, and `PortfolioSecurity.price` is the converted price. The core then checks that every price is in the portfolio's currency (P3), so currency strings from sources and overrides have to match exactly (for example `"EUR"` from both).
+
+A security that names the currency it's traded in only accepts quotes in it: a source answering for another listing (justetf.com may quote a USD-traded ETF from a EUR listing) is treated as failing, so the next source in the list prices it. An override in another currency is an error.
 
 ## Operational notes
 
@@ -56,6 +59,6 @@ The quote becomes `Security.quote`, a `PriceQuote` with the price, currency, sou
 
 Portfolio files are read through `src/DataDrivers/DataFiles.reader.ts`:
 
-- **Portfolio names** must match `/^[A-Za-z0-9_-]+$/`. Otherwise reading fails with `Invalid portfolio name '<type>': use letters, digits, '_' or '-'`, so a name can't escape `src/data`.
+- **Portfolio ids** must be `<broker>/<portfolio>`, each a name of letters, digits, `_` and `-` starting with a letter or digit. Otherwise reading fails with `Invalid portfolio '<id>': use <broker>/<portfolio>, …`, so an id can't escape the data folder or select `_broker.jsonc`.
 - **JSONC syntax errors** fail with `Invalid data file '<path>': JSONC syntax error: <Code> at <line>:<col>` (trailing commas are allowed). An empty or comments-only overrides file means no overrides. An empty settings file is an error.
 - **Schemas check ranges**, not just types: no unknown keys in the settings file (so a misspelled fee isn't silently ignored), non-empty tick, exchange and currency, integer shares ≥ 0, target and fee percentages in [0, 1], non-negative flat fees, override prices > 0. Mistakes are reported with the file path and field path before any entity is built.

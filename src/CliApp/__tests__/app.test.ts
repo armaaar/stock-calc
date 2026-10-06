@@ -42,11 +42,12 @@ describe('CLI app entry point', () => {
 
   it('runs a command end to end against the data folder', async () => {
     // The app awaits cli.parseAsync(), so the action has finished once the import resolves.
-    await runApp('invest', '1000', '--pt', 'demo/eur')
+    await runApp('invest', '1000', '--pt', 'ibkr/eur')
 
     const [rows] = spies.table.mock.calls[0] as [{ Tick: string, Shares: number }[]]
     expect(rows.map(({ Tick, Shares }) => [Tick, Shares])).toEqual([['QDVE', 141], ['SPYD', 97]])
     expect(printedLines(spies.log)).toEqual([
+      'ibkr/eur (EUR)',
       'Trading Fee: 2 EUR',
       'Trading Price: 980.15 EUR',
       'Portfolio Price: 10035.15 EUR',
@@ -61,16 +62,16 @@ describe('CLI app entry point', () => {
     await runApp('show')
 
     expect(printedLines(spies.error))
-      .toEqual(['Error: Choose a portfolio. Portfolios: demo/egp, demo/eur'])
+      .toEqual(['Error: Choose a portfolio. Portfolios: ibkr/eur, ibkr/mixed, thndr/egp'])
     expect(process.exitCode).toBe(1)
   })
 
   it('presents a missing portfolio as an error and sets exit code 1', async () => {
-    await runApp('show', '--pt', 'demo/nope')
+    await runApp('show', '--pt', 'ibkr/nope')
 
     expect(printedLines(spies.error)).toEqual([
-      `Error: Portfolio 'demo/nope' not found in '${dataDir}'. `
-      + 'Portfolios: demo/egp, demo/eur',
+      `Error: Portfolio 'ibkr/nope' not found in '${dataDir}'. `
+      + 'Portfolios: ibkr/eur, ibkr/mixed, thndr/egp',
     ])
     expect(spies.table).not.toHaveBeenCalled()
     expect(process.exitCode).toBe(1)

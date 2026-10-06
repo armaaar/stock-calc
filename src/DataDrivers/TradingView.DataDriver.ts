@@ -1,32 +1,57 @@
+import type { Page } from 'puppeteer'
 import { BrowserController } from '#src/Shared/BrowserController.abstract'
-import { IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto } from './DataDrivers.type'
+import {
+  IExchangeRateDataDriver, IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto,
+} from './DataDrivers.type'
 import { parsePriceQuote } from './PriceQuote.parser'
 
-export class TradingViewDataDriver extends BrowserController implements IPriceDataDriver {
+/** TradingView's exchange for currency pairs: `FX_IDC:USDEUR` is what 1 USD is worth in EUR. */
+export const FX_EXCHANGE = 'FX_IDC'
+
+export class TradingViewDataDriver extends BrowserController
+  implements IPriceDataDriver, IExchangeRateDataDriver {
   public readonly name = 'tradingview.com'
 
   public async getPrice({ tick, exchange }: SettingsSecurityDto): Promise<SecurityPriceDto> {
-    // Launch the browser
-    const browser = this.getBrowser()
-
-    // Open a new blank page
-    const page = await browser.newPage()
-
+    const page = await this.newPage()
     try {
-      page.setDefaultTimeout(30000)
-      await page.goto(`https://www.tradingview.com/symbols/${exchange}-${tick}/`)
-
-      // Locate the price
-      const priceSelect = await page.waitForSelector(`[data-symbol="${exchange}:${tick}"] .js-symbol-last`, { visible: true })
-      const price = await priceSelect?.evaluate((el) => el.textContent)
-
-      // Locate the currency
-      const currencySelect = await page.waitForSelector(`[data-symbol="${exchange}:${tick}"] .js-symbol-currency`, { visible: true })
-      const currency = await currencySelect?.evaluate((el) => el.textContent)
-
-      return parsePriceQuote(price, currency)
+      return await this.readQuote(page, exchange, tick)
     } catch (e) {
       throw Error(`Tick '${tick}' at '${exchange}' is not registered in tradingview.com`, { cause: e })
     }
+  }
+
+  public async getRate(from: string, to: string): Promise<number> {
+    const page = await this.newPage()
+    try {
+      const { price, currency } = await this.readQuote(page, FX_EXCHANGE, `${from}${to}`)
+      if (currency !== to) {
+        throw Error(`The rate is quoted in ${currency}, not ${to}`)
+      }
+      return price
+    } catch (e) {
+      throw Error(`Exchange rate ${from}/${to} is not registered in tradingview.com`, { cause: e })
+    }
+  }
+
+  /** A new blank page in the launched browser. */
+  private async newPage(): Promise<Page> {
+    return this.getBrowser().newPage()
+  }
+
+  /** The visible last price and its currency on the symbol page of `<exchange>:<tick>`. */
+  private async readQuote(page: Page, exchange: string, tick: string): Promise<SecurityPriceDto> {
+    page.setDefaultTimeout(30000)
+    await page.goto(`https://www.tradingview.com/symbols/${exchange}-${tick}/`)
+
+    // Locate the price
+    const priceSelect = await page.waitForSelector(`[data-symbol="${exchange}:${tick}"] .js-symbol-last`, { visible: true })
+    const price = await priceSelect?.evaluate((el) => el.textContent)
+
+    // Locate the currency
+    const currencySelect = await page.waitForSelector(`[data-symbol="${exchange}:${tick}"] .js-symbol-currency`, { visible: true })
+    const currency = await currencySelect?.evaluate((el) => el.textContent)
+
+    return parsePriceQuote(price, currency)
   }
 }

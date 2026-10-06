@@ -130,4 +130,53 @@ describe('TradingViewDataDriver', () => {
     expect(browser.page.close).not.toHaveBeenCalled()
     expect(browser.close).not.toHaveBeenCalled()
   })
+
+  describe('getRate', () => {
+    const RATE_PRICE = '[data-symbol="FX_IDC:USDEUR"] .js-symbol-last'
+    const RATE_CURRENCY = '[data-symbol="FX_IDC:USDEUR"] .js-symbol-currency'
+
+    async function launchWithRate(rate: FakeSelectorResult, currency: FakeSelectorResult) {
+      browser = createFakeBrowser(createFakePage({ [RATE_PRICE]: rate, [RATE_CURRENCY]: currency }))
+      driver = new TradingViewDataDriver(fakeLauncher(browser))
+      await driver.launchBrowser()
+    }
+
+    it('reads what one unit of a currency is worth in another from the FX_IDC pair page', async () => {
+      await launchWithRate({ text: '0.8877' }, { text: 'EUR' })
+
+      await expect(driver.getRate('USD', 'EUR')).resolves.toBe(0.8877)
+
+      const { page } = browser
+      expect(page.goto).toHaveBeenCalledWith('https://www.tradingview.com/symbols/FX_IDC-USDEUR/')
+      expect(page.setDefaultTimeout).toHaveBeenCalledWith(30000)
+      expect(page.waitForSelector.mock.calls).toEqual([
+        [RATE_PRICE, { visible: true }],
+        [RATE_CURRENCY, { visible: true }],
+      ])
+    })
+
+    it('throws when the browser was not launched', async () => {
+      await expect(driver.getRate('USD', 'EUR')).rejects.toThrow(/launch the browser first/)
+    })
+
+    it('rejects a rate quoted in another currency than the one asked for', async () => {
+      await launchWithRate({ text: '0.8877' }, { text: 'GBP' })
+
+      const error = await driver.getRate('USD', 'EUR').catch((e: Error) => e)
+
+      expect((error as Error).message)
+        .toBe('Exchange rate USD/EUR is not registered in tradingview.com')
+      expect(((error as Error).cause as Error).message).toBe('The rate is quoted in GBP, not EUR')
+    })
+
+    it('wraps a missing rate in a "not registered" error with the cause set', async () => {
+      await launchWithRate(Error('rate timeout'), { text: 'EUR' })
+
+      const error = await driver.getRate('USD', 'EUR').catch((e: Error) => e)
+
+      expect((error as Error).message)
+        .toBe('Exchange rate USD/EUR is not registered in tradingview.com')
+      expect(((error as Error).cause as Error).message).toBe('rate timeout')
+    })
+  })
 })

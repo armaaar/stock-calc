@@ -2,7 +2,7 @@
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import { sortObjectByKey } from '#src/Shared/utils'
 import {
-  PortfolioView, PresentMode, SecurityView, toPortfolioView,
+  PortfolioView, PresentMode, RateView, SecurityView, toPortfolioView,
 } from '#src/ViewModels/PortfolioView.ViewModel'
 
 export { PresentMode }
@@ -10,8 +10,8 @@ export { PresentMode }
 interface PortfolioSecurityTableData {
   'Tick': string
   'Exchange': string
-  'Currency': string
   'Price': number
+  'Listed'?: string
   'Quote'?: string
   'Shares': number
   'Total Price': number
@@ -26,8 +26,8 @@ interface PortfolioSecurityTableData {
 const COLUMNS: (keyof PortfolioSecurityTableData)[] = [
   'Tick',
   'Exchange',
-  'Currency',
   'Price',
+  'Listed',
   'Quote',
   'Shares',
   'Total Price',
@@ -49,8 +49,14 @@ export class PortfolioCliPresenter {
     const view = toPortfolioView(portfolio, mode)
 
     if (title) console.log(title)
-    console.table(view.securities.map((sec) => PortfolioCliPresenter.toRow(sec)))
+    const heading = PortfolioCliPresenter.headingOf(view)
+    if (heading) console.log(heading)
+    // console.table orders columns as the rows first have them: when some security is listed in
+    // another currency, every row gets a 'Listed' cell, so the column stays beside 'Price'
+    const listed = view.securities.some((sec) => sec.listedPrice !== undefined)
+    console.table(view.securities.map((sec) => PortfolioCliPresenter.toRow(sec, listed)))
     PortfolioCliPresenter.getTotals(view).forEach((line) => console.log(line))
+    view.rates?.forEach((rate) => console.log(PortfolioCliPresenter.rateLine(rate)))
     view.warnings?.forEach((warning) => console.log(`Warning: ${warning}`))
     console.log()
   }
@@ -72,24 +78,47 @@ export class PortfolioCliPresenter {
       ))
   }
 
-  /**
-   * Where and when the price was quoted: a timestamp to the minute in UTC
-   * ("justetf.com 2026-10-06 09:30"), or a date as given ("override 2026-10-01").
-   */
-  protected static quoteOf({ priceSource, pricedAt }: SecurityView): string | undefined {
-    if (!priceSource) return undefined
-    if (!pricedAt) return priceSource
-    return `${priceSource} ${pricedAt.slice(0, 16).replace('T', ' ')}`
+  /** The portfolio and the currency everything is in: "ibkr/eur (EUR)". */
+  protected static headingOf({ portfolio, currency }: PortfolioView): string | undefined {
+    if (!portfolio) return undefined
+    return currency ? `${portfolio} (${currency})` : portfolio
   }
 
-  /** One table row; columns the mode doesn't have are left out (they're undefined). */
-  protected static toRow(sec: SecurityView): PortfolioSecurityTableData {
+  /**
+   * Where and when a price or rate was quoted: a timestamp to the minute in UTC
+   * ("justetf.com 2026-10-06 09:30"), or a date as given ("override 2026-10-01").
+   */
+  protected static sourceOf(source?: string, quotedAt?: string): string | undefined {
+    if (!source) return undefined
+    if (!quotedAt) return source
+    return `${source} ${quotedAt.slice(0, 16).replace('T', ' ')}`
+  }
+
+  /** "Rate: USD/EUR 0.8877 (tradingview.com 2026-10-06 09:30)". */
+  protected static rateLine({
+    from, to, rate, source, quotedAt,
+  }: RateView): string {
+    const quoted = PortfolioCliPresenter.sourceOf(source, quotedAt)
+    return `Rate: ${from}/${to} ${rate}${quoted ? ` (${quoted})` : ''}`
+  }
+
+  /** The price as listed and the rate it was converted at: "41.2 USD @ 0.9". */
+  protected static listedOf(sec: SecurityView): string {
+    if (sec.listedPrice === undefined) return ''
+    return `${sec.listedPrice} ${sec.listedCurrency} @ ${sec.exchangeRate}`
+  }
+
+  /**
+   * One table row; columns the mode doesn't have are left out (they're undefined), and so is
+   * 'Listed' unless `listed`.
+   */
+  protected static toRow(sec: SecurityView, listed: boolean): PortfolioSecurityTableData {
     return sortObjectByKey<PortfolioSecurityTableData>({
       'Tick': sec.tick,
       'Exchange': sec.exchange ?? 'Unknown',
-      'Currency': sec.currency ?? 'Unknown',
       'Price': sec.price,
-      'Quote': PortfolioCliPresenter.quoteOf(sec),
+      'Listed': listed ? PortfolioCliPresenter.listedOf(sec) : undefined,
+      'Quote': PortfolioCliPresenter.sourceOf(sec.priceSource, sec.pricedAt),
       'Shares': sec.shares,
       'Total Price': sec.totalPrice,
       'Percentage %': sec.percent,

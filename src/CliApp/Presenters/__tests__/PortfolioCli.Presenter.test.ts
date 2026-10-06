@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
-import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import {
+  buildPortfolio, ICOM, QDVE, SPYD,
+} from '#src/__fixtures__/portfolio'
+import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
 import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
 import { PortfolioCliPresenter, PresentMode } from '../PortfolioCli.Presenter'
 
 const COLUMN_ORDER = [
   'Tick',
   'Exchange',
-  'Currency',
   'Price',
   'Shares',
   'Total Price',
@@ -54,7 +56,6 @@ describe('PortfolioCliPresenter.present', () => {
       {
         'Tick': 'QDVE',
         'Exchange': 'IBIS2',
-        'Currency': 'EUR',
         'Price': 28.45,
         'Shares': 127,
         'Total Price': 3613.15,
@@ -64,7 +65,6 @@ describe('PortfolioCliPresenter.present', () => {
       {
         'Tick': 'SPYD',
         'Exchange': 'IBIS2',
-        'Currency': 'EUR',
         'Price': 62.1,
         'Shares': 87,
         'Total Price': 5402.7,
@@ -95,7 +95,6 @@ describe('PortfolioCliPresenter.present', () => {
       {
         'Tick': 'QDVE',
         'Exchange': 'IBIS2',
-        'Currency': 'EUR',
         'Price': 28.45,
         'Shares': 27,
         'Total Price': 768.15,
@@ -108,7 +107,6 @@ describe('PortfolioCliPresenter.present', () => {
       {
         'Tick': 'SPYD',
         'Exchange': 'IBIS2',
-        'Currency': 'EUR',
         'Price': 62.1,
         'Shares': -13,
         'Total Price': -807.3,
@@ -175,7 +173,6 @@ describe('PortfolioCliPresenter.present', () => {
       {
         'Tick': 'QDVE',
         'Exchange': 'IBIS2',
-        'Currency': 'EUR',
         'Price': 28.45,
         'Shares': 127,
         'Total Price': 3613.15,
@@ -189,7 +186,6 @@ describe('PortfolioCliPresenter.present', () => {
       {
         'Tick': 'SPYD',
         'Exchange': 'IBIS2',
-        'Currency': 'EUR',
         'Price': 62.1,
         'Shares': 87,
         'Total Price': 5402.7,
@@ -238,7 +234,7 @@ describe('PortfolioCliPresenter.present', () => {
     const rows = tableRows(spies)
     expect(rows.map((row) => row['Quote']))
       .toEqual(['justetf.com 2026-10-06 09:30', 'override 2026-10-01'])
-    expect(Object.keys(rows[0]).slice(3, 6)).toEqual(['Price', 'Quote', 'Shares'])
+    expect(Object.keys(rows[0]).slice(2, 5)).toEqual(['Price', 'Quote', 'Shares'])
   })
 
   it('shows the cash held with the current holdings', () => {
@@ -250,7 +246,7 @@ describe('PortfolioCliPresenter.present', () => {
   it('orders the columns consistently, skipping the ones a mode does not have', () => {
     PortfolioCliPresenter.present(buildPortfolio(), PresentMode.ONLY_NEW)
 
-    expect(Object.keys(tableRows(spies)[0])).toEqual(COLUMN_ORDER.slice(0, 8))
+    expect(Object.keys(tableRows(spies)[0])).toEqual(COLUMN_ORDER.slice(0, 7))
   })
 
   it('prints the title before the table when one is given', () => {
@@ -267,6 +263,94 @@ describe('PortfolioCliPresenter.present', () => {
     PortfolioCliPresenter.present(buildPortfolio(), PresentMode.ONLY_INITIAL, '')
 
     expect(printedLines(spies.log)).toEqual(['Portfolio Price: 9055 EUR', 'Cash: 0 EUR', ''])
+  })
+
+  describe('with a security listed in another currency', () => {
+    /** ibkr/eur: QDVE in EUR, ICOM listed at 41.20 USD and converted at 0.9 USD/EUR. */
+    const buildMixedPortfolio = () => new Portfolio({
+      id: 'ibkr/eur',
+      currency: 'EUR',
+      securities: [
+        new PortfolioSecurity({ ...QDVE, targetPercentage: 0.4 }),
+        new PortfolioSecurity({ ...ICOM, shares: 110, initialShares: 100 }),
+      ],
+    })
+
+    it('heads the table with the portfolio and its currency', () => {
+      PortfolioCliPresenter.present(buildMixedPortfolio(), PresentMode.ONLY_INITIAL, 'Title')
+
+      expect(printedLines(spies.log).slice(0, 2)).toEqual(['Title', 'ibkr/eur (EUR)'])
+      expect(spies.log.mock.invocationCallOrder[1])
+        .toBeLessThan(spies.table.mock.invocationCallOrder[0])
+    })
+
+    it('shows the listed price and the rate of a converted security, after its price', () => {
+      PortfolioCliPresenter.present(buildMixedPortfolio(), PresentMode.WITH_DELTA)
+
+      const rows = tableRows(spies)
+      expect(rows.map((row) => [row['Tick'], row['Price'], row['Listed']])).toEqual([
+        ['QDVE', 28.45, ''],
+        ['ICOM', 37.08, '41.2 USD @ 0.9'],
+      ])
+      // Every row has the cell, so console.table puts the column beside 'Price'
+      expect(Object.keys(rows[0]).slice(2, 4)).toEqual(['Price', 'Listed'])
+      expect(Object.keys(rows[1]).slice(2, 5)).toEqual(['Price', 'Listed', 'Quote'])
+    })
+
+    it('prints each rate with where and when it was quoted, after the totals', () => {
+      PortfolioCliPresenter.present(buildMixedPortfolio(), PresentMode.WITH_DELTA)
+
+      // 10 ICOM (370.80 EUR) pay a 1 EUR fee plus 0.03% to exchange the currency
+      expect(printedLines(spies.log)).toEqual([
+        'ibkr/eur (EUR)',
+        'Trading Fee: 1.11124 EUR',
+        'Trading Price: 370.8 EUR',
+        'Portfolio Price: 6923.8 EUR',
+        'Cash After Trades: -371.91124 EUR',
+        'Rate: USD/EUR 0.9 (tradingview.com 2026-10-06 09:30)',
+        '',
+      ])
+    })
+
+    it('prints a rate without a source as just the rate, and one with a date as given', () => {
+      const portfolio = new Portfolio({
+        currency: 'EUR',
+        securities: [
+          new PortfolioSecurity({
+            ...ICOM, targetPercentage: 0.5, exchangeRate: { from: 'USD', to: 'EUR', rate: 0.9 },
+          }),
+          new PortfolioSecurity({
+            ...ICOM,
+            tick: 'IGLN',
+            currency: 'GBP',
+            targetPercentage: 0.5,
+            exchangeRate: {
+              from: 'GBP', to: 'EUR', rate: 1.15, source: 'override', quotedAt: '2026-10-01',
+            },
+          }),
+        ],
+      })
+
+      PortfolioCliPresenter.present(portfolio)
+
+      expect(printedLines(spies.log)).toEqual([
+        'Portfolio Price: 8446 EUR',
+        'Rate: USD/EUR 0.9',
+        'Rate: GBP/EUR 1.15 (override 2026-10-01)',
+        '',
+      ])
+    })
+
+    it('prints the portfolio alone in the heading when it has no currency', () => {
+      const portfolio = new Portfolio({
+        id: 'ibkr/eur',
+        securities: [new PortfolioSecurity({ ...QDVE, currency: undefined, targetPercentage: 1 })],
+      })
+
+      PortfolioCliPresenter.present(portfolio)
+
+      expect(printedLines(spies.log)[0]).toBe('ibkr/eur')
+    })
   })
 
   describe('without exchange or currency', () => {
@@ -300,14 +384,14 @@ describe('PortfolioCliPresenter.present', () => {
           '',
         ],
       ],
-    ])('mode %i shows "Unknown" in the table and no currency in the totals', (mode, lines) => {
+    ])('mode %i shows "Unknown" exchanges and no currency in the totals', (mode, lines) => {
       PortfolioCliPresenter.present(buildAnonymousPortfolio(), mode)
 
       const rows = tableRows(spies)
       expect(rows).toHaveLength(2)
       rows.forEach((row) => {
         expect(row['Exchange']).toBe('Unknown')
-        expect(row['Currency']).toBe('Unknown')
+        expect(row).not.toHaveProperty('Currency')
       })
       // Raw strings, not printedLines(): no trailing space where the currency would be
       expect(spies.log.mock.calls).toEqual(lines.map((line) => (line ? [line] : [])))

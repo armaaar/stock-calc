@@ -24,7 +24,7 @@ Every command takes `--pt, --portfolio <broker/portfolio>`, and every tool takes
 
 **Shared preconditions:** the portfolio's `<broker>/<portfolio>.jsonc` exists and, with its broker's optional `_broker.jsonc`, passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the CLI prints the error(s) and exits with code 1, the MCP tool returns an `isError` result, and no plan is produced.
 
-**Worked examples** below use the tracked example portfolio `demo/eur` (`examples/demo/eur.jsonc` with its overrides, and the 1 EUR flat fee from `_broker.jsonc`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
+**Worked examples** below use the tracked example portfolio `ibkr/eur` (`examples/ibkr/eur.jsonc` with its overrides, and the 1 EUR flat fee from `_broker.jsonc`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
 
 ---
 

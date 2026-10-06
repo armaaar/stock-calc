@@ -1,0 +1,24 @@
+{
+  // Orders are paid in EUR. CSPX trades in USD, so its price is converted at the USD/EUR rate,
+  // and each CSPX order pays the broker's FX fee on top of its trading fee.
+  "currency": "EUR",
+  "securities": [
+    {
+      "tick": "QDVE",
+      "exchange": "IBIS2",
+      "isin": "IE00B3WJKG14",
+      "shares": 100,
+      "targetPercentage": 0.4
+    },
+    {
+      "tick": "CSPX", // iShares Core S&P 500
+      "exchange": "LSE",
+      "isin": "IE00B5BMR087",
+      // Optional: the currency it trades in. A source quoting another listing of it (say, in
+      // EUR) is skipped, so the next source prices this one.
+      "currency": "USD",
+      "shares": 5,
+      "targetPercentage": 0.6
+    }
+  ]
+}

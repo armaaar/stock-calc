@@ -71,7 +71,7 @@ describe('MCP app entry point', () => {
   it('runs the tools against the data folder, end to end', async () => {
     const result = await (await startApp()).callTool({
       name: 'invest',
-      arguments: { investment: 1000, portfolio: 'demo/eur' },
+      arguments: { investment: 1000, portfolio: 'ibkr/eur' },
     })
 
     expect(result.isError).toBeFalsy()
