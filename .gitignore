@@ -1,3 +1,5 @@
 node_modules
+
+# Portfolio data files are personal; only the examples are tracked
 _*
 !_*.example
