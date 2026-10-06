@@ -7,7 +7,9 @@ import {
 } from '#src/__fixtures__/puppeteer'
 import { JustEtfDataDriver } from '../JustEtf.DataDriver'
 
+const QUOTES_SELECTOR = '#realtime-quotes'
 const PRICE_SELECTOR = '#realtime-quotes .val'
+const PROFILE_URL = 'https://www.justetf.com/en/etf-profile.html?isin=IE00B3WJKG14'
 
 const NOT_REGISTERED = 'ISIN \'IE00B3WJKG14\' is not registered in justetf.com'
 
@@ -17,7 +19,10 @@ describe('JustEtfDataDriver', () => {
   let launch: ReturnType<typeof fakeLauncher>
 
   async function launchWith(result: FakeSelectorResult) {
-    browser = createFakeBrowser(createFakePage({ [PRICE_SELECTOR]: result }))
+    browser = createFakeBrowser(createFakePage({
+      [QUOTES_SELECTOR]: { text: '' },
+      [PRICE_SELECTOR]: result,
+    }))
     launch = fakeLauncher(browser)
     driver = new JustEtfDataDriver(launch)
     await driver.launchBrowser()
@@ -51,7 +56,7 @@ describe('JustEtfDataDriver', () => {
     await expect(driver.getPrice(QDVE_SETTING)).rejects.toThrow(/launch the browser first/)
   })
 
-  it('loads the ETF profile by ISIN with a 2s timeout and parses "<CUR> <price>"', async () => {
+  it('loads the ETF profile by ISIN with 10s limits and parses "<CUR> <price>"', async () => {
     await launchWith({ text: 'EUR 28.45' })
 
     await expect(driver.getPrice(QDVE_SETTING)).resolves.toEqual({ price: 28.45, currency: 'EUR' })
@@ -59,15 +64,50 @@ describe('JustEtfDataDriver', () => {
     const { page } = browser
     expect(launch).toHaveBeenCalledOnce()
     expect(browser.newPage).toHaveBeenCalledOnce()
-    expect(page.goto)
-      .toHaveBeenCalledWith('https://www.justetf.com/en/etf-profile.html?isin=IE00B3WJKG14')
-    expect(page.setDefaultTimeout).toHaveBeenCalledWith(2000)
+    expect(page.goto).toHaveBeenCalledWith(PROFILE_URL)
+    expect(page.setDefaultTimeout).toHaveBeenCalledWith(10_000)
     expect(page.setDefaultNavigationTimeout).toHaveBeenCalledWith(10_000)
     // Both limits apply to the navigation too, so they must be set before it
     const gotoOrder = page.goto.mock.invocationCallOrder[0]
     expect(page.setDefaultTimeout.mock.invocationCallOrder[0]).toBeLessThan(gotoOrder)
     expect(page.setDefaultNavigationTimeout.mock.invocationCallOrder[0]).toBeLessThan(gotoOrder)
     expect(page.waitForSelector).toHaveBeenCalledWith(PRICE_SELECTOR)
+  })
+
+  // A background tab is hidden, and puppeteer's visibility polling stalls in a hidden page
+  it('opens its page in a window of its own, so the page is visible', async () => {
+    await launchWith({ text: 'EUR 28.45' })
+
+    await driver.getPrice(QDVE_SETTING)
+
+    expect(browser.newPage).toHaveBeenCalledWith({ type: 'window' })
+  })
+
+  it('checks the loaded page is an ETF profile before waiting for its quote', async () => {
+    await launchWith({ text: 'EUR 28.45' })
+
+    await driver.getPrice(QDVE_SETTING)
+
+    const { page } = browser
+    expect(page.$).toHaveBeenCalledWith(QUOTES_SELECTOR)
+    expect(page.goto.mock.invocationCallOrder[0])
+      .toBeLessThan(page.$.mock.invocationCallOrder[0])
+    expect(page.$.mock.invocationCallOrder[0])
+      .toBeLessThan(page.waitForSelector.mock.invocationCallOrder[0])
+  })
+
+  it('gives up at once when an unknown ISIN redirects away from the profile', async () => {
+    browser = createFakeBrowser(createFakePage({ [PRICE_SELECTOR]: { text: 'EUR 28.45' } }))
+    driver = new JustEtfDataDriver(fakeLauncher(browser))
+    await driver.launchBrowser()
+    const search = 'https://www.justetf.com/en/search.html?query=IE00B3WJKG14&search=ETFS'
+    browser.page.url.mockReturnValue(search)
+
+    const error = await driver.getPrice(QDVE_SETTING).catch((e: Error) => e)
+
+    expect((error as Error).message).toBe(NOT_REGISTERED)
+    expect(((error as Error).cause as Error).message).toBe(`No ETF profile at ${search}`)
+    expect(browser.page.waitForSelector).not.toHaveBeenCalled()
   })
 
   it('wraps a selector failure in a "not registered" error with the cause set', async () => {

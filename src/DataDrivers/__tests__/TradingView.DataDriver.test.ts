@@ -58,6 +58,17 @@ describe('TradingViewDataDriver', () => {
     ])
   })
 
+  // A background tab is hidden, and `{ visible: true }` polls with requestAnimationFrame, which a
+  // hidden page never runs: the quote would only be seen if it was there at the first check
+  it('opens each page in a window of its own, so the visible-quote wait can poll', async () => {
+    await launchWith({ text: '28.45' }, { text: 'EUR' })
+
+    await driver.getPrice(QDVE_SETTING)
+    await driver.getPrice(QDVE_SETTING)
+
+    expect(browser.newPage.mock.calls).toEqual([[{ type: 'window' }], [{ type: 'window' }]])
+  })
+
   it('does not need an ISIN', async () => {
     await launchWith({ text: '28.45' }, { text: 'EUR' })
     const noIsin = withoutIsin(QDVE_SETTING)
@@ -147,6 +158,7 @@ describe('TradingViewDataDriver', () => {
       await expect(driver.getRate('USD', 'EUR')).resolves.toBe(0.8877)
 
       const { page } = browser
+      expect(browser.newPage).toHaveBeenCalledWith({ type: 'window' })
       expect(page.goto).toHaveBeenCalledWith('https://www.tradingview.com/symbols/FX_IDC-USDEUR/')
       expect(page.setDefaultTimeout).toHaveBeenCalledWith(30000)
       expect(page.waitForSelector.mock.calls).toEqual([

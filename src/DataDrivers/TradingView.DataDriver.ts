@@ -44,11 +44,6 @@ export class TradingViewDataDriver extends BrowserController
     }
   }
 
-  /** A new blank page in the launched browser. */
-  private async newPage(): Promise<Page> {
-    return this.getBrowser().newPage()
-  }
-
   /** The visible last price and its currency on the symbol page of `<exchange>:<tick>`. */
   private async readQuote(page: Page, exchange: string, tick: string): Promise<SecurityPriceDto> {
     page.setDefaultTimeout(30000)

@@ -8,6 +8,10 @@ class TestController extends BrowserController {
   public currentBrowser(): FakeBrowser {
     return this.getBrowser() as unknown as FakeBrowser
   }
+
+  public async openPage() {
+    return this.newPage()
+  }
 }
 
 describe('BrowserController', () => {
@@ -26,6 +30,20 @@ describe('BrowserController', () => {
   it('getBrowser throws before the browser is launched', () => {
     expect(() => controller.currentBrowser())
       .toThrow('Can\'t use browser. Please launch the browser first.')
+  })
+
+  describe('newPage', () => {
+    it('opens a blank page in a window of its own, so it is never a hidden background tab', async () => {
+      await controller.launchBrowser()
+
+      await expect(controller.openPage()).resolves.toBe(first.page)
+
+      expect(first.newPage).toHaveBeenCalledExactlyOnceWith({ type: 'window' })
+    })
+
+    it('rejects before the browser is launched', async () => {
+      await expect(controller.openPage()).rejects.toThrow(/launch the browser first/)
+    })
   })
 
   it('does not launch anything when constructed', () => {

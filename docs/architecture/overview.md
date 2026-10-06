@@ -23,7 +23,7 @@ flowchart LR
 | External system | Used for | Lookup key | Notes |
 | --- | --- | --- | --- |
 | snduk.com | Egyptian mutual fund NAVs | `snduk` (fund page slug) + `tick` | Plain HTTP, no browser. 15 s timeout. Asked first ([ADR-0029](adr/0029-mutual-fund-navs-from-snduk.md)). |
-| justetf.com | ETF quotes | `isin` | Only works for securities with an ISIN. 2 s selector timeout. |
+| justetf.com | ETF quotes | `isin` | Only works for securities with an ISIN. Fails at once when the page isn't an ETF profile; 10 s for the quote ([ADR-0030](adr/0030-visible-scraper-pages.md)). |
 | tradingview.com | Any listed symbol, and exchange rates | `exchange` + `tick`; `FX_IDC:<FROM><TO>` for rates | 30 s selector timeout. |
 | Local JSONC files | Broker fees, portfolio definition and price overrides | Portfolio id `<broker>/<portfolio>` (`--pt`/`--portfolio` or the `portfolio` tool input; optional with one portfolio) | Git-ignored. The tracked examples are the `ibkr` and `thndr` brokers in `examples/`. |
 | MCP clients (Claude Code, …) | Calling the use cases as tools | Tool name | Configured by the project's `.mcp.json`. |

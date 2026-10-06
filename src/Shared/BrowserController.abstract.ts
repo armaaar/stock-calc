@@ -1,4 +1,4 @@
-import type { Browser } from 'puppeteer'
+import type { Browser, Page } from 'puppeteer'
 
 /** Starts a browser. Production passes a headless puppeteer launch; tests pass a fake. */
 export type BrowserLauncher = () => Promise<Browser>
@@ -41,5 +41,15 @@ export abstract class BrowserController {
       throw Error('Can\'t use browser. Please launch the browser first.')
     }
     return this.browser
+  }
+
+  /**
+   * A new blank page, in a window of its own (ADR-0030). A tab opened beside others is a hidden
+   * background tab once a newer one opens, and a hidden page never runs `requestAnimationFrame`,
+   * which `waitForSelector(…, { visible: true })` polls with. Alone in its window, every page is
+   * the visible, active tab, however many are open at once.
+   */
+  protected async newPage(): Promise<Page> {
+    return this.getBrowser().newPage({ type: 'window' })
   }
 }

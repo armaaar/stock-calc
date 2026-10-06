@@ -1,7 +1,7 @@
 # ADR-0025: Price quotes record their source and time, and sources answer in priority order
 
 - **Status:** Accepted
-- **Amended by:** [ADR-0028](0028-multi-currency-portfolios.md) (exchange rates are sourced the same way; a source quoting another listing than the security's `currency` is skipped), [ADR-0029](0029-mutual-fund-navs-from-snduk.md) (snduk.com prices mutual funds, first in the list; a source may date its quote)
+- **Amended by:** [ADR-0028](0028-multi-currency-portfolios.md) (exchange rates are sourced the same way; a source quoting another listing than the security's `currency` is skipped), [ADR-0029](0029-mutual-fund-navs-from-snduk.md) (snduk.com prices mutual funds, first in the list; a source may date its quote), [ADR-0030](0030-visible-scraper-pages.md) (justetf.com fails at once on a page that isn't an ETF profile, then gives the quote 10 s)
 - **Date:** 2026-10-06
 - **Amends:** [ADR-0006](0006-race-multiple-price-sources.md) (the race becomes a priority order), [ADR-0008](0008-manual-price-overrides.md) (overrides can be dated)
 
@@ -22,4 +22,4 @@
 
 - The same inputs always give the same prices, and every price says where it came from and how old it is.
 - Overrides stand out in every plan, so a stale hand-entered price is easy to spot.
-- A slow preferred source now delays a price that a faster, lower-priority source already has. The wait is bounded by each driver's own timeouts. justetf.com, listed first, gives up after 10 s loading the page and 2 s waiting for the quote. Both limits are set before navigating. It fails at once when there's no ISIN.
+- A slow preferred source now delays a price that a faster, lower-priority source already has. The wait is bounded by each driver's own timeouts. justetf.com, listed first, gives up after 10 s loading the page and 2 s waiting for the quote. Both limits are set before navigating. It fails at once when there's no ISIN. (Since [ADR-0030](0030-visible-scraper-pages.md), it also fails at once when the loaded page isn't an ETF profile, and gives a profile's quote 10 s.)

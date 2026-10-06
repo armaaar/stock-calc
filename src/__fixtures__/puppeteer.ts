@@ -7,6 +7,9 @@ import type { Browser } from 'puppeteer'
  * - `null`: resolves to `null` (what puppeteer returns for e.g. `{ hidden: true }`)
  * - an `Error`: rejects with it (e.g. a selector timeout)
  * Selectors that aren't listed reject with a timeout error.
+ *
+ * A fake `page.$(selector)` checks the page as it is: it resolves to the element of a `{ text }`
+ * selector, and to `null` for any other.
  */
 export type FakeSelectorResult = { text: string | null } | null | Error
 
@@ -16,6 +19,11 @@ export type FakeSelectorResult = { text: string | null } | null | Error
  */
 export function createFakePage(selectors: Record<string, FakeSelectorResult> = {}) {
   let current = 'about:blank'
+  const element = (text: string | null) => ({
+    evaluate: vi.fn(async (fn: (el: { textContent: string | null }) => unknown) => (
+      fn({ textContent: text })
+    )),
+  })
   return {
     goto: vi.fn<(url: string) => Promise<null>>(async (url) => {
       current = url
@@ -32,11 +40,11 @@ export function createFakePage(selectors: Record<string, FakeSelectorResult> = {
       const result = selectors[selector]
       if (result instanceof Error) throw result
       if (result === null) return null
-      return {
-        evaluate: vi.fn(async (fn: (el: { textContent: string | null }) => unknown) => (
-          fn({ textContent: result.text })
-        )),
-      }
+      return element(result.text)
+    }),
+    $: vi.fn(async (selector: string) => {
+      const result = selectors[selector] as FakeSelectorResult | undefined
+      return result && !(result instanceof Error) ? element(result.text) : null
     }),
   }
 }

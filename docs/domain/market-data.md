@@ -19,7 +19,7 @@ Code: `src/DataDrivers/{Snduk,JustEtf,TradingView,Overrides}.DataDriver.ts`, `sr
 | Source | Identity used | How | Fails when |
 | --- | --- | --- | --- |
 | **Snduk** | `snduk` (the fund page slug) and `tick` | Fetches `snduk.com/eg/funds/<slug>?lang=en` over plain HTTP (15 s) and reads the fund records the page streams for Next.js; uses the one whose `code` is the tick. Gives the NAV, its currency and its date ([ADR-0029](../architecture/adr/0029-mutual-fund-navs-from-snduk.md)). | No `snduk` page in settings (no request is made), an HTTP error or timeout, no fund record in the page, a record for another fund, or no valid NAV. |
-| **JustEtf** | `isin` | Loads `justetf.com/en/etf-profile.html?isin=<ISIN>` and reads `#realtime-quotes .val` (text `"<CUR> <price>"`). | No ISIN in settings, the page doesn't load within 10 s, no quote within 2 s, or the text isn't a valid quote. |
+| **JustEtf** | `isin` | Loads `justetf.com/en/etf-profile.html?isin=<ISIN>`, checks it's an ETF profile (`#realtime-quotes`), and reads `#realtime-quotes .val` (text `"<CUR> <price>"`), which the page fetches after loading. | No ISIN in settings, the page doesn't load within 10 s, the page isn't an ETF profile (an unknown ISIN redirects to a search: fails at once), no quote within 10 s, or the text isn't a valid quote. |
 | **TradingView** | `exchange` + `tick` | Loads `tradingview.com/symbols/<EXCHANGE>-<TICK>/` and reads `.js-symbol-last` and `.js-symbol-currency` under `[data-symbol="<EXCHANGE>:<TICK>"]`, or under the symbol the page redirected to when TradingView renamed the listing. | Navigation fails, symbol unknown, nothing visible within 30 s, or the text isn't a valid quote. |
 | **Override** | `tick` | Own-key lookup (`Object.hasOwn`) in the overrides map. | Never: it either matches or doesn't apply. |
 
@@ -52,6 +52,7 @@ A security that names the currency it's traded in only accepts quotes in it: a s
 
 ## Operational notes
 
+- Each scraper page opens in a window of its own, so every page is visible, however many load at once. In a background tab, `requestAnimationFrame` never runs, so a visible-element wait checks once and then hangs ([ADR-0030](../architecture/adr/0030-visible-scraper-pages.md)).
 - One headless Chromium per live source per run. They are launched together, only when at least one security isn't overridden, and closed (awaited) afterwards, whether or not the load succeeded. When a load fails, a browser that also fails to close doesn't replace the load's error. Concurrent `launchBrowser()` calls share one in-flight launch.
 - Selectors depend on third-party markup. When a site changes its layout, prices for that source fail. Add overrides until the driver is fixed.
 - Adding a source: implement `IPriceDataDriver` (extend `BrowserController` if it needs a browser), then add an instance to the `prices` list in `src/compositionRoot.ts`. The repository launches, asks (in list order) and closes every source it is given ([ADR-0018](../architecture/adr/0018-dependency-injection-and-composition-root.md)).
