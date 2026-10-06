@@ -117,7 +117,7 @@ For each security, independently and in parallel ([ADR-0006](adr/0006-race-multi
 2. Otherwise both scrapers run concurrently with `Promise.any`. The first one that resolves wins.
 3. If both reject, `Promise.any` rejects with an `AggregateError`, and the presenter shows each driver's error. Each driver error keeps the underlying Puppeteer error as its `cause`.
 
-Both browsers are launched before any price is fetched, but only if at least one security isn't overridden. They are closed, and awaited, in a `finally` block. Pages are never closed individually, because a page may still be in use by the losing driver; closing the browser cleans them up.
+Both browsers are launched together before any price is fetched, but only if at least one security isn't overridden, so a cold start costs the slowest launch rather than the sum. They are always closed, and awaited, once the load ends. If the load failed, a browser that also fails to close doesn't replace the load's error. Pages are never closed individually, because a page may still be in use by the losing driver; closing the browser cleans them up.
 
 ### Error handling
 

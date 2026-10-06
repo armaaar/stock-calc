@@ -399,7 +399,7 @@ describe('PortfolioRepository', () => {
         .toBeLessThan(firstCall(justEtf.launchBrowser))
     })
 
-    it('launches the browsers one after another, not concurrently', async () => {
+    it('launches the browsers concurrently, and fetches prices once all are up', async () => {
       const firstLaunch = deferred<void>()
       justEtf.launchBrowser.mockReturnValue(firstLaunch.promise)
       justEtf.getPrice.mockResolvedValue(EUR(10))
@@ -408,10 +408,11 @@ describe('PortfolioRepository', () => {
       await new Promise((resolve) => setTimeout(resolve, 10))
 
       expect(justEtf.launchBrowser).toHaveBeenCalledOnce()
-      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
+      expect(justEtf.getPrice).not.toHaveBeenCalled()
       firstLaunch.resolve()
       await result
-      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
+      expect(justEtf.getPrice).toHaveBeenCalled()
     })
 
     it('does not launch any browser when every price is overridden (closing is a no-op)', async () => {
@@ -482,13 +483,14 @@ describe('PortfolioRepository', () => {
       expectBrowsersClosed()
     })
 
-    it('stops launching and closes every browser when launching the first one fails', async () => {
+    it('fetches no price and closes every browser when launching the first one fails', async () => {
       justEtf.launchBrowser.mockRejectedValue(Error('launch failed'))
 
       await expect(repository.getPortfolio('EUR')).rejects.toThrow('launch failed')
 
-      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
       expect(justEtf.getPrice).not.toHaveBeenCalled()
+      expect(tradingView.getPrice).not.toHaveBeenCalled()
       expectBrowsersClosed()
     })
 

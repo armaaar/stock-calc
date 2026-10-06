@@ -53,11 +53,11 @@ export class PortfolioRepository implements IPortfolioRepository {
     } = await settings.getPortfolioSettings(type)
     const overrides = await overridesDD.getPortfolioOverrides(type)
 
-    // Only start the browsers when at least one price has to be scraped
+    // Only start the browsers when at least one price has to be scraped. They start together,
+    // so a cold start costs the slowest launch, not the sum. If one fails, closing them waits
+    // for any launch still in flight (BrowserController), so nothing is left running.
     if (securities.some(({ tick }) => !isOverridden(tick, overrides))) {
-      for (const priceDD of prices) {
-        await priceDD.launchBrowser()
-      }
+      await Promise.all(prices.map((priceDD) => priceDD.launchBrowser()))
     }
 
     const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
