@@ -143,6 +143,73 @@ export class Portfolio {
     }
   }
 
+  /**
+   * Spends the cash held plus `deposit` on buys only: nothing is sold. The most underweight
+   * securities are brought up first, and the trades and fees never need more than that cash.
+   */
+  public buyWithCash(deposit: Decimal) {
+    if (!deposit.isFinite() || deposit.lessThan(0)) {
+      throw Error(`A buy-only deposit must be a finite number of at least 0 (${deposit})`)
+    }
+
+    this.plannedDeposit = deposit
+    const buyable = this.securities.filter((sec) => (
+      sec.targetPercentage.greaterThan(0) && sec.price.greaterThan(0)
+    ))
+    const level = this.fillLevel(buyable, this.cash.plus(deposit))
+    this.securities.forEach((sec) => {
+      sec.shares = sec.initialShares
+    })
+    buyable.forEach((sec) => {
+      const gap = level.times(sec.targetPercentage).minus(sec.initialTotalPrice)
+      const buyValue = Decimal.max(0, gap)
+      // Rounding down never spends more than the cash; fees are fitted below
+      sec.shares += buyValue.dividedBy(sec.price).floor().toNumber()
+    })
+
+    // Fees can still overshoot: cancel buys of the most overweight security first
+    while (this.cashAfterTrades.lessThan(0)) {
+      const buys = this.securities.filter((sec) => sec.shares > sec.initialShares)
+      const sec = this.mostOverweight(buys) as PortfolioSecurity
+      sec.shares -= 1
+    }
+
+    // Spend what rounding left over, one share at a time, on whatever is most underweight
+    let candidates = buyable
+    while (candidates.length > 0) {
+      const sec = this.mostUnderweight(candidates) as PortfolioSecurity
+      sec.shares += 1
+      if (this.cashAfterTrades.lessThan(0)) {
+        sec.shares -= 1
+        candidates = candidates.filter((other) => other !== sec)
+      }
+    }
+  }
+
+  /**
+   * The portfolio value up to which `cash` can lift the buyable securities that are below their
+   * target there (water-filling): each gets `level × target − its current value`, and those
+   * already above that are left alone.
+   */
+  private fillLevel(buyable: PortfolioSecurity[], cash: Decimal): Decimal {
+    // The value at which each security stops being overweight, lowest first
+    const startLevel = (sec: PortfolioSecurity) => (
+      sec.initialTotalPrice.dividedBy(sec.targetPercentage)
+    )
+    const ordered = [...buyable].sort((a, b) => startLevel(a).comparedTo(startLevel(b)))
+
+    let value = new Decimal(0)
+    let target = new Decimal(0)
+    for (let i = 0; i < ordered.length; i++) {
+      value = value.plus(ordered[i].initialTotalPrice)
+      target = target.plus(ordered[i].targetPercentage)
+      const level = cash.plus(value).dividedBy(target)
+      const next = ordered[i + 1]
+      if (!next || level.lessThanOrEqualTo(startLevel(next))) return level
+    }
+    return new Decimal(0)
+  }
+
   /** Allocates holdings worth as close to `price` as whole shares allow, but never above it. */
   public allocateValue(price: Decimal) {
     this.balanceForPrice(price)
@@ -157,9 +224,21 @@ export class Portfolio {
 
   /** The candidate whose proposed weight is furthest above its target (the first on a tie). */
   private mostOverweight(candidates: PortfolioSecurity[]): PortfolioSecurity | undefined {
+    return this.furthestFromTarget(candidates, 1)
+  }
+
+  /** The candidate whose proposed weight is furthest below its target (the first on a tie). */
+  private mostUnderweight(candidates: PortfolioSecurity[]): PortfolioSecurity | undefined {
+    return this.furthestFromTarget(candidates, -1)
+  }
+
+  private furthestFromTarget(
+    candidates: PortfolioSecurity[],
+    direction: 1 | -1,
+  ): PortfolioSecurity | undefined {
     const totalPrice = this.totalPrice
     const drift = (sec: PortfolioSecurity) => (
-      sec.calcActualPercentage(totalPrice).minus(sec.targetPercentage)
+      sec.calcActualPercentage(totalPrice).minus(sec.targetPercentage).times(direction)
     )
     return candidates.reduce<PortfolioSecurity | undefined>(
       (best, sec) => (best === undefined || drift(sec).greaterThan(drift(best)) ? sec : best),

@@ -76,6 +76,7 @@ classDiagram
     balanceForPrice(price: Decimal)
     allocateCash(deposit: Decimal)
     allocateValue(price: Decimal)
+    buyWithCash(deposit: Decimal)
     clone(): Portfolio
   }
   class Security {

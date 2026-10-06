@@ -47,7 +47,7 @@ describe('CLI program', () => {
   it.each([
     [['show'], 'show', { portfolioType: 'EUR' }],
     [['rebalance', '--pt', 'EGP'], 'rebalance', { portfolioType: 'EGP' }],
-    [['invest', '1000'], 'invest', { portfolioType: 'EUR', investment: 1000 }],
+    [['invest', '1000'], 'invest', { portfolioType: 'EUR', investment: 1000, buyOnly: false }],
     [['target', '5000', '--portfolio', 'EGP'], 'target', { portfolioType: 'EGP', targetPrice: 5000 }],
     [['minimal', '-p', '0.001'], 'minimal', {
       portfolioType: 'EUR', acceptablePrecision: 0.001, sharesStep: 1,
@@ -64,7 +64,8 @@ describe('CLI program', () => {
   it('passes a negative investment through as a number', async () => {
     await run('invest', '-100')
 
-    expect(useCases.invest.execute).toHaveBeenCalledWith({ portfolioType: 'EUR', investment: -100 })
+    expect(useCases.invest.execute)
+      .toHaveBeenCalledWith({ portfolioType: 'EUR', investment: -100, buyOnly: false })
   })
 
   it('presents errors from the use case and sets exit code 1 without exiting early', async () => {

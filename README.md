@@ -110,6 +110,8 @@ npm run cli:invest -- [options] <investment>
 
 - Arguments:
   - `investment`: Additional investment amount
+- Options:
+  - `-b, --buy-only`: only buy, never sell. The money goes to the most underweight securities first. The investment must be 0 or more.
 
 The plan never needs more than the investment plus the portfolio's `cash`, fees included. "Cash After Trades" shows what's left over.
 
@@ -124,7 +126,7 @@ npm run cli:rebalance -- [options]
 
 ## MCP server
 
-The same operations are available as [Model Context Protocol](https://modelcontextprotocol.io) tools: `show`, `minimal`, `target`, `invest` and `rebalance`. Each tool takes a `portfolio` input (default `"EUR"`) plus the same arguments as its CLI command (`precision`, `sharesStep`, `price`, `investment`), and returns structured JSON.
+The same operations are available as [Model Context Protocol](https://modelcontextprotocol.io) tools: `show`, `minimal`, `target`, `invest` and `rebalance`. Each tool takes a `portfolio` input (default `"EUR"`) plus the same arguments as its CLI command (`precision`, `sharesStep`, `price`, `investment`, `buyOnly`), and returns structured JSON.
 
 The server reads your portfolios from the folder named by the `STOCK_CALC_DATA_DIR` environment variable (a leading `~` means your home folder). Put your `_settings.<portfolio_name>.jsonc` and optional `_overrides.<portfolio_name>.jsonc` files there; see [Portfolio](#portfolio) for the format. If it isn't set, the server uses `src/data` in its own folder.
 

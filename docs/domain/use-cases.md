@@ -16,7 +16,7 @@ Use cases hold no state between calls and persist nothing.
 | --- | --- | --- | --- | --- |
 | [Show current portfolio](#uc-1-show-current-portfolio) | `show` | `show` | none | `ONLY_INITIAL` |
 | [Rebalance](#uc-2-rebalance-portfolio) | `rebalance` | `rebalance` | `allocateCash(0)` | `WITH_DELTA` |
-| [Invest additional amount](#uc-3-invest-an-additional-amount) | `invest <investment>` | `invest { investment }` | `allocateCash(investment)` | `WITH_DELTA` |
+| [Invest additional amount](#uc-3-invest-an-additional-amount) | `invest <investment> [-b]` | `invest { investment, buyOnly? }` | `allocateCash(investment)`, or `buyWithCash(investment)` when buying only | `WITH_DELTA` |
 | [Allocate to a target value](#uc-4-allocate-to-a-target-value) | `target <price>` | `target { price > 0 }` | `allocateValue(price)` | `WITH_DELTA` |
 | [Find minimal portfolio](#uc-5-find-the-minimal-portfolio) | `minimal [-p] [-s]` | `minimal { precision ∈ (0,1], sharesStep ≥ 1 integer }` | iterative search | `ONLY_NEW` |
 
@@ -83,7 +83,8 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 **Example (`invest 2`):** rounding alone would buy 27 QDVE and sell 12 SPYD, needing 24.95 EUR. The plan cancels one QDVE buy instead: buy 26 QDVE, sell 12 SPYD, leaving 5.50 EUR.
 
 **Notes:**
-- This is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added. There's no "buy-only" mode.
+- By default this is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added.
+- **Buy-only** (`--buy-only` / `-b`, MCP `buyOnly: true`) never sells. `buyWithCash` spends the money on the most underweight securities first, water-filling them toward a common weight gap. It rounds down to whole shares, then spends the remainder one share at a time while it fits, fees included. The investment must be ≥ 0; a negative one fails with a `ClassValidatorError` (`Investment.buyOnlyAmount`) before anything is loaded. Example: `invest 1000 --buy-only` buys 35 QDVE (995.75 + 1 fee) and leaves 3.25 EUR.
 - Cash needed (net traded + fees) is never above `investment` + cash held. What's left over is reported as cash after trades.
 - Negative amounts plan a withdrawal: `invest -4055` gives the same plan as `target 5000`. A withdrawal larger than the portfolio's value (holdings + cash) fails with `Cannot withdraw <amount>: more than the portfolio value (<value>)`. A withdrawal must also cover the sell fees, so the plan sells enough to pay for them. Withdrawing exactly the whole value plans selling everything, and cash after trades shows the fees as a shortfall (−2 EUR in the example).
 - The investment must be a finite number. The CLI rejects anything else while parsing arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`Investment.amount`).

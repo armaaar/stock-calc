@@ -76,6 +76,13 @@ describe('MCP server', () => {
     ])
   })
 
+  it('invest: only buys when buyOnly is set', async () => {
+    const { output } = await callTool('invest', { investment: 1000, buyOnly: true })
+
+    expect(output.securities.map((sec) => sec.tradedShares)).toEqual([35, 0])
+    expect(output).toMatchObject({ cashAfterTrades: 3.25 })
+  })
+
   it('invest: balances for the current value plus the investment', async () => {
     const { output } = await callTool('invest', { investment: 1000 })
 

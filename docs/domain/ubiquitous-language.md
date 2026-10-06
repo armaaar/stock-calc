@@ -31,6 +31,7 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | **Cash** | Uninvested cash held with the holdings, from the settings file (default 0). | `cash` | "Cash" (in `show`) |
 | **Deposit** | Money a plan adds (negative: withdraws): the `invest` amount, or 0 for `rebalance`. | `deposit` | |
 | **Cash after trades** | `cash + deposit − traded price − trading fees`: what's left once the plan is carried out. Negative means the plan needs that much more money. | `cashAfterTrades` | "Cash After Trades" |
+| **Buy-only investing** | Spending a deposit on buys only, most underweight securities first, never selling. | `buyWithCash`, `--buy-only`, MCP `buyOnly` | |
 | **Being traded** | True when a security's proposed shares differ from its initial shares, meaning an order is needed. | `isBeingTraded` | |
 
 ## Fees

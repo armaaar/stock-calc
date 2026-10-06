@@ -384,6 +384,135 @@ describe('Portfolio', () => {
     })
   })
 
+  describe('buyWithCash', () => {
+    const three = () => new Portfolio({
+      securities: [
+        security({ tick: 'A', price: 10, shares: 50, targetPercentage: 0.5 }),
+        security({ tick: 'B', price: 20, shares: 10, targetPercentage: 0.3 }),
+        security({ tick: 'C', price: 5, shares: 20, targetPercentage: 0.2 }),
+      ],
+    })
+
+    it('brings the most underweight security up first and sells nothing', () => {
+      // Example portfolio: QDVE is 31% (target 40%), so 1000 all goes to QDVE: 35 shares,
+      // 995.75 + 1 fee. Neither 28.45 nor 62.10 fits in the 3.25 left.
+      const portfolio = buildPortfolio()
+
+      portfolio.buyWithCash(new Decimal(1000))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 135, SPYD: 100 })
+      expect(portfolio.deposit.toNumber()).toBe(1000)
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(3.25)
+    })
+
+    it('fills underweight securities together once they reach the same weight gap', () => {
+      // Value 500 + 200 + 100 = 800. Investing 400: B and C are underweight; at a value of 1200
+      // A (500) is below 600 too, so all three get money, in proportion to their gaps.
+      const portfolio = three()
+
+      portfolio.buyWithCash(new Decimal(400))
+
+      for (const sec of portfolio.securities) {
+        expect(sec.shares).toBeGreaterThanOrEqual(sec.initialShares)
+      }
+      expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+      // Target values at 1200 are A 600, B 360, C 240. Rounding down gives 590 / 360 / 240,
+      // and the 7 left after 3 fees buys one more C, the most underweight: 590 / 360 / 245.
+      expect(sharesOf(portfolio)).toEqual({ A: 59, B: 18, C: 49 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(2)
+    })
+
+    it('leaves overweight securities alone when the money does not reach them', () => {
+      const portfolio = three()
+
+      portfolio.buyWithCash(new Decimal(50))
+
+      // C (12.5%, target 20%) is the furthest below; A (62.5%) and B (25%) are left alone
+      expect(sharesOf(portfolio).A).toBe(50)
+      expect(portfolio.securities.every((sec) => sec.shares >= sec.initialShares)).toBe(true)
+      expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+    })
+
+    it('cancels buys when the fees would need more than the cash', () => {
+      // 30 to spend, flat fee 5: rounding down buys 3 C (15) and 1 B (20) = 35 + fees 10
+      const portfolio = new Portfolio({
+        securities: [
+          security({ tick: 'B', price: 20, shares: 10, targetPercentage: 0.5, brokerageFeeFlat: 5 }),
+          security({ tick: 'C', price: 5, shares: 10, targetPercentage: 0.5, brokerageFeeFlat: 5 }),
+        ],
+      })
+
+      portfolio.buyWithCash(new Decimal(30))
+
+      expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+      expect(portfolio.securities.every((sec) => sec.shares >= sec.initialShares)).toBe(true)
+      expect(portfolio.totalTradedPrice.greaterThan(0)).toBe(true)
+    })
+
+    it('spends the cash held as well', () => {
+      const portfolio = buildPortfolio(undefined, 1000)
+
+      portfolio.buyWithCash(new Decimal(0))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 135, SPYD: 100 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(3.25)
+    })
+
+    it('buys nothing with nothing to spend', () => {
+      const portfolio = buildPortfolio()
+
+      portfolio.buyWithCash(new Decimal(0))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 100, SPYD: 100 })
+      expect(portfolio.totalTradingFee.toNumber()).toBe(0)
+    })
+
+    it('never sells or needs more than it was given, for any amount', () => {
+      for (let deposit = 0; deposit <= 3000; deposit += 37) {
+        const portfolio = three()
+        portfolio.buyWithCash(new Decimal(deposit))
+        expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+        expect(portfolio.securities.every((sec) => sec.shares >= sec.initialShares)).toBe(true)
+        // Whatever is left can't buy one more share of anything, fees included
+        const cheapest = Math.min(...portfolio.securities.map((sec) => sec.price.toNumber()))
+        expect(portfolio.cashAfterTrades.toNumber()).toBeLessThan(cheapest + 1)
+      }
+    })
+
+    it('skips securities with a 0 target or a 0 price', () => {
+      const portfolio = new Portfolio({
+        securities: [
+          security({ tick: 'ZERO', price: 10, shares: 0, targetPercentage: 0 }),
+          security({ tick: 'FREE', price: 0, shares: 0, targetPercentage: 0.5 }),
+          security({ tick: 'A', price: 10, shares: 0, targetPercentage: 0.5 }),
+        ],
+      })
+
+      portfolio.buyWithCash(new Decimal(100))
+
+      expect(sharesOf(portfolio)).toEqual({ ZERO: 0, FREE: 0, A: 9 })
+    })
+
+    it('buys nothing when no security can be bought', () => {
+      const portfolio = new Portfolio({
+        securities: [security({ tick: 'FREE', price: 0, shares: 0, targetPercentage: 1 })],
+      })
+
+      portfolio.buyWithCash(new Decimal(100))
+
+      expect(portfolio.securities[0].shares).toBe(0)
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(100)
+    })
+
+    it.each([-1, NaN, Infinity])('rejects the deposit %d', (deposit) => {
+      const portfolio = buildPortfolio()
+
+      expect(() => portfolio.buyWithCash(new Decimal(deposit)))
+        .toThrow(`A buy-only deposit must be a finite number of at least 0 (${deposit})`)
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 100, SPYD: 100 })
+    })
+  })
+
   describe('allocateValue', () => {
     it('allocates a target value of 5000 to QDVE 70 / SPYD 48', () => {
       const portfolio = buildPortfolio()

@@ -11,18 +11,21 @@ export function registerInvestTool(
 ): void {
   server.registerTool('invest', {
     title: 'Invest in portfolio',
-    description: 'Calculates the number of shares you need to buy to satisfy your portfolio if you invest additionally. Also rebalances, so it may sell overweight securities.',
+    description: 'Calculates the number of shares you need to buy to satisfy your portfolio if you invest additionally. Also rebalances, so it may sell overweight securities, unless buyOnly is set. The plan never needs more than the investment plus the cash held, fees included.',
     inputSchema: {
       // zod 4 numbers are finite: NaN and +/-Infinity are rejected
       investment: z.number()
         .describe('Additional investment, a finite number (negative to plan a withdrawal)'),
+      buyOnly: z.boolean().optional()
+        .describe('Only buy, never sell: spend the investment on the most underweight securities. '
+          + 'The investment must then be at least 0. Default false'),
       ...portfolioInput,
     },
     outputSchema: portfolioOutputSchema,
     annotations: portfolioToolAnnotations,
-  }, async ({ investment, portfolio: portfolioType }) => {
+  }, async ({ investment, buyOnly = false, portfolio: portfolioType }) => {
     try {
-      const portfolio = await invest.execute({ portfolioType, investment })
+      const portfolio = await invest.execute({ portfolioType, investment, buyOnly })
       return PortfolioMcpPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       return ErrorMcpPresenter.present(e)

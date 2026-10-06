@@ -17,6 +17,27 @@ describe('Investment', () => {
   it.each([1000, 0, -4055])('keeps the amount %d', (amount) => {
     expect(new Investment(amount).amount).toBe(amount)
   })
+
+  it('does not buy only by default', () => {
+    expect(new Investment(1000).buyOnly).toBe(false)
+  })
+
+  it.each([0, 1000])('accepts buying only with %d', (amount) => {
+    expect(new Investment(amount, true)).toMatchObject({ amount, buyOnly: true })
+  })
+
+  it('rejects buying only with a negative amount', () => {
+    let error: unknown
+    try {
+      new Investment(-1, true)
+    } catch (e) {
+      error = e
+    }
+
+    expect(error).toBeInstanceOf(ClassValidatorError)
+    expect((error as ClassValidatorError).errors.map((e) => e.property))
+      .toEqual(['buyOnlyAmount'])
+  })
 })
 
 describe('GetPortfolioWithInvestmentUseCase', () => {
@@ -100,6 +121,26 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
     expect(message).toBe('Class \'Investment\' validation failed')
     expect(errors.map((e) => e.property)).toEqual(['amount'])
     expect(repo.getPortfolio).not.toHaveBeenCalled()
+  })
+
+  describe('buying only', () => {
+    it('buys 35 QDVE with 1000 and sells nothing', async () => {
+      const portfolio = await useCase.execute({
+        portfolioType: 'EUR', investment: 1000, buyOnly: true,
+      })
+
+      expect(sharesOf(portfolio)).toEqual([['QDVE', 135], ['SPYD', 100]])
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(3.25)
+    })
+
+    it('rejects a negative investment without loading the portfolio', async () => {
+      const error = await useCase.execute({
+        portfolioType: 'EUR', investment: -100, buyOnly: true,
+      }).catch((e: unknown) => e)
+
+      expect(error).toBeInstanceOf(ClassValidatorError)
+      expect(repo.getPortfolio).not.toHaveBeenCalled()
+    })
   })
 
   it('passes the portfolio type through to the repository', async () => {

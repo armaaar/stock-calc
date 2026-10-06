@@ -35,7 +35,7 @@ describe('invest command', () => {
     process.exitCode = undefined
   })
 
-  it('is named "invest" and takes an <investment> argument and the portfolio option', () => {
+  it('is named "invest" and takes an <investment>, --buy-only and the portfolio option', () => {
     expect(investCli.name()).toBe('invest')
     expect(investCli.description()).toBe(
       'Calculates the number of shares you need to buy to satisfy your portfolio if you invest additionally',
@@ -43,7 +43,7 @@ describe('invest command', () => {
     expect(investCli.registeredArguments.map((arg) => [arg.name(), arg.required])).toEqual([
       ['investment', true],
     ])
-    expect(investCli.options.map((option) => option.long)).toEqual(['--portfolio'])
+    expect(investCli.options.map((option) => option.long)).toEqual(['--buy-only', '--portfolio'])
   })
 
   it('passes the investment as a number and presents the plan with the trades', async () => {
@@ -52,7 +52,8 @@ describe('invest command', () => {
     await investCli.parseAsync(['1000'], { from: 'user' })
 
     expect(invest.execute).toHaveBeenCalledTimes(1)
-    expect(invest.execute).toHaveBeenCalledWith({ portfolioType: 'EUR', investment: 1000 })
+    expect(invest.execute)
+      .toHaveBeenCalledWith({ portfolioType: 'EUR', investment: 1000, buyOnly: false })
     expect(present).toHaveBeenCalledWith(
       await invest.execute.mock.results[0].value,
       PresentMode.WITH_DELTA,
@@ -74,13 +75,16 @@ describe('invest command', () => {
   ])('uses the portfolio type given with %s', async (flag, type) => {
     await investCli.parseAsync(['250.5', flag, type], { from: 'user' })
 
-    expect(invest.execute).toHaveBeenCalledWith({ portfolioType: type, investment: 250.5 })
+    expect(invest.execute)
+      .toHaveBeenCalledWith({ portfolioType: type, investment: 250.5, buyOnly: false })
   })
 
   it('accepts the option before the argument', async () => {
     await investCli.parseAsync(['--pt', 'EGP', '500'], { from: 'user' })
 
-    expect(invest.execute).toHaveBeenCalledWith({ portfolioType: 'EGP', investment: 500 })
+    expect(invest.execute)
+
+      .toHaveBeenCalledWith({ portfolioType: 'EGP', investment: 500, buyOnly: false })
   })
 
   it.each(['abc', 'Infinity', ''])(
@@ -109,10 +113,19 @@ describe('invest command', () => {
     expect(invest.execute).not.toHaveBeenCalled()
   })
 
+  it.each([['--buy-only'], ['-b']])('passes buyOnly when given %s', async (flag) => {
+    await investCli.parseAsync(['250', flag], { from: 'user' })
+
+    expect(invest.execute)
+      .toHaveBeenCalledWith({ portfolioType: 'EUR', investment: 250, buyOnly: true })
+  })
+
   it('accepts a negative amount as the investment, to plan a withdrawal', async () => {
     await investCli.parseAsync(['-100'], { from: 'user' })
 
-    expect(invest.execute).toHaveBeenCalledWith({ portfolioType: 'EUR', investment: -100 })
+    expect(invest.execute)
+
+      .toHaveBeenCalledWith({ portfolioType: 'EUR', investment: -100, buyOnly: false })
   })
 
   it('routes a failing use case to the error presenter and sets exit code 1', async () => {
