@@ -1,6 +1,7 @@
-import path from 'path'
 import { describe, expect, it } from 'vitest'
-import { EUR_OVERRIDES, EUR_SETTINGS, withoutIsin } from '#src/__fixtures__/dataFiles'
+import {
+  EUR_OVERRIDES, EUR_SETTINGS, EXAMPLES_DIR, withoutIsin,
+} from '#src/__fixtures__/dataFiles'
 import {
   BrokerSchema, OverridesSchema, parseDataFile, SecurityPriceSchema, SettingsSchema,
   SettingsSecuritySchema,
@@ -302,27 +303,25 @@ describe('BrokerSchema', () => {
 })
 
 describe('tracked example data files', () => {
-  const dataDir = path.resolve(import.meta.dirname, '../../data')
-  const settings = new SettingsDataDriver(dataDir)
-  const overrides = new OverridesDataDriver(dataDir)
+  const settings = new SettingsDataDriver(EXAMPLES_DIR)
+  const overrides = new OverridesDataDriver(EXAMPLES_DIR)
 
-  it('are the example broker, read through the data drivers', () => {
-    expect(listPortfolioIds(dataDir).filter((id) => id.startsWith('example/')))
-      .toEqual(['example/egp', 'example/eur'])
+  it('are the demo broker, outside the data folder, read through the data drivers', () => {
+    expect(listPortfolioIds(EXAMPLES_DIR)).toEqual(['demo/egp', 'demo/eur'])
   })
 
-  it('example/eur is the example portfolio, with its fees from the broker file', async () => {
-    await expect(settings.getPortfolioSettings('example/eur')).resolves.toEqual(EUR_SETTINGS)
-    await expect(overrides.getPortfolioOverrides('example/eur')).resolves.toEqual(EUR_OVERRIDES)
+  it('demo/eur is the example portfolio, with its fees from the broker file', async () => {
+    await expect(settings.getPortfolioSettings('demo/eur')).resolves.toEqual(EUR_SETTINGS)
+    await expect(overrides.getPortfolioOverrides('demo/eur')).resolves.toEqual(EUR_OVERRIDES)
   })
 
-  it('example/egp sets its own fees, a per-security fee, and dated overrides', async () => {
-    const egp = await settings.getPortfolioSettings('example/egp')
+  it('demo/egp sets its own fees, a per-security fee, and dated overrides', async () => {
+    const egp = await settings.getPortfolioSettings('demo/egp')
 
     expect(egp.brokerageFeeFlat).toBe(2)
     expect(egp.securities.map((sec) => sec.minimumTradingFeeFlat)).toEqual([undefined, 5])
     // Every security is overridden, so the example runs offline
-    const prices = await overrides.getPortfolioOverrides('example/egp')
+    const prices = await overrides.getPortfolioOverrides('demo/egp')
     expect(Object.keys(prices)).toEqual(egp.securities.map((sec) => sec.tick))
     expect(prices.ESRS.asOf).toBe('2026-10-01')
   })

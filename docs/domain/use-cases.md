@@ -24,7 +24,7 @@ Every command takes `--pt, --portfolio <broker/portfolio>`, and every tool takes
 
 **Shared preconditions:** the portfolio's `<broker>/<portfolio>.jsonc` exists and, with its broker's optional `_broker.jsonc`, passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the CLI prints the error(s) and exits with code 1, the MCP tool returns an `isError` result, and no plan is produced.
 
-**Worked examples** below use the tracked example portfolio `example/eur` (`src/data/example/eur.jsonc` with its overrides, and the 1 EUR flat fee from `_broker.jsonc`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
+**Worked examples** below use the tracked example portfolio `demo/eur` (`examples/demo/eur.jsonc` with its overrides, and the 1 EUR flat fee from `_broker.jsonc`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
 
 ---
 
@@ -138,7 +138,7 @@ Every command takes `--pt, --portfolio <broker/portfolio>`, and every tool takes
 
 ## Adding a use case
 
-1. Create `src/UseCases/<Name>.UseCase.ts` extending `PortfolioUseCase<<Name>Request>` and implement `execute(request)`. Load the portfolio with `this.portfolioRepo.getPortfolio(portfolioType)`.
+1. Create `src/UseCases/<Name>.UseCase.ts` extending `PortfolioUseCase<<Name>Request>` and implement `execute(request)`. Load the portfolio with `this.portfolioRepo.getPortfolio(portfolio)`.
 2. Express the calculation as a method on the `Portfolio` aggregate when possible (as `balanceForPrice` is), so use cases stay thin.
 3. If the request has constrained values, put them in a small value class whose decorated fields are checked by `validateClassErrors(this, <Class>)` at the end of its constructor ([ADR-0004](../architecture/adr/0004-self-validating-entities.md)), and build it first thing in `execute`, so bad input fails before anything is loaded.
 4. Add it to `PortfolioUseCases` and `createPortfolioUseCases` (`src/UseCases/PortfolioUseCases.factory.ts`).

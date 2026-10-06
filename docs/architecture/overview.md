@@ -24,7 +24,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | justetf.com | ETF quotes | `isin` | Only works for securities with an ISIN. 2 s selector timeout. |
 | tradingview.com | Any listed symbol | `exchange` + `tick` | 30 s selector timeout. |
-| Local JSONC files | Broker fees, portfolio definition and price overrides | Portfolio id `<broker>/<portfolio>` (`--pt`/`--portfolio` or the `portfolio` tool input; optional with one portfolio) | Git-ignored. Only the `src/data/example/` broker is tracked. |
+| Local JSONC files | Broker fees, portfolio definition and price overrides | Portfolio id `<broker>/<portfolio>` (`--pt`/`--portfolio` or the `portfolio` tool input; optional with one portfolio) | Git-ignored. The tracked examples are the `demo` broker in `examples/`. |
 | MCP clients (Claude Code, …) | Calling the use cases as tools | Tool name | Configured by the project's `.mcp.json`. |
 
 ## Layers

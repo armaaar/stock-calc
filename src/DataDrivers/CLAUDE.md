@@ -13,7 +13,7 @@ Infrastructure: reads the portfolio data files and scrapes prices. Returns plain
   - After that, `parseDataFile()` validates against the schema and throws `Invalid data file '<path>'` with the failing field paths.
 - The schemas check ranges as well as types (integer shares ≥ 0, fractions in [0, 1], fees ≥ 0, override prices > 0, non-empty strings). The settings schemas are `.strict()`: an unknown key, such as a misspelled per-security fee, is an error rather than a silent fallback.
 - `SettingsDataDriver.resolvePortfolioId(requested?)` returns the requested id if its file exists, or the only portfolio when none is requested. Otherwise it throws, listing the portfolios found (and how to move files from before broker folders). `getPortfolioSettings(id)` returns the portfolio's settings with what it leaves out taken from `_broker.jsonc` (optional), so the repository only falls back security → portfolio. A missing, empty or comments-only overrides or broker file means nothing set.
-- When a schema changes, update the tracked example broker `src/data/example/`. `__tests__/DataFiles.schema.test.ts` reads it through the drivers. Every other broker folder in `src/data` is personal and git-ignored: never read those files into output, logs or commits.
+- When a schema changes, update the tracked examples in `examples/demo/`. `__tests__/DataFiles.schema.test.ts` reads them through the drivers. Everything in `src/data` is personal and git-ignored: never read those files into output, logs or commits.
 
 ## Price scrapers
 

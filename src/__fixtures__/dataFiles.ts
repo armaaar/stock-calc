@@ -8,7 +8,7 @@ import { QDVE, SPYD } from './portfolio'
 
 /**
  * DTO counterparts of the shared QDVE / SPYD fixtures, i.e. what the settings and overrides
- * data drivers return for the tracked `src/data/example/eur.jsonc` (with its broker's fees) and
+ * data drivers return for the tracked `examples/demo/eur.jsonc` (with its broker's fees) and
  * `eur.overrides.jsonc`.
  */
 export const QDVE_SETTING: SettingsSecurityDto = {
@@ -69,14 +69,17 @@ export const EUR_OVERRIDES_JSONC = `{
 }
 `
 
+/** The tracked examples folder, a data folder holding the `demo` broker. */
+export const EXAMPLES_DIR = path.resolve(import.meta.dirname, '../../examples')
+
 /**
- * The tracked example broker's files (`src/data/example`), keyed by their path in a data folder,
- * for `createDataDir`. Every price in them is overridden, so they load without a browser.
+ * The `demo` broker's files (`examples/demo`), keyed by their path in a data folder, for
+ * `createDataDir`. Every price in them is overridden, so they load without a browser.
  */
 export function exampleFiles(): Record<string, string> {
-  const folder = path.resolve(import.meta.dirname, '../data/example')
+  const folder = path.join(EXAMPLES_DIR, 'demo')
   return Object.fromEntries(fs.readdirSync(folder).map((name) => (
-    [`example/${name}`, fs.readFileSync(path.join(folder, name), 'utf8')]
+    [`demo/${name}`, fs.readFileSync(path.join(folder, name), 'utf8')]
   )))
 }
 

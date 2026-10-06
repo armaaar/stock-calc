@@ -1,9 +1,8 @@
 node_modules
 coverage
 
-# Portfolio data files are personal; only the example broker is tracked
+# Portfolio data files are personal; the examples live in examples/
 src/data/*
-!src/data/example/
 
 # Personal Claude Code settings
 .claude/settings.local.json

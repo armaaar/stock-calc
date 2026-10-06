@@ -32,8 +32,8 @@ describe('composePortfolioUseCases', () => {
     const examples = exampleFiles()
     dataDir = createDataDir({
       ...examples,
-      'example/live.jsonc': LIVE_SETTINGS,
-      'example/live.overrides.jsonc': examples['example/eur.overrides.jsonc'],
+      'demo/live.jsonc': LIVE_SETTINGS,
+      'demo/live.overrides.jsonc': examples['demo/eur.overrides.jsonc'],
     })
   })
 
@@ -51,7 +51,7 @@ describe('composePortfolioUseCases', () => {
 
   it('wires the real use cases, repository and file drivers on the given data folder', async () => {
     const portfolio = await composePortfolioUseCases(dataDir).invest.execute({
-      portfolio: 'example/eur', investment: 1000,
+      portfolio: 'demo/eur', investment: 1000,
     })
 
     expect(shares(portfolio)).toEqual([['QDVE', 141], ['SPYD', 97]])
@@ -68,9 +68,26 @@ describe('composePortfolioUseCases', () => {
   it('reads the data folder from STOCK_CALC_DATA_DIR by default', async () => {
     vi.stubEnv('STOCK_CALC_DATA_DIR', dataDir)
 
-    const portfolio = await composePortfolioUseCases().show.execute({ portfolio: 'example/eur' })
+    const portfolio = await composePortfolioUseCases().show.execute({ portfolio: 'demo/eur' })
 
     expect(shares(portfolio)).toEqual([['QDVE', 100], ['SPYD', 100]])
+  })
+
+  it('uses the only portfolio in the data folder when none is named', async () => {
+    const examples = exampleFiles()
+    const single = createDataDir({
+      'ibkr/_broker.jsonc': examples['demo/_broker.jsonc'],
+      'ibkr/eur.jsonc': examples['demo/eur.jsonc'],
+      'ibkr/eur.overrides.jsonc': examples['demo/eur.overrides.jsonc'],
+    })
+
+    try {
+      const portfolio = await composePortfolioUseCases(single).rebalance.execute({})
+
+      expect(shares(portfolio)).toEqual([['QDVE', 127], ['SPYD', 87]])
+    } finally {
+      fs.rmSync(single, { recursive: true })
+    }
   })
 
   it('launches headless browsers for live prices and closes them afterwards', async () => {
@@ -81,7 +98,7 @@ describe('composePortfolioUseCases', () => {
 
     // The fake pages never show a price, so both scrapers fail
     const error = await composePortfolioUseCases(dataDir).show
-      .execute({ portfolio: 'example/live' })
+      .execute({ portfolio: 'demo/live' })
       .catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(AggregateError)

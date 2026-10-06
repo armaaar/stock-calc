@@ -13,7 +13,8 @@ export class SettingsDataDriver implements ISettingsDataDriver {
   public async resolvePortfolioId(requested?: string): Promise<string> {
     if (requested !== undefined) {
       assertPortfolioId(requested)
-      if (fs.existsSync(portfolioFiles(this.dataDir, requested).settings)) return requested
+      const { settings } = portfolioFiles(this.dataDir, requested)
+      if (fs.statSync(settings, { throwIfNoEntry: false })?.isFile()) return requested
     }
 
     const found = listPortfolioIds(this.dataDir)
@@ -38,13 +39,13 @@ export class SettingsDataDriver implements ISettingsDataDriver {
     return { ...broker, ...settings }
   }
 
-  /** What there is to choose from, or how to add a portfolio. */
+  /** What there is to choose from, or how to add a portfolio, and how to move old files. */
   private portfoliosHint(found: string[]): string {
-    if (found.length > 0) return `Portfolios: ${found.join(', ')}`
-
-    const add = 'Add one as <broker>/<portfolio>.jsonc, for example ibkr/eur.jsonc'
-    if (!hasLegacyPortfolioFiles(this.dataDir)) return add
-    return `${add}. Portfolio files now live in a folder per broker: move _settings.<name>.jsonc`
+    const hint = found.length > 0
+      ? `Portfolios: ${found.join(', ')}`
+      : 'Add one as <broker>/<portfolio>.jsonc, for example ibkr/eur.jsonc'
+    if (!hasLegacyPortfolioFiles(this.dataDir)) return hint
+    return `${hint}. Portfolio files now live in a folder per broker: move _settings.<name>.jsonc`
       + ' to <broker>/<name>.jsonc and _overrides.<name>.jsonc to <broker>/<name>.overrides.jsonc'
   }
 }

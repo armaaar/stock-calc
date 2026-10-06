@@ -93,14 +93,32 @@ describe('SettingsDataDriver', () => {
       'rejects the portfolio id %j before touching the file system',
       async (id) => {
         const driver = givenFile(undefined)
+        const statSync = vi.spyOn(fs, 'statSync')
         const existsSync = vi.spyOn(fs, 'existsSync')
         const readdirSync = vi.spyOn(fs, 'readdirSync')
 
         await expect(driver.resolvePortfolioId(id)).rejects.toThrow(`Invalid portfolio '${id}'`)
+        expect(statSync).not.toHaveBeenCalled()
         expect(existsSync).not.toHaveBeenCalled()
         expect(readdirSync).not.toHaveBeenCalled()
       },
     )
+
+    it('explains how to move old files even when there are portfolios to choose from', async () => {
+      const driver = givenFiles({ '_settings.EUR.jsonc': '{}', 'ibkr/growth.jsonc': '{}' })
+
+      await expect(driver.resolvePortfolioId('ibkr/eur')).rejects.toThrow(
+        `Portfolio 'ibkr/eur' not found in '${dataDir}'. Portfolios: ibkr/growth. `
+        + 'Portfolio files now live in a folder per broker: move _settings.<name>.jsonc to',
+      )
+    })
+
+    it('does not take a folder named like a portfolio file for a portfolio', async () => {
+      const driver = givenFiles({ 'ibkr/eur.jsonc/notes.txt': '' })
+
+      await expect(driver.resolvePortfolioId('ibkr/eur'))
+        .rejects.toThrow(`Portfolio 'ibkr/eur' not found in '${dataDir}'.`)
+    })
 
     it('does not take the broker file for a portfolio', async () => {
       const driver = givenFiles({ 'ibkr/_broker.jsonc': '{}' })

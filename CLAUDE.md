@@ -9,7 +9,7 @@ TypeScript portfolio calculator (show, rebalance, invest an amount, hit a target
 ## Commands
 
 ```sh
-npm run cli -- <command> [options]   # tsx, e.g. `npm run cli -- rebalance --pt example/eur`
+npm run cli -- <command> [options]   # tsx, e.g. `npm run cli -- rebalance --pt ibkr/eur`
 npm run mcp                          # MCP server on stdio (clients should use the .mcp.json command instead)
 npm run typecheck                    # tsc, type-check only. tsx does NOT type-check
 npm run lint                         # ESLint 10 flat config (eslint.config.js)
@@ -21,8 +21,8 @@ npx vitest run -t "rebalance"                          # tests whose name matche
 
 - Node 22 (`.nvmrc`). Native ESM (`"type": "module"`), no build step (`noEmit`). TypeScript is pinned to `~6.0` because typescript-eslint doesn't support TypeScript 7 yet (ADR-0013).
 - The portfolio flag is `--pt, --portfolio <broker/portfolio>` (optional when the data folder holds one portfolio). commander 15 rejects the old `-pt`.
-- Portfolios are `<dataDir>/<broker>/<portfolio>.jsonc` (plus optional `<portfolio>.overrides.jsonc` and a shared `<broker>/_broker.jsonc`), where `<dataDir>` is `$STOCK_CALC_DATA_DIR`, or `src/data` when it's unset (ADR-0027). Only `src/data/example/` is tracked; every other broker folder is personal and git-ignored. The MCP server can run without a clone via `npx -y github:armaaar/stock-calc` (`bin/stock-calc-mcp.js`, ADR-0016); see `src/McpApp/CLAUDE.md` before touching `bin/` or `package.json` `files`.
-- A real run launches two headless Chromium instances. To run end to end offline, use `--pt example/eur`: every price in the example broker is overridden.
+- Portfolios are `<dataDir>/<broker>/<portfolio>.jsonc` (plus optional `<portfolio>.overrides.jsonc` and a shared `<broker>/_broker.jsonc`), where `<dataDir>` is `$STOCK_CALC_DATA_DIR`, or `src/data` when it's unset (ADR-0027). Everything in `src/data` is personal and git-ignored; the tracked examples are the `demo` broker in `examples/`, outside the data folder so they never show up among real portfolios. The MCP server can run without a clone via `npx -y github:armaaar/stock-calc` (`bin/stock-calc-mcp.js`, ADR-0016); see `src/McpApp/CLAUDE.md` before touching `bin/` or `package.json` `files`.
+- A real run launches two headless Chromium instances. To run end to end offline, point the data folder at the examples, where every price is overridden: `STOCK_CALC_DATA_DIR=examples npm run cli -- rebalance --pt demo/eur`.
 - If Puppeteer can't find Chrome: `npx puppeteer browsers install chrome`.
 
 ## Architecture

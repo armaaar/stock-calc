@@ -13,7 +13,7 @@ stdout carries the JSON-RPC stream. One stray `console.log` (or an npm banner) c
 
 - `bin/stock-calc-mcp.js` registers tsx with the package's own `tsconfig.json`, which carries the decorator settings, then imports `app.ts`. npx starts the process in the user's folder, so tsx wouldn't find the tsconfig on its own. Node resolves `#src/*` imports from `package.json`, inside `node_modules` too (ADR-0017). Don't reintroduce tsconfig `paths`: tsx ignores them inside `node_modules`.
 - Runtime code may only import `dependencies`, never devDependencies; `tsx` is a dependency for this reason.
-- `files` in `package.json` decides what an install contains. After adding a runtime folder, check `npm pack --dry-run`. Only `src/data/example/` may appear from `src/data`; personal broker folders must never.
+- `files` in `package.json` decides what an install contains. After adding a runtime folder, check `npm pack --dry-run`. Nothing from `src/data` may appear in it: those files are personal.
 - Before changing the launcher, test the installed path rather than the repo path: `npm pack`, then from another folder `npm exec --yes --package <tgz> -- stock-calc-mcp` with `STOCK_CALC_DATA_DIR` set, connected through the SDK's `StdioClientTransport`.
 
 ## Structure
@@ -35,11 +35,11 @@ Copy an existing `McpTools/*.McpTool.ts`:
 - `outputSchema: portfolioOutputSchema`, `annotations: portfolioToolAnnotations`.
 - Wrap the handler in `try/catch` and return `ErrorMcpPresenter.present(e)`. Never throw out of a handler.
 - Pass the same `PresentMode` the CLI command uses.
-- Call `useCase.execute({ portfolioType, … })`; never construct use cases or repositories here.
+- Call `useCase.execute({ portfolio, … })`; never construct use cases or repositories here.
 - Register the tool in `server.ts` with `useCases.<name>`, add a case to `__tests__/server.test.ts`, and add the tool to the README and `docs/domain/use-cases.md`.
 
 ## Testing
 
 `__tests__/server.test.ts` connects a real SDK `Client` through `InMemoryTransport.createLinkedPair()` to `createMcpServer(useCasesOver(fakePortfolioRepository()))`, so the real use cases and domain run on `buildPortfolio()` with no module mocks. `__tests__/app.test.ts` mocks only the stdio transport (the process boundary) and runs the real composition root against a temporary data folder.
 
-For a manual end-to-end check, spawn the exact `.mcp.json` command with the SDK's `StdioClientTransport` against `STOCK_CALC_DATA_DIR` holding a copy of `src/data/example` and the `example/eur` portfolio (see the root CLAUDE.md).
+For a manual end-to-end check, spawn the exact `.mcp.json` command with the SDK's `StdioClientTransport` with `STOCK_CALC_DATA_DIR=examples` and the `demo/eur` portfolio (see the root CLAUDE.md).

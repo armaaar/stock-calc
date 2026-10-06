@@ -26,7 +26,13 @@ src/data/
     egp.jsonc              the portfolio thndr/egp
 ```
 
-To create a portfolio, create `src/data/<broker>/<portfolio>.jsonc`, and select it with `--pt <broker>/<portfolio>` (for example `--pt ibkr/eur`). Broker and portfolio names may contain letters, digits, `_` and `-`, and start with a letter or digit. With only one portfolio in the data folder, `--pt` can be left out. The files use the `.jsonc` extension, so comments are allowed. `src/data/example/` is a complete example (`--pt example/eur` runs offline, since every price in it is overridden); your own folders are git-ignored.
+To create a portfolio, create `src/data/<broker>/<portfolio>.jsonc`, and select it with `--pt <broker>/<portfolio>` (for example `--pt ibkr/eur`). Broker and portfolio names may contain letters, digits, `_` and `-`, and start with a letter or digit. With only one portfolio in the data folder, `--pt` can be left out. The files use the `.jsonc` extension, so comments are allowed. Everything in `src/data` is git-ignored.
+
+`examples/` is a complete data folder with a `demo` broker. Every price in it is overridden, so it runs offline:
+
+```sh
+STOCK_CALC_DATA_DIR=examples npm run cli -- rebalance --pt demo/eur
+```
 
 A portfolio file contains:
 
@@ -60,7 +66,7 @@ To skip fetching for some securities (for example, when no source lists them), c
 }
 ```
 
-The override currency must match the rest of the portfolio. Add `"asOf": "YYYY-MM-DD"` to record when you looked the price up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), so a stale override is easy to spot. See `src/data/example/` for templates.
+The override currency must match the rest of the portfolio. Add `"asOf": "YYYY-MM-DD"` to record when you looked the price up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), so a stale override is easy to spot. See `examples/demo/` for templates.
 
 When both sites can price a security, justetf.com's price is used, so the same portfolio always gets the same prices.
 

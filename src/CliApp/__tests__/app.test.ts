@@ -42,7 +42,7 @@ describe('CLI app entry point', () => {
 
   it('runs a command end to end against the data folder', async () => {
     // The app awaits cli.parseAsync(), so the action has finished once the import resolves.
-    await runApp('invest', '1000', '--pt', 'example/eur')
+    await runApp('invest', '1000', '--pt', 'demo/eur')
 
     const [rows] = spies.table.mock.calls[0] as [{ Tick: string, Shares: number }[]]
     expect(rows.map(({ Tick, Shares }) => [Tick, Shares])).toEqual([['QDVE', 141], ['SPYD', 97]])
@@ -61,16 +61,16 @@ describe('CLI app entry point', () => {
     await runApp('show')
 
     expect(printedLines(spies.error))
-      .toEqual(['Error: Choose a portfolio. Portfolios: example/egp, example/eur'])
+      .toEqual(['Error: Choose a portfolio. Portfolios: demo/egp, demo/eur'])
     expect(process.exitCode).toBe(1)
   })
 
   it('presents a missing portfolio as an error and sets exit code 1', async () => {
-    await runApp('show', '--pt', 'example/nope')
+    await runApp('show', '--pt', 'demo/nope')
 
     expect(printedLines(spies.error)).toEqual([
-      `Error: Portfolio 'example/nope' not found in '${dataDir}'. `
-      + 'Portfolios: example/egp, example/eur',
+      `Error: Portfolio 'demo/nope' not found in '${dataDir}'. `
+      + 'Portfolios: demo/egp, demo/eur',
     ])
     expect(spies.table).not.toHaveBeenCalled()
     expect(process.exitCode).toBe(1)
