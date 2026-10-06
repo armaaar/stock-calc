@@ -55,7 +55,7 @@ The constructor assigns the fields, runs decorator validation (P1, P4), then che
 | --- | --- | --- | --- |
 | P1 | At least one security | `@IsArray() @ArrayNotEmpty()` | `ClassValidatorError` (`arrayNotEmpty` on `securities`) |
 | P2 | Target percentages sum to **exactly** 1 (`Decimal` equality) | constructor | `Error: Portfolio percentage don't add up to 1 (<sum>)` |
-| P3 | All securities have the same currency | constructor | `Error: Portfolio have securities with different currencies` |
+| P3 | All securities have the same currency | constructor | `Error: Portfolio has securities in different currencies (<tick>: <currency>, …). Price them all in one currency, for example with a price override` |
 | P4 | Each security is itself valid | `@ValidateNested()` + each entity's own validation | `ClassValidatorError` |
 | P5 | Ticks are unique | constructor | `Error: Portfolio has duplicate ticks (<ticks>)` |
 
@@ -147,8 +147,11 @@ The three portfolio-level fees are the default tariff. A security may set any of
 
 ## Known gaps and open questions
 
-These are behaviors of the current model that may not be intended. They're recorded here so they get decided deliberately.
+None open. Every gap recorded here has been resolved or decided. New ones go here, numbered, until they are.
 
-1. **Subclasses must validate themselves.** `validateClassErrors` only validates when `object.constructor === cls`. This is by design: the most-derived constructor validates once all fields are set (ADR-0004). A subclass that doesn't call it skips validation.
-2. **Fees are in the portfolio's currency only.** Every fee value is read as an amount in the portfolio's single currency (P3). A broker fee quoted in another currency, such as 4 USD on a EUR portfolio, has to be entered as a hand-converted approximation (about 3.56 EUR). It drifts with the exchange rate, by cents. This is accepted: there's deliberately no currency conversion and no currency field on fees, because the portfolio is single-currency by design.
-3. **One currency per portfolio.** P3 rejects a portfolio whose price quotes don't all share one currency. There's no FX conversion. A security listed in another currency only works if its quote arrives in the portfolio's currency, either from a source that quotes it that way or through a price override.
+## Decided limitations
+
+These are deliberate. Changing them needs a new decision record, not a fix.
+
+- **One currency per portfolio, with fees in that currency** ([ADR-0026](../architecture/adr/0026-single-currency-portfolios.md)). P3 rejects a portfolio whose quotes don't share one currency, and names each security's currency. A security listed in another currency needs a price in the portfolio's currency, from a source or an override. A fee quoted in another currency is entered converted by hand (4 USD ≈ 3.56 EUR), so it drifts with the exchange rate by cents. There's no FX conversion and no fee currency field.
+- **Only the most-derived class validates** ([ADR-0004](../architecture/adr/0004-self-validating-entities.md)). `validateClassErrors` only runs when `object.constructor === cls`, so every class with validation decorators, and every subclass of one, must call it on itself. `src/__tests__/validationGuard.test.ts` scans `src` and fails when a class doesn't.

@@ -30,3 +30,5 @@ Aggregate-level rules that can't be expressed as a decorator, such as "percentag
 - Every new entity or validated use case must follow the "validate at the end of the constructor" pattern, or its decorators have no effect.
 
 > **Update:** [ADR-0021](0021-guard-proposed-shares.md) checks every assignment to `shares` and makes the other entity fields read-only, so the "only at construction" consequence above no longer holds.
+
+> **Update:** `src/__tests__/validationGuard.test.ts` now enforces the "validate at the end of the constructor" pattern. It fails when a class with class-validator decorators, or a subclass of one, doesn't call `validateClassErrors(this, <itself>)`.

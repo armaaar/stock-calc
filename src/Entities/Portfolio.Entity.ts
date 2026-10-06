@@ -64,7 +64,11 @@ export class Portfolio {
     }
 
     if (!securities.every((sec) => sec.currency === this.currency)) {
-      throw Error('Portfolio have securities with different currencies')
+      const quotes = securities.map((sec) => `${sec.tick}: ${sec.currency ?? 'unknown'}`)
+      throw Error(
+        `Portfolio has securities in different currencies (${quotes.join(', ')}). `
+        + 'Price them all in one currency, for example with a price override',
+      )
     }
 
     const ticks = securities.map((sec) => sec.tick)

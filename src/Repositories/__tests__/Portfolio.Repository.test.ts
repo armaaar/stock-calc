@@ -453,7 +453,7 @@ describe('PortfolioRepository', () => {
       })
 
       await expect(repository.getPortfolio('EUR'))
-        .rejects.toThrow('Portfolio have securities with different currencies')
+        .rejects.toThrow('Portfolio has securities in different currencies (QDVE: EUR, SPYD: USD)')
       expectBrowsersClosed()
     })
   })

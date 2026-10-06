@@ -74,14 +74,16 @@ describe('Portfolio', () => {
         .toThrow(`Portfolio percentage don't add up to 1 (${sum})`)
     })
 
-    it('rejects securities with mixed currencies', () => {
-      expect(() => buildPortfolio([QDVE, { ...SPYD, currency: 'USD' }]))
-        .toThrow('Portfolio have securities with different currencies')
+    it('rejects securities with mixed currencies, naming each one\'s currency and the fix', () => {
+      expect(() => buildPortfolio([QDVE, { ...SPYD, currency: 'USD' }])).toThrow(
+        'Portfolio has securities in different currencies (QDVE: EUR, SPYD: USD). '
+        + 'Price them all in one currency, for example with a price override',
+      )
     })
 
     it('treats a missing currency as a currency of its own', () => {
       expect(() => buildPortfolio([QDVE, { ...SPYD, currency: undefined }]))
-        .toThrow('Portfolio have securities with different currencies')
+        .toThrow('Portfolio has securities in different currencies (QDVE: EUR, SPYD: unknown)')
     })
 
     it('accepts securities that all lack a currency', () => {

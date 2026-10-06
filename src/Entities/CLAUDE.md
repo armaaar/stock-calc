@@ -1,10 +1,10 @@
 # src/Entities
 
-The domain model: the `Portfolio` aggregate root, `PortfolioSecurity` entities, and their `Security` base. Rules, invariants and terms are in `docs/domain/portfolio-allocation.md` and `docs/domain/ubiquitous-language.md`.
+The domain model: the `Portfolio` aggregate root, `PortfolioSecurity` entities, their `Security` base, and the `PriceQuote` value object each security holds. Rules, invariants and terms are in `docs/domain/portfolio-allocation.md` and `docs/domain/ubiquitous-language.md`.
 
 - **Money and percentages are `decimal.js` `Decimal`s** (ADR-0003). Don't mix them with `number` arithmetic. Convert with `.toNumber()` only for presentation or validation. Share counts are integer `number`s.
 - **Validation pattern** (ADR-0004):
-  - Every constructor ends with `validateClassErrors(this, ThisClass)`. It only runs when `this.constructor === ThisClass` (identity, not name), so the most-derived constructor validates once, after every field is set. A subclass that skips this call is never validated.
+  - Every constructor ends with `validateClassErrors(this, ThisClass)`. It only runs when `this.constructor === ThisClass` (identity, not name), so the most-derived constructor validates once, after every field is set. A subclass that skips this call is never validated, and `src/__tests__/validationGuard.test.ts` fails the build when one does.
   - Constraints on `Decimal` fields go on `protected get <field>Value(): number` getters, because class-validator can't inspect Decimals.
   - Decorators need `experimentalDecorators` (tsconfig), which tsx and Vitest both honour.
 - **`Portfolio` constructor checks**, in order:

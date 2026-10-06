@@ -33,7 +33,7 @@ The `securities` list consists of security objects, which contains:
 - `shares`: The number of shares the portfolio have of this security.
 - `targetPercentage`: The percentage this security contributes to in the portfolio. Must be 1 or less.
 - `isin`: (Optional) An [International Securities Identification Number (ISIN)](https://en.wikipedia.org/wiki/International_Securities_Identification_Number) is a 12-digit alphanumeric code that uniquely identifies a specific security. Can be used to find the security.
-- `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`: (Optional) This security's own fees, for a broker that charges this listing differently. Each one you leave out uses the portfolio's value. Fees are amounts in the portfolio's currency, so convert a fee quoted in another currency by hand (for example 4 USD ≈ 3.56 EUR).
+- `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`: (Optional) This security's own fees, for a broker that charges this listing differently. Each one you leave out uses the portfolio's value. Fees are amounts in the portfolio's currency, so convert a fee quoted in another currency by hand (for example 4 USD ≈ 3.56 EUR). A portfolio has one currency: give a security listed in another currency a [price override](#price-overrides) in the portfolio's currency.
 
 The price of each security is fetched automatically from public records using either the combination of the tick and exchange, or using the isin if available.
 

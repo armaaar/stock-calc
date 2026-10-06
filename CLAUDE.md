@@ -56,7 +56,8 @@ CliApp | McpApp      (interfaces; never import each other; receive PortfolioUseC
   - scraper and `BrowserController` tests: `fakeLauncher(...)` (`src/__fixtures__/puppeteer.ts`);
   - file-driver tests: real files in a temporary folder from `createDataDir(files)` (`src/__fixtures__/dataFiles.ts`).
   `vi.mock` is only for process boundaries: the stdio transport in `McpApp/__tests__/app.test.ts`, and puppeteer in `__tests__/compositionRoot.test.ts`. Never launch a browser, hit the network, or write to `src/data` in tests.
-- Tests pin current behaviour. Questionable behaviour gets a `// Current behaviour:` comment and an entry under "Known gaps" in `docs/domain/portfolio-allocation.md`.
+- Tests pin current behaviour. Questionable behaviour gets a `// Current behaviour:` comment and an entry under "Known gaps" in `docs/domain/portfolio-allocation.md`. Deliberate limits go under "Decided limitations" there, with an ADR.
+- `src/__tests__/validationGuard.test.ts` is an architecture test: every class with class-validator decorators, and every subclass of one, must call `validateClassErrors(this, <itself>)` (ADR-0004).
 - Worked numbers for the example portfolio, which tests assert:
   - rebalance → 127 / 87
   - invest 1000 → 141 / 97
