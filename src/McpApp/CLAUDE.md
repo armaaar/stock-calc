@@ -24,7 +24,7 @@ stdout carries the JSON-RPC stream. One stray `console.log` (or an npm banner) c
 | `app.ts` | stdio entry point: console redirect, then `createMcpServer(composePortfolioUseCases())` and `connect(new StdioServerTransport())` | `CliApp/app.ts` |
 | `McpTools/<name>.McpTool.ts` | `register<Name>Tool(server, useCase)` | `CliCommands/<name>.CliCommand.ts` |
 | `mcpOptions.ts` | `portfolioInput` (zod, default `EUR`) and `portfolioToolAnnotations` | `cliOptions.ts` |
-| `Presenters/PortfolioMcp.Presenter.ts` | `portfolioOutputSchema`, plus `structuredContent` and the same JSON as text, per `PresentMode` | `PortfolioCli.Presenter.ts` |
+| `Presenters/PortfolioMcp.Presenter.ts` | returns `toPortfolioView(portfolio, mode)` (`src/ViewModels`, ADR-0019) as `structuredContent` plus the same JSON as text; `portfolioOutputSchema` must stay `satisfies` the view type | `PortfolioCli.Presenter.ts` |
 | `Presenters/ErrorMcp.Presenter.ts` | tool result with `isError: true` (AggregateError and ClassValidatorError aware) | `ErrorCliPresenter.Presenter.ts` |
 
 ## Adding a tool

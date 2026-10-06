@@ -1,8 +1,11 @@
 import { z } from 'zod'
-import Decimal from 'decimal.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
-import { roundPercentage } from '#src/Shared/utils'
+import {
+  PortfolioView, PresentMode, SecurityView, toPortfolioView,
+} from '#src/ViewModels/PortfolioView.ViewModel'
+
+export { PresentMode }
 
 const securitySchema = z.object({
   tick: z.string(),
@@ -18,8 +21,9 @@ const securitySchema = z.object({
   tradedShares: z.number().optional().describe('Positive to buy, negative to sell'),
   tradedPrice: z.number().optional().describe('Positive to buy, negative to sell'),
   tradingFee: z.number().optional(),
-})
+}) satisfies z.ZodType<SecurityView>
 
+/** The tool output schema: a `PortfolioView`, described for clients. */
 export const portfolioOutputSchema = {
   currency: z.string().optional(),
   securities: z.array(securitySchema),
@@ -28,115 +32,18 @@ export const portfolioOutputSchema = {
   tradingFee: z.number().optional(),
 }
 
-type SecurityOutput = z.infer<typeof securitySchema>
-
 export type PortfolioOutput = z.infer<z.ZodObject<typeof portfolioOutputSchema>>
 
-export enum PresentMode {
-  ONLY_NEW = 0,
-  ONLY_INITIAL = 1,
-  ONLY_DELTA = 2,
-  WITH_DELTA = 3,
-}
-
+/** Returns a `PortfolioView` as structured content, plus the same JSON as text. */
 export class PortfolioMcpPresenter {
   public static present(
     portfolio: Portfolio,
     mode: PresentMode = PresentMode.ONLY_NEW,
   ): CallToolResult {
-    const output = PortfolioMcpPresenter.getOutput(portfolio, mode)
+    const output: PortfolioOutput = toPortfolioView(portfolio, mode) satisfies PortfolioView
     return {
       content: [{ type: 'text', text: JSON.stringify(output, null, 2) }],
       structuredContent: output,
     }
-  }
-
-  protected static getOutput(portfolio: Portfolio, mode: PresentMode): PortfolioOutput {
-    const securities = PortfolioMcpPresenter.getSecurities(portfolio, mode)
-    const { currency } = portfolio
-
-    if (mode === PresentMode.ONLY_NEW) {
-      return { currency, securities, portfolioPrice: portfolio.totalPrice.toNumber() }
-    }
-    if (mode === PresentMode.ONLY_INITIAL) {
-      return { currency, securities, portfolioPrice: portfolio.initialTotalPrice.toNumber() }
-    }
-    if (mode === PresentMode.ONLY_DELTA) {
-      return {
-        currency,
-        securities,
-        tradedPrice: portfolio.totalTradedPrice.toNumber(),
-        tradingFee: portfolio.totalTradingFee.toNumber(),
-      }
-    }
-    if (mode === PresentMode.WITH_DELTA) {
-      return {
-        currency,
-        securities,
-        portfolioPrice: portfolio.totalPrice.toNumber(),
-        tradedPrice: portfolio.totalTradedPrice.toNumber(),
-        tradingFee: portfolio.totalTradingFee.toNumber(),
-      }
-    }
-    throw Error(`Unknown present mode '${mode}'`)
-  }
-
-  protected static getSecurities(portfolio: Portfolio, mode: PresentMode): SecurityOutput[] {
-    // Each trade's share of everything bought and sold, so buys and sells don't cancel out
-    const grossTradedPrice = portfolio.securities.reduce(
-      (acc, sec) => acc.plus(sec.tradedPrice.abs()),
-      new Decimal(0),
-    )
-
-    return portfolio.securities
-      .filter((sec) => (mode === PresentMode.ONLY_DELTA ? sec.isBeingTraded : true))
-      .map((sec) => {
-        const info = {
-          tick: sec.tick,
-          exchange: sec.exchange,
-          currency: sec.currency,
-          price: sec.price.toNumber(),
-          targetPercent: roundPercentage(sec.targetPercentage.toNumber()),
-        }
-
-        if (mode === PresentMode.ONLY_INITIAL) {
-          return {
-            ...info,
-            shares: sec.initialShares,
-            totalPrice: sec.initialTotalPrice.toNumber(),
-            percent: roundPercentage(
-              sec.calcActualPercentage(portfolio.initialTotalPrice, sec.initialTotalPrice)
-                .toNumber(),
-            ),
-          }
-        }
-        if (mode === PresentMode.ONLY_DELTA) {
-          return {
-            ...info,
-            shares: sec.shares - sec.initialShares,
-            totalPrice: sec.tradedPrice.toNumber(),
-            percent: roundPercentage(
-              sec.calcActualPercentage(grossTradedPrice, sec.tradedPrice.abs()).toNumber(),
-            ),
-            tradingFee: sec.tradingFee.toNumber(),
-          }
-        }
-
-        const proposed = {
-          ...info,
-          shares: sec.shares,
-          totalPrice: sec.totalPrice.toNumber(),
-          percent: roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
-        }
-        if (mode === PresentMode.WITH_DELTA) {
-          return {
-            ...proposed,
-            tradedShares: sec.shares - sec.initialShares,
-            tradedPrice: sec.tradedPrice.toNumber(),
-            tradingFee: sec.tradingFee.toNumber(),
-          }
-        }
-        return proposed
-      })
   }
 }

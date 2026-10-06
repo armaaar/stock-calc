@@ -35,12 +35,13 @@ CliApp | McpApp      (interfaces; never import each other; receive PortfolioUseC
   → UseCases         (stateless, execute(request); own the IPortfolioRepository port)
   Repositories/PortfolioRepository   (implements IPortfolioRepository; DTOs → Portfolio aggregate)
     → DataDrivers                    (zod-validated JSONC files, Puppeteer scrapers)
+  ViewModels         (toPortfolioView: what each PresentMode shows; both presenters only render it)
   Entities           (Portfolio aggregate, PortfolioSecurity, Security: rules + validation)
 ```
 
 - Dependencies are injected through constructors and wired once in `src/compositionRoot.ts` (`composePortfolioUseCases(dataDir)`, ADR-0018). Nothing below the entry points does `new` on a collaborator, reads `process.env`, or imports puppeteer's `launch`.
 - A use case validates its request with a small value class (`Investment`, `TargetPrice`, `MinimumSharesSearch`), loads the `Portfolio`, changes `shares` (usually via `Portfolio.balanceForPrice`), and returns it. `initialShares` keeps the original holdings, so presenters can show trades and fees.
-- Every operation exists in **both** interfaces: `CliCommands/<name>.CliCommand.ts` (`create<Name>Cli(useCase)`) ↔ `McpTools/<name>.McpTool.ts` (`register<Name>Tool(server, useCase)`). A new use case needs both, plus an entry in `PortfolioUseCases` (see `src/McpApp/CLAUDE.md`).
+- Every operation exists in **both** interfaces: `CliCommands/<name>.CliCommand.ts` (`create<Name>Cli(useCase)`) ↔ `McpTools/<name>.McpTool.ts` (`register<Name>Tool(server, useCase)`). A new use case needs both, plus an entry in `PortfolioUseCases` (see `src/McpApp/CLAUDE.md`). Change what a mode shows in `src/ViewModels/PortfolioView.ViewModel.ts`, never in one presenter.
 - Folder-specific rules are in nested CLAUDE.md files: `src/Entities/`, `src/DataDrivers/`, `src/McpApp/`.
 
 ## Tests

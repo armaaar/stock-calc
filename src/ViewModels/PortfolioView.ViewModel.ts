@@ -1,0 +1,146 @@
+import Decimal from 'decimal.js'
+import { Portfolio } from '#src/Entities/Portfolio.Entity'
+import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
+import { roundPercentage } from '#src/Shared/utils'
+
+/** Which state of a planned portfolio to show. */
+export enum PresentMode {
+  /** The proposed holdings. */
+  ONLY_NEW = 0,
+  /** The current holdings, ignoring the plan. */
+  ONLY_INITIAL = 1,
+  /** Only the trades: securities being traded, their trade values and fees. */
+  ONLY_DELTA = 2,
+  /** The proposed holdings together with their trades and fees. */
+  WITH_DELTA = 3,
+}
+
+/** One security as an interface shows it. Numbers are plain; percentages are in percent. */
+export type SecurityView = {
+  tick: string
+  exchange?: string
+  currency?: string
+  price: number
+  /** Target weight in percent. */
+  targetPercent: number
+  /** Shares held, or traded in `ONLY_DELTA` (negative to sell). */
+  shares: number
+  /** Value of `shares`. */
+  totalPrice: number
+  /** Actual weight in percent; in `ONLY_DELTA`, the share of the gross value bought and sold. */
+  percent: number
+  /** `WITH_DELTA` only: positive to buy, negative to sell. */
+  tradedShares?: number
+  /** `WITH_DELTA` only: positive to buy, negative to sell. */
+  tradedPrice?: number
+  /** `ONLY_DELTA` and `WITH_DELTA`. */
+  tradingFee?: number
+}
+
+/**
+ * A planned portfolio as the interfaces show it, independent of how they render it (CLI table,
+ * MCP structured content). Totals a mode doesn't have are left out.
+ */
+export type PortfolioView = {
+  currency?: string
+  securities: SecurityView[]
+  /** Proposed value (`ONLY_NEW`, `WITH_DELTA`) or current value (`ONLY_INITIAL`). */
+  portfolioPrice?: number
+  /** `ONLY_DELTA`, `WITH_DELTA`: net cash needed (positive) or released (negative). */
+  tradedPrice?: number
+  /** `ONLY_DELTA`, `WITH_DELTA`. */
+  tradingFee?: number
+}
+
+/** Throws for a value that isn't a `PresentMode` (numeric enums map only real values back). */
+export function assertPresentMode(mode: PresentMode): void {
+  if (typeof PresentMode[mode] !== 'string') {
+    throw Error(`Unknown present mode '${mode}'`)
+  }
+}
+
+export function toPortfolioView(
+  portfolio: Portfolio,
+  mode: PresentMode = PresentMode.ONLY_NEW,
+): PortfolioView {
+  assertPresentMode(mode)
+
+  const securities = toSecurityViews(portfolio, mode)
+  const { currency } = portfolio
+  const trades = {
+    tradedPrice: portfolio.totalTradedPrice.toNumber(),
+    tradingFee: portfolio.totalTradingFee.toNumber(),
+  }
+
+  switch (mode) {
+    case PresentMode.ONLY_NEW:
+      return { currency, securities, portfolioPrice: portfolio.totalPrice.toNumber() }
+    case PresentMode.ONLY_INITIAL:
+      return { currency, securities, portfolioPrice: portfolio.initialTotalPrice.toNumber() }
+    case PresentMode.ONLY_DELTA:
+      return { currency, securities, ...trades }
+    case PresentMode.WITH_DELTA:
+      return { currency, securities, portfolioPrice: portfolio.totalPrice.toNumber(), ...trades }
+  }
+}
+
+function toSecurityViews(portfolio: Portfolio, mode: PresentMode): SecurityView[] {
+  // Each trade's share of everything bought and sold, so buys and sells don't cancel out
+  const grossTradedPrice = portfolio.securities.reduce(
+    (acc, sec) => acc.plus(sec.tradedPrice.abs()),
+    new Decimal(0),
+  )
+
+  return portfolio.securities
+    .filter((sec) => (mode === PresentMode.ONLY_DELTA ? sec.isBeingTraded : true))
+    .map((sec) => ({
+      tick: sec.tick,
+      exchange: sec.exchange,
+      currency: sec.currency,
+      price: sec.price.toNumber(),
+      targetPercent: roundPercentage(sec.targetPercentage.toNumber()),
+      ...holdingView(portfolio, sec, mode, grossTradedPrice),
+    }))
+}
+
+function holdingView(
+  portfolio: Portfolio,
+  sec: PortfolioSecurity,
+  mode: PresentMode,
+  grossTradedPrice: Decimal,
+): Pick<SecurityView, 'shares' | 'totalPrice' | 'percent' | 'tradedShares' | 'tradedPrice' | 'tradingFee'> {
+  const proposed = {
+    shares: sec.shares,
+    totalPrice: sec.totalPrice.toNumber(),
+    percent: roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
+  }
+
+  switch (mode) {
+    case PresentMode.ONLY_INITIAL:
+      return {
+        shares: sec.initialShares,
+        totalPrice: sec.initialTotalPrice.toNumber(),
+        percent: roundPercentage(
+          sec.calcActualPercentage(portfolio.initialTotalPrice, sec.initialTotalPrice).toNumber(),
+        ),
+      }
+    case PresentMode.ONLY_DELTA:
+      return {
+        shares: sec.shares - sec.initialShares,
+        totalPrice: sec.tradedPrice.toNumber(),
+        percent: roundPercentage(
+          sec.calcActualPercentage(grossTradedPrice, sec.tradedPrice.abs()).toNumber(),
+        ),
+        tradingFee: sec.tradingFee.toNumber(),
+      }
+    case PresentMode.WITH_DELTA:
+      return {
+        ...proposed,
+        tradedShares: sec.shares - sec.initialShares,
+        tradedPrice: sec.tradedPrice.toNumber(),
+        tradingFee: sec.tradingFee.toNumber(),
+      }
+    default:
+      return proposed
+  }
+}

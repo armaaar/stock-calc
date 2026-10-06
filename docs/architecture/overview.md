@@ -33,8 +33,9 @@ The code uses a layered "clean architecture" split ([ADR-0002](adr/0002-layered-
 
 | Layer | Folder | Responsibility | May depend on |
 | --- | --- | --- | --- |
-| Interface (CLI) | `src/CliApp` | Parse arguments (commander), call a use case, render results and errors (chalk, `console.table`). | UseCases, Entities (for presenting), Shared |
-| Interface (MCP) | `src/McpApp` | Expose each use case as an MCP tool (`@modelcontextprotocol/sdk`, zod schemas). Return structured results or tool errors ([ADR-0014](adr/0014-mcp-server-interface.md)). | UseCases, Entities (for presenting), Shared |
+| Interface (CLI) | `src/CliApp` | Parse arguments (commander), call a use case, render results and errors (chalk, `console.table`). | UseCases, ViewModels, Shared |
+| Interface (MCP) | `src/McpApp` | Expose each use case as an MCP tool (`@modelcontextprotocol/sdk`, zod schemas). Return structured results or tool errors ([ADR-0014](adr/0014-mcp-server-interface.md)). | UseCases, ViewModels, Shared |
+| View model | `src/ViewModels` | `toPortfolioView(portfolio, mode)`: what each `PresentMode` shows, as plain numbers. Both interfaces render it ([ADR-0019](adr/0019-interface-neutral-portfolio-view.md)). | Entities, Shared |
 | Application | `src/UseCases` | One stateless class per user intent (`execute(request)`). Loads the portfolio through the `IPortfolioRepository` port it owns and applies a domain operation. `PortfolioUseCases` is what the interfaces receive. | Entities, Shared |
 | Repository | `src/Repositories` | Implements `IPortfolioRepository`: builds the `Portfolio` aggregate from settings, overrides, and live prices, using the data drivers it's given. Acts as the anti-corruption layer between DTOs and the domain. | UseCases (its port), DataDrivers (types), Entities |
 | Infrastructure | `src/DataDrivers` | Reads and validates files (zod), scrapes web pages. Returns plain DTOs. | Shared, external libraries |
@@ -49,8 +50,9 @@ flowchart TD
   Root --> UseCases
   CliApp --> UseCases
   McpApp --> UseCases
-  CliApp -.presents.-> Entities
-  McpApp -.presents.-> Entities
+  CliApp --> ViewModels
+  McpApp --> ViewModels
+  ViewModels --> Entities
   UseCases --> Entities
   Repositories -.implements IPortfolioRepository.-> UseCases
   Repositories --> DataDrivers
@@ -59,7 +61,7 @@ flowchart TD
   DataDrivers --> Shared
 ```
 
-The two interface layers never import each other. Each has its own options file and presenters.
+The two interface layers never import each other. Each has its own options file and presenters; the presenters share the `PortfolioView` view model and only render it.
 
 Dependencies are injected through constructors and wired once, in the composition root ([ADR-0018](adr/0018-dependency-injection-and-composition-root.md)). No layer below the entry points creates its own collaborators or reads the environment.
 
@@ -101,10 +103,11 @@ sequenceDiagram
   UC->>E: balanceForPrice(totalPrice)
   UC-->>C: Portfolio (shares mutated, initialShares kept)
   C->>V: present(portfolio, WITH_DELTA)
+  V->>V: toPortfolioView(portfolio, WITH_DELTA)
   V-->>U: table + trading fee / traded price / portfolio price
 ```
 
-Over MCP, the client calls the `rebalance` tool with `{ "portfolio": "EUR" }`. The SDK validates the input against the tool's zod schema, and `PortfolioMcpPresenter` returns `structuredContent` (plus the same JSON as text) instead of printing a table.
+Over MCP, the client calls the `rebalance` tool with `{ "portfolio": "EUR" }`. The SDK validates the input against the tool's zod schema, and `PortfolioMcpPresenter` returns the same `PortfolioView` the CLI renders as `structuredContent` (plus the same JSON as text) instead of printing a table.
 
 ### Price resolution
 
