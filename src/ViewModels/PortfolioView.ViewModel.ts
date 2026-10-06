@@ -109,15 +109,19 @@ export function toPortfolioView(
   }
 }
 
-/** A sentence per expensive order, e.g. "QDVE: the 3 EUR fee is 1.2% of the 250 EUR order". */
+/** A sentence per expensive order, e.g. "QDVE: the 3 EUR fee is 1.06% of the 284.5 EUR order". */
 function feeWarnings(portfolio: Portfolio): string[] {
-  const money = (value: Decimal) => (
-    portfolio.currency ? `${value.toNumber()} ${portfolio.currency}` : `${value.toNumber()}`
-  )
-  const limit = roundPercentage(portfolio.feeWarningPercentage.toNumber())
+  const money = (value: Decimal) => {
+    const amount = value.toDecimalPlaces(2).toNumber()
+    return portfolio.currency ? `${amount} ${portfolio.currency}` : `${amount}`
+  }
+  // The limit exactly as configured, and each share rounded up, so a share just above the limit
+  // never reads as equal to it ("1% … (more than 1%)")
+  const limit = portfolio.feeWarningPercentage.times(100).toString()
+  const percent = (share: Decimal) => share.times(100).toDecimalPlaces(2, Decimal.ROUND_UP)
 
   return portfolio.expensiveOrders.map((sec) => (
-    `${sec.tick}: the ${money(sec.tradingFee)} fee is ${roundPercentage(sec.feeShare.toNumber())}%`
+    `${sec.tick}: the ${money(sec.tradingFee)} fee is ${percent(sec.feeShare)}%`
     + ` of the ${money(sec.tradedPrice.abs())} order (more than ${limit}%)`
   ))
 }

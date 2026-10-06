@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
 import {
   FakePortfolioRepository, fakePortfolioRepository, useCasesOver,
 } from '#src/__fixtures__/repository'
@@ -74,6 +75,23 @@ describe('MCP server', () => {
       { tick: 'QDVE', shares: 127, tradedShares: 27 },
       { tick: 'SPYD', shares: 87, tradedShares: -13 },
     ])
+  })
+
+  it('invest: warns about an order whose fee is a large share of its value', async () => {
+    // A 3 EUR flat fee on investing 300: one order of 10 QDVE (284.50) costs 1.06% in fees
+    repo.getPortfolio.mockImplementation(async () => buildPortfolio([
+      { ...QDVE, brokerageFeeFlat: 3 },
+      { ...SPYD, brokerageFeeFlat: 3 },
+    ]))
+
+    const { result, output } = await callTool('invest', { investment: 300, buyOnly: true })
+
+    expect(result.isError).toBeFalsy()
+    expect(output.securities.map((sec) => sec.tradedShares)).toEqual([10, 0])
+    expect(output).toMatchObject({
+      warnings: ['QDVE: the 3 EUR fee is 1.06% of the 284.5 EUR order (more than 1%)'],
+    })
+    expect(output.securities[0]).toMatchObject({ feePercent: 1.05 })
   })
 
   it('invest: only buys when buyOnly is set', async () => {

@@ -42,8 +42,8 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | **Brokerage fee (flat)** | Fixed amount charged per order, whatever its size. | `brokerageFeeFlat` |
 | **Trading fee percentage** | Fraction of order value charged per order, in [0, 1]. | `tradingFeePercentage` |
 | **Minimum trading fee (flat)** | Floor for the percentage-based part of the fee. | `minimumTradingFeeFlat` |
-| **Fee share** | An order's trading fee as a fraction of its value. Shown ×100. | `feeShare` | Fee % |
-| **Fee warning** | A note on an order whose fee share is above the portfolio's fee warning percentage (default 1%). | `expensiveOrders`, `feeWarningPercentage`, view `warnings` | "Warning: …" |
+| **Fee share** | An order's trading fee as a fraction of its value. Shown ×100 in the CLI's "Fee %" column. | `feeShare`, view `feePercent` |
+| **Fee warning** | A note on an order whose fee share is above the portfolio's fee warning percentage (default 1%). The CLI prints it as "Warning: …". | `expensiveOrders`, `feeWarningPercentage`, view `warnings` |
 | **Trading fee** | Total cost of one security's order: `brokerageFeeFlat + max(tradingFeePercentage × abs(tradedPrice), minimumTradingFeeFlat)`, or 0 if not traded. Shown in the "Trading Fee" column and summed in the "Trading Fee" summary line. | `tradingFee`, `totalTradingFee` |
 | **Order** | Buying or selling one security. Each traded security counts as exactly one order. | (implicit) |
 

@@ -188,7 +188,7 @@ describe('toPortfolioView', () => {
 
       expect(view.securities.map((sec) => sec.feePercent)).toEqual([1.05, 0.48])
       expect(view.warnings).toEqual([
-        'QDVE: the 3 EUR fee is 1.05% of the 284.5 EUR order (more than 1%)',
+        'QDVE: the 3 EUR fee is 1.06% of the 284.5 EUR order (more than 1%)',
       ])
     }
   })
@@ -204,7 +204,38 @@ describe('toPortfolioView', () => {
     portfolio.securities[1].shares = 90
 
     expect(toPortfolioView(portfolio, PresentMode.WITH_DELTA).warnings).toEqual([
-      'SPYD: the 3 fee is 0.48% of the 621 order (more than 0.4%)',
+      'SPYD: the 3 fee is 0.49% of the 621 order (more than 0.4%)',
+    ])
+  })
+
+  it('rounds the share up, so one just above the limit never reads as equal to it', () => {
+    // 3 / 299 = 1.0033%: rounded to the nearest, it would read "1% … (more than 1%)"
+    const portfolio = new Portfolio({
+      securities: [new PortfolioSecurity({
+        ...QDVE, price: 29.9, brokerageFeeFlat: 3, targetPercentage: 1,
+      })],
+      feeWarningPercentage: 0.01,
+    })
+    portfolio.securities[0].shares = 110
+
+    expect(toPortfolioView(portfolio, PresentMode.WITH_DELTA).warnings).toEqual([
+      'QDVE: the 3 EUR fee is 1.01% of the 299 EUR order (more than 1%)',
+    ])
+  })
+
+  it('shows a tiny limit exactly and rounds money to cents', () => {
+    // 7 x 12.3456789 = 86.4197523; a 1.23% fee on it is 1.06296...
+    const portfolio = new Portfolio({
+      securities: [new PortfolioSecurity({
+        ...QDVE, price: 12.3456789, brokerageFeeFlat: 0, tradingFeePercentage: 0.0123,
+        targetPercentage: 1,
+      })],
+      feeWarningPercentage: 0.00001,
+    })
+    portfolio.securities[0].shares = 107
+
+    expect(toPortfolioView(portfolio, PresentMode.WITH_DELTA).warnings).toEqual([
+      'QDVE: the 1.06 EUR fee is 1.23% of the 86.42 EUR order (more than 0.001%)',
     ])
   })
 

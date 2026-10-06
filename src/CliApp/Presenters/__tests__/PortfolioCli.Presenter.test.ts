@@ -222,7 +222,7 @@ describe('PortfolioCliPresenter.present', () => {
       'Trading Price: 284.5 EUR',
       'Portfolio Price: 9339.5 EUR',
       'Cash After Trades: -287.5 EUR',
-      'Warning: QDVE: the 3 EUR fee is 1.05% of the 284.5 EUR order (more than 1%)',
+      'Warning: QDVE: the 3 EUR fee is 1.06% of the 284.5 EUR order (more than 1%)',
       '',
     ])
   })
