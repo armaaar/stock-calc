@@ -19,7 +19,7 @@ Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/Data
 | Source | Identity used | How | Fails when |
 | --- | --- | --- | --- |
 | **JustEtf** | `isin` | Loads `justetf.com/en/etf-profile.html?isin=<ISIN>` and reads `#realtime-quotes .val` (text `"<CUR> <price>"`). | No ISIN in settings, the page doesn't load within 10 s, no quote within 2 s, or the text isn't a valid quote. |
-| **TradingView** | `exchange` + `tick` | Loads `tradingview.com/symbols/<EXCHANGE>-<TICK>/` and reads `.js-symbol-last` and `.js-symbol-currency` under `[data-symbol="<EXCHANGE>:<TICK>"]`. | Navigation fails, symbol unknown, nothing visible within 30 s, or the text isn't a valid quote. |
+| **TradingView** | `exchange` + `tick` | Loads `tradingview.com/symbols/<EXCHANGE>-<TICK>/` and reads `.js-symbol-last` and `.js-symbol-currency` under `[data-symbol="<EXCHANGE>:<TICK>"]`, or under the symbol the page redirected to when TradingView renamed the listing. | Navigation fails, symbol unknown, nothing visible within 30 s, or the text isn't a valid quote. |
 | **Override** | `tick` | Own-key lookup (`Object.hasOwn`) in the overrides map. | Never: it either matches or doesn't apply. |
 
 **Scraped quotes are validated** by `parsePriceQuote` (`src/DataDrivers/PriceQuote.parser.ts`). Whitespace (including non-breaking spaces) and thousands commas are stripped, the price must be a plain positive decimal, and the currency must not be empty. Otherwise the source rejects with its "not registered" error, with the parse error (`No price text found`, `Price '<text>' is not a positive number`, `No currency text found`) as `cause`.

@@ -10,9 +10,18 @@ import type { Browser } from 'puppeteer'
  */
 export type FakeSelectorResult = { text: string | null } | null | Error
 
+/**
+ * A fake page. `url()` is the last URL `goto` loaded, like a page that wasn't redirected; mock it
+ * to fake a redirect.
+ */
 export function createFakePage(selectors: Record<string, FakeSelectorResult> = {}) {
+  let current = 'about:blank'
   return {
-    goto: vi.fn<(url: string) => Promise<null>>(async () => null),
+    goto: vi.fn<(url: string) => Promise<null>>(async (url) => {
+      current = url
+      return null
+    }),
+    url: vi.fn<() => string>(() => current),
     setDefaultTimeout: vi.fn<(timeout: number) => void>(),
     setDefaultNavigationTimeout: vi.fn<(timeout: number) => void>(),
     close: vi.fn(async () => undefined),

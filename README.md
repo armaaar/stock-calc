@@ -52,7 +52,7 @@ STOCK_CALC_DATA_DIR=examples npm run cli -- rebalance --pt ibkr/mixed
 `<broker>/<portfolio>.jsonc` contains:
 
 - `securities`: A list of securities in a portfolio.
-- `currency`: (Optional) The currency you pay for orders in, as a 3-letter code such as `EUR`. Every price, fee, cash amount and total is in it. A security quoted in another currency is converted at an [exchange rate](#currencies). By default, the currency of the first security's price.
+- `currency`: (Optional) The currency you pay for orders in, as a 3-letter code such as `EUR`. Every price, fee, cash amount and total is in it, and a security quoted in another currency is converted at an [exchange rate](#currencies). Without it, every security must be quoted in one currency, which is then the portfolio's.
 - `cash`: (Optional) Uninvested cash you hold with the portfolio, in its currency (default 0). `rebalance` and `invest` spend it too. Cash a broker account holds for several portfolios is split by hand: give each portfolio the part it may use.
 - `brokerageFeeFlat`: (Optional) A flat amount of money the brokerage takes on each order. It's added to each order no matter what the value is.
 - `tradingFeePercentage`: (Optional) The trading fee is taken as a percentage of the total order value, for buys and sells alike.
@@ -70,7 +70,7 @@ The `securities` list consists of security objects, which contains:
 - `currency`: (Optional) The currency the security is traded in, as a 3-letter code. Set it when a source could quote another listing of it: justetf.com, for example, may quote a USD-traded ETF from a EUR listing. A quote in another currency is then skipped, so the next source prices the listing you trade.
 - `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`, `fxFeePercentage`: (Optional) This security's own fees, for a broker that charges this listing differently. Fees are amounts in the portfolio's currency, so convert a fee quoted in another currency by hand (for example 4 USD ≈ 3.56 EUR).
 
-The price of each security is fetched automatically from public records using either the combination of the tick and exchange, or using the isin if available. When both sites can price a security, justetf.com's price is used, so the same portfolio always gets the same prices.
+The price of each security is fetched automatically from public records using either the combination of the tick and exchange, or using the isin if available. justetf.com only lists ETFs and ETCs; a stock such as one on the EGX is priced by TradingView, so its `exchange` and `tick` must match TradingView's. When no source lists a security, give it a [price override](#price-overrides). When both sites can price a security, justetf.com's price is used, so the same portfolio always gets the same prices.
 
 ### Broker file
 
@@ -98,7 +98,7 @@ To skip fetching for some securities (for example, when no source lists them), c
 }
 ```
 
-Add `"asOf": "YYYY-MM-DD"` to record when you looked a price or rate up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), and each rate's on its `Rate:` line, so a stale override is easy to spot.
+Currencies are 3-letter codes, and a rate must convert into the portfolio's `currency`. Add `"asOf": "YYYY-MM-DD"` to record when you looked a price or rate up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), and each rate's on its `Rate:` line, so a stale override is easy to spot.
 
 ## Documentation
 

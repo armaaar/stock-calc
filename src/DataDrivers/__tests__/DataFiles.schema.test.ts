@@ -304,7 +304,7 @@ describe('OverridesSchema', () => {
     expect(result.error?.issues[0].path).toEqual(['QDVE', 'price'])
   })
 
-  it.each(['', ' '])('rejects the currency %j', (currency) => {
+  it.each(['', ' ', 'usd', '€', 'EURO'])('rejects the currency %j', (currency) => {
     const result = OverridesSchema.safeParse({ QDVE: { price: 1, currency } })
 
     expect(result.success).toBe(false)

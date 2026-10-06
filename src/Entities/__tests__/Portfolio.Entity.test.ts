@@ -790,15 +790,25 @@ describe('Portfolio', () => {
         const units = Array.from({ length: count }, () => 1)
         for (let unit = count; unit < 20; unit++) units[Math.floor(random() * count)] += 1
         const portfolio = new Portfolio({
-          securities: units.map((unit, i) => security({
-            tick: `S${i}`,
-            price: pick([0.37, 1, 5, 28.45, 62.1, 250]),
-            shares: Math.floor(random() * 40),
-            targetPercentage: unit / 20,
-            brokerageFeeFlat: pick([0, 1, 3]),
-            tradingFeePercentage: pick([0, 0.001, 0.01]),
-            minimumTradingFeeFlat: pick([0, 2, 10]),
-          })),
+          currency: 'EUR',
+          securities: units.map((unit, i) => {
+            // Some are listed in USD and converted, paying an FX fee
+            const rate = pick([undefined, undefined, 0.0123, 0.9, 48.3])
+            return security({
+              tick: `S${i}`,
+              price: pick([0.37, 1, 5, 28.45, 62.1, 250]),
+              shares: Math.floor(random() * 40),
+              targetPercentage: unit / 20,
+              brokerageFeeFlat: pick([0, 1, 3]),
+              tradingFeePercentage: pick([0, 0.001, 0.01]),
+              minimumTradingFeeFlat: pick([0, 2, 10]),
+              ...(rate && {
+                currency: 'USD',
+                exchangeRate: { from: 'USD', to: 'EUR', rate },
+                fxFeePercentage: pick([0, 0.0003, 0.02]),
+              }),
+            })
+          }),
           cash: pick([0, 0, 15, 400]),
         })
         const deposit = pick([0, 0, 1, 20, 100, 1000])

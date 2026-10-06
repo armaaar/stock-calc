@@ -5,7 +5,7 @@ import { QDVE_SETTING, withoutIsin } from '#src/__fixtures__/dataFiles'
 import {
   createFakeBrowser, createFakePage, FakeBrowser, fakeLauncher, FakeSelectorResult,
 } from '#src/__fixtures__/puppeteer'
-import { TradingViewDataDriver } from '../TradingView.DataDriver'
+import { symbolOfUrl, TradingViewDataDriver } from '../TradingView.DataDriver'
 
 const PRICE_SELECTOR = '[data-symbol="IBIS2:QDVE"] .js-symbol-last'
 const CURRENCY_SELECTOR = '[data-symbol="IBIS2:QDVE"] .js-symbol-currency'
@@ -179,4 +179,47 @@ describe('TradingViewDataDriver', () => {
       expect(((error as Error).cause as Error).message).toBe('rate timeout')
     })
   })
+
+  it('keeps the requested symbol when the page URL names none', async () => {
+    await launchWith({ text: '28.45' }, { text: 'EUR' })
+    browser.page.url.mockReturnValue('about:blank')
+
+    await expect(driver.getPrice(QDVE_SETTING)).resolves.toEqual({ price: 28.45, currency: 'EUR' })
+  })
+
+  describe('a renamed listing', () => {
+    const MOVED = '[data-symbol="EURONEXT:VUAA"]'
+
+    it('reads the quote under the symbol TradingView redirected to', async () => {
+      browser = createFakeBrowser(createFakePage({
+        [`${MOVED} .js-symbol-last`]: { text: '134.64' },
+        [`${MOVED} .js-symbol-currency`]: { text: 'EUR' },
+      }))
+      browser.page.url.mockReturnValue('https://www.tradingview.com/symbols/EURONEXT-VUAA/')
+      driver = new TradingViewDataDriver(fakeLauncher(browser))
+      await driver.launchBrowser()
+
+      await expect(driver.getPrice({ ...QDVE_SETTING, tick: 'VUAA', exchange: 'MIL' }))
+        .resolves.toEqual({ price: 134.64, currency: 'EUR' })
+      expect(browser.page.goto).toHaveBeenCalledWith('https://www.tradingview.com/symbols/MIL-VUAA/')
+    })
+  })
+})
+
+describe('symbolOfUrl', () => {
+  it.each([
+    ['https://www.tradingview.com/symbols/EURONEXT-VUAA/', 'EURONEXT:VUAA'],
+    ['https://www.tradingview.com/symbols/FX_IDC-USDEUR/', 'FX_IDC:USDEUR'],
+    ['https://www.tradingview.com/symbols/EURONEXT-GOLD-ETFP/?x=1', 'EURONEXT:GOLD-ETFP'],
+    ['https://www.tradingview.com/symbols/LSE-ICOM', 'LSE:ICOM'],
+  ])('reads %s as %s', (url, symbol) => {
+    expect(symbolOfUrl(url)).toBe(symbol)
+  })
+
+  it.each(['about:blank', 'https://www.tradingview.com/', 'https://www.tradingview.com/symbols/VUAA/'])(
+    'has no symbol for %s',
+    (url) => {
+      expect(symbolOfUrl(url)).toBeUndefined()
+    },
+  )
 })

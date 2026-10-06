@@ -8,6 +8,15 @@ import { parsePriceQuote } from './PriceQuote.parser'
 /** TradingView's exchange for currency pairs: `FX_IDC:USDEUR` is what 1 USD is worth in EUR. */
 export const FX_EXCHANGE = 'FX_IDC'
 
+/**
+ * The `<EXCHANGE>:<TICK>` a symbol page shows, from its URL (`/symbols/EURONEXT-VUAA/`). Exchange
+ * names have no '-'; ticks may.
+ */
+export function symbolOfUrl(url: string): string | undefined {
+  const match = /\/symbols\/([^/-]+)-([^/]+)\/?$/.exec(new URL(url).pathname)
+  return match ? `${match[1]}:${match[2]}` : undefined
+}
+
 export class TradingViewDataDriver extends BrowserController
   implements IPriceDataDriver, IExchangeRateDataDriver {
   public readonly name = 'tradingview.com'
@@ -43,13 +52,16 @@ export class TradingViewDataDriver extends BrowserController
   private async readQuote(page: Page, exchange: string, tick: string): Promise<SecurityPriceDto> {
     page.setDefaultTimeout(30000)
     await page.goto(`https://www.tradingview.com/symbols/${exchange}-${tick}/`)
+    // A listing TradingView renamed redirects to its new symbol (MIL:VUAA to EURONEXT:VUAA), and
+    // the page shows the quote under that one
+    const symbol = symbolOfUrl(page.url()) ?? `${exchange}:${tick}`
 
     // Locate the price
-    const priceSelect = await page.waitForSelector(`[data-symbol="${exchange}:${tick}"] .js-symbol-last`, { visible: true })
+    const priceSelect = await page.waitForSelector(`[data-symbol="${symbol}"] .js-symbol-last`, { visible: true })
     const price = await priceSelect?.evaluate((el) => el.textContent)
 
     // Locate the currency
-    const currencySelect = await page.waitForSelector(`[data-symbol="${exchange}:${tick}"] .js-symbol-currency`, { visible: true })
+    const currencySelect = await page.waitForSelector(`[data-symbol="${symbol}"] .js-symbol-currency`, { visible: true })
     const currency = await currencySelect?.evaluate((el) => el.textContent)
 
     return parsePriceQuote(price, currency)

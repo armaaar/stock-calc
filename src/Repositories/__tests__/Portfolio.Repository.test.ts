@@ -268,7 +268,10 @@ describe('PortfolioRepository', () => {
       const error = await repository.getPortfolio('ibkr/eur').catch((e: unknown) => e)
 
       expect(error).toBeInstanceOf(AggregateError)
-      expect((error as AggregateError).message).toBe('No price source could price \'QDVE\'')
+      expect((error as AggregateError).message).toBe(
+        'No price source could price \'QDVE\': check its tick, exchange and isin, '
+        + 'or add its price to the overrides',
+      )
       expect((error as AggregateError).errors).toEqual([justEtfError, tradingViewError])
     })
 
@@ -546,7 +549,10 @@ describe('PortfolioRepository', () => {
       const error = await repositoryWith([justEtf, tradingView], [tradingView])
         .getPortfolio('ibkr/eur').catch((e: unknown) => e)
 
-      expect((error as AggregateError).message).toBe('No price source could price \'SPYD\' in USD')
+      expect((error as AggregateError).message).toBe(
+        'No price source could price \'SPYD\' in USD: check its tick, exchange and isin, '
+        + 'or add its price to the overrides',
+      )
       expect((error as AggregateError).errors.map((e: Error) => e.message)).toEqual([
         'justetf quoted \'SPYD\' in EUR, but it is traded in USD',
         'tradingview: not found',
@@ -642,13 +648,25 @@ describe('PortfolioRepository', () => {
       expectBrowsersClosed()
     })
 
-    it('ignores an overridden rate into another currency', async () => {
-      givenUsdSpyd({ 'USD/GBP': { rate: 0.75 } })
-      tradingView.getRate.mockResolvedValue(0.9)
+    it('rejects an overridden rate into another currency, which would never be used', async () => {
+      givenUsdSpyd({ 'USD/EUR': { rate: 0.9 }, 'EUR/USD': { rate: 1.1 }, 'USD/GBP': { rate: 0.75 } })
 
-      const portfolio = await clockedRepository().getPortfolio('ibkr/eur')
+      await expect(clockedRepository().getPortfolio('ibkr/eur')).rejects.toThrow(
+        'The rate override EUR/USD, USD/GBP doesn\'t convert into the portfolio\'s currency (EUR): '
+        + 'rates are keyed <FROM>/EUR',
+      )
+      expect(tradingView.getRate).not.toHaveBeenCalled()
+    })
 
-      expect(portfolio.securities[1].exchangeRate?.rate.toNumber()).toBe(0.9)
+    it('rejects an overridden rate when the portfolio sets no currency', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue({
+        prices: EUR_OVERRIDES.prices, rates: { 'USD/EUR': { rate: 0.9 } },
+      })
+
+      await expect(clockedRepository().getPortfolio('ibkr/eur')).rejects.toThrow(
+        'The rate override USD/EUR doesn\'t convert into the portfolio\'s currency (not set): '
+        + 'rates are keyed <FROM>/<portfolio currency>',
+      )
     })
 
     it('launches only the rate sources when every price is overridden', async () => {

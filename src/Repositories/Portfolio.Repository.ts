@@ -162,7 +162,8 @@ export class PortfolioRepository implements IPortfolioRepository {
         return quote
       },
       `No price source could price '${setting.tick}'`
-      + (setting.currency === undefined ? '' : ` in ${setting.currency}`),
+      + (setting.currency === undefined ? '' : ` in ${setting.currency}`)
+      + ': check its tick, exchange and isin, or add its price to the overrides',
     )
     return {
       price: value.price,
@@ -181,6 +182,13 @@ export class PortfolioRepository implements IPortfolioRepository {
     currency: string | undefined,
     overrides: OverridesDto,
   ): Promise<Map<string, IExchangeRate>> {
+    const unused = Object.keys(overrides.rates).filter((pair) => !pair.endsWith(`/${currency}`))
+    if (unused.length > 0) {
+      throw Error(
+        `The rate override ${unused.join(', ')} doesn't convert into the portfolio's currency `
+        + `(${currency ?? 'not set'}): rates are keyed <FROM>/${currency ?? '<portfolio currency>'}`,
+      )
+    }
     if (currency === undefined) return new Map()
     const listed = [...new Set(quotes.map((quote) => quote.currency as string))]
       .filter((from) => from !== currency)

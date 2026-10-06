@@ -67,6 +67,8 @@ export const SecurityPriceSchema = z.object({
 
 /** A hand-entered price; `asOf` (YYYY-MM-DD) records when it was looked up. */
 export const OverridePriceSchema = SecurityPriceSchema.extend({
+  // A code, so that a rate into the portfolio's currency can be looked up or overridden
+  currency: CurrencyCode,
   asOf: z.iso.date().optional(),
 })
 
