@@ -529,13 +529,29 @@ describe('PortfolioRepository', () => {
       expectBrowsersClosed()
     })
 
-    it('reports a close failure instead of the error that ended the load', async () => {
-      // Current behaviour: an error thrown in `finally` replaces the pending one, so a failing
-      // closeBrowser hides why the portfolio could not be loaded.
+    it('reports the error that ended the load, not a failure to close afterwards', async () => {
       settings.getPortfolioSettings.mockRejectedValue(Error('Portfolio \'X\' not found'))
       justEtf.closeBrowser.mockRejectedValue(Error('close failed'))
 
-      await expect(repository.getPortfolio('X')).rejects.toThrow('close failed')
+      await expect(repository.getPortfolio('X')).rejects.toThrow('Portfolio \'X\' not found')
+      expectBrowsersClosed()
+    })
+
+    it('waits for every browser to close before reporting a load error', async () => {
+      settings.getPortfolioSettings.mockRejectedValue(Error('Portfolio \'X\' not found'))
+      const close = deferred<void>()
+      tradingView.closeBrowser.mockReturnValue(close.promise)
+      let settled = false
+
+      const result = repository.getPortfolio('X').catch((e: unknown) => {
+        settled = true
+        return e
+      })
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      expect(settled).toBe(false)
+      close.resolve()
+      expect(await result).toEqual(Error('Portfolio \'X\' not found'))
     })
   })
 })

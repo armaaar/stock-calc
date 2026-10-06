@@ -27,49 +27,63 @@ export class PortfolioRepository implements IPortfolioRepository {
   constructor(private readonly dataDrivers: PortfolioDataDrivers) {}
 
   public async getPortfolio(type: string): Promise<Portfolio> {
+    let portfolio: Portfolio
+    try {
+      portfolio = await this.loadPortfolio(type)
+    } catch (error) {
+      // A browser that fails to close must not hide why the portfolio couldn't be loaded
+      await Promise.allSettled(this.closeBrowsers())
+      throw error
+    }
+
+    await Promise.all(this.closeBrowsers())
+    return portfolio
+  }
+
+  /** Closing a browser that was never launched is a no-op. */
+  private closeBrowsers(): Promise<void>[] {
+    return this.dataDrivers.prices.map((priceDD) => priceDD.closeBrowser())
+  }
+
+  private async loadPortfolio(type: string): Promise<Portfolio> {
     const { settings, overrides: overridesDD, prices } = this.dataDrivers
 
-    try {
-      const {
-        brokerageFeeFlat, tradingFeePercentage, minimumTradingFeeFlat, securities,
-      } = await settings.getPortfolioSettings(type)
-      const overrides = await overridesDD.getPortfolioOverrides(type)
+    const {
+      brokerageFeeFlat, tradingFeePercentage, minimumTradingFeeFlat, securities,
+    } = await settings.getPortfolioSettings(type)
+    const overrides = await overridesDD.getPortfolioOverrides(type)
 
-      // Only start the browsers when at least one price has to be scraped
-      if (securities.some(({ tick }) => !isOverridden(tick, overrides))) {
-        for (const priceDD of prices) {
-          await priceDD.launchBrowser()
-        }
+    // Only start the browsers when at least one price has to be scraped
+    if (securities.some(({ tick }) => !isOverridden(tick, overrides))) {
+      for (const priceDD of prices) {
+        await priceDD.launchBrowser()
       }
-
-      const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
-        securities.map(async (security) => {
-          const {
-            tick, isin, shares, targetPercentage, exchange,
-          } = security
-          const { price, currency } = await this.getPrice(security, overrides)
-          return {
-            tick,
-            isin,
-            price,
-            shares,
-            targetPercentage,
-            exchange,
-            currency,
-            brokerageFeeFlat,
-            tradingFeePercentage,
-            minimumTradingFeeFlat,
-          } as IPortfolioSecurity
-        }),
-      )
-
-      return new Portfolio({
-        securities: PortfolioSecurities.map((s) => new PortfolioSecurity(s)),
-      })
-    } finally {
-      // Closing a browser that was never launched is a no-op
-      await Promise.all(prices.map((priceDD) => priceDD.closeBrowser()))
     }
+
+    const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
+      securities.map(async (security) => {
+        const {
+          tick, isin, shares, targetPercentage, exchange,
+        } = security
+        const { price, currency } = await this.getPrice(security, overrides)
+        return {
+          tick,
+          isin,
+          price,
+          shares,
+          targetPercentage,
+          exchange,
+          currency,
+          brokerageFeeFlat,
+          tradingFeePercentage,
+          minimumTradingFeeFlat,
+        } as IPortfolioSecurity
+      }),
+    )
+
+    return new Portfolio({
+      securities: PortfolioSecurities.map((s) => new PortfolioSecurity(s)),
+    })
   }
 
   private async getPrice(

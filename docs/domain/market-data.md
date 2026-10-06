@@ -48,7 +48,7 @@ The quote's `currency` becomes `Security.currency`. The core then enforces the *
 
 ## Operational notes
 
-- One headless Chromium per live source per run. They are launched only when at least one security isn't overridden, and closed (awaited) afterwards. Concurrent `launchBrowser()` calls share one in-flight launch.
+- One headless Chromium per live source per run. They are launched only when at least one security isn't overridden, and closed (awaited) afterwards, whether or not the load succeeded. When a load fails, a browser that also fails to close doesn't replace the load's error. Concurrent `launchBrowser()` calls share one in-flight launch.
 - Selectors depend on third-party markup. When a site changes its layout, prices for that source fail. Add overrides until the driver is fixed.
 - Adding a source: implement `IPriceDataDriver` (extend `BrowserController` if it needs a browser), then add an instance to the `prices` list in `src/compositionRoot.ts`. The repository launches, races and closes every source it is given ([ADR-0018](../architecture/adr/0018-dependency-injection-and-composition-root.md)).
 
