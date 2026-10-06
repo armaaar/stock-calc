@@ -1,0 +1,136 @@
+# Use Cases (application services)
+
+Each CLI command maps to one **application service** in `src/UseCases`. Every use case:
+
+1. extends `PortfolioUserCase` and is constructed with a **portfolio type**,
+2. loads the `Portfolio` aggregate through `PortfolioRepository` (`getSourcePortfolio()`),
+3. optionally changes the proposed `shares` (the initial state is never changed),
+4. returns the aggregate for the CLI to present.
+
+Use cases hold no state between runs and persist nothing.
+
+## Summary
+
+| Use case | Command | Extra input | Domain operation | Presented as |
+| --- | --- | --- | --- | --- |
+| [Show current portfolio](#uc-1-show-current-portfolio) | `show` | none | none | `ONLY_INITIAL` |
+| [Rebalance](#uc-2-rebalance-portfolio) | `rebalance` | none | `balanceForPrice(totalPrice)` | `WITH_DELTA` |
+| [Invest additional amount](#uc-3-invest-an-additional-amount) | `invest <investment>` | amount | `balanceForPrice(totalPrice + investment)` | `WITH_DELTA` |
+| [Allocate to a target value](#uc-4-allocate-to-a-target-value) | `target <price>` | portfolio value | `balanceForPrice(price)` | `WITH_DELTA` |
+| [Find minimal portfolio](#uc-5-find-the-minimal-portfolio) | `minimal` | precision, shares step | iterative search | `ONLY_NEW` |
+
+All commands take `-pt, --portfolio <type>` (default `EUR`). **Actor:** the investor, running the CLI locally.
+
+**Shared preconditions:** `src/data/_settings.<type>.jsonc` exists and passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the run prints the error(s) and produces no plan.
+
+**Worked examples** below use the tracked example portfolio (`_settings.EUR.jsonc.example` with `_overrides.EUR.jsonc.example`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
+
+---
+
+## UC-1: Show current portfolio
+
+**Class:** `GetCurrentPortfolioUseCase` · **Command:** `npm run cli -- show`
+
+**Intent:** see current holdings, their value, and how far each weight has drifted from target.
+
+**Flow:** load the portfolio and return it unchanged.
+
+**Output:** for each security, initial shares, value, and actual vs target percentage, plus the total value of current holdings.
+
+**Example:** QDVE is 31.42% (target 40%) and SPYD is 68.58% (target 60%). Portfolio value is 9055 EUR.
+
+---
+
+## UC-2: Rebalance portfolio
+
+**Class:** `GetRebalancedPortfolioUseCase` · **Command:** `npm run cli -- rebalance`
+
+**Intent:** restore target weights using only the money already in the portfolio, by selling overweight positions and buying underweight ones.
+
+**Flow:**
+1. Load the portfolio. `V = totalPrice` (equal to the current value, since nothing has changed yet).
+2. `balanceForPrice(V)`: for each security, `shares = round(V × target ÷ price)`.
+
+**Postconditions:** proposed weights are as close to target as whole shares allow. Proposed value ≈ `V`, with a rounding difference.
+
+**Output:** proposed and traded shares, trade value, and fee per security, plus total fee, net traded value, and proposed portfolio value.
+
+**Example:** buy 27 QDVE (+768.15) and sell 13 SPYD (−807.30). Fees 2 EUR, net traded value −39.15 EUR, giving 40.08% / 59.92%.
+
+**Notes:** rounding usually leaves a small net cash difference (here 39.15 EUR released). Fees aren't covered by the rebalance itself.
+
+---
+
+## UC-3: Invest an additional amount
+
+**Class:** `GetPortfolioWithInvestmentUseCase` · **Command:** `npm run cli -- invest <investment>`
+
+**Intent:** deploy new money while moving toward target weights.
+
+**Flow:**
+1. Load the portfolio. `V = totalPrice`.
+2. `balanceForPrice(V + investment)`.
+
+**Postconditions:** proposed value ≈ `V + investment`, at target weights.
+
+**Example (`invest 1000`):** buy 41 QDVE (+1166.45) and **sell 3 SPYD** (−186.30). Net 980.15 EUR, fees 2 EUR, new value 10035.15 EUR.
+
+**Notes:**
+- This is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added. There's no "buy-only" mode.
+- Net cash needed is `investment` ± rounding, **plus fees**. It can be slightly above or below the amount entered.
+- The CLI parser reads a leading `-` as an option, so `invest -100` fails with `unknown option '-100'`. The use case itself doesn't reject negative amounts.
+
+---
+
+## UC-4: Allocate to a target value
+
+**Class:** `GetPortfolioWithPriceUseCase` · **Command:** `npm run cli -- target <price>`
+
+**Intent:** see what an allocation worth an absolute amount looks like, for example when building a portfolio from scratch with a fixed budget, or deciding how much to keep after a partial withdrawal.
+
+**Flow:** load the portfolio, then `balanceForPrice(price)`. Current holdings don't affect the proposed shares; they're only used to compute the trades.
+
+**Example (`target 5000`):** sell 30 QDVE and 52 SPYD. Proposed value 4972.30 EUR (40.05% / 59.95%), fees 2 EUR.
+
+**Notes:** the result may differ from `price` by up to about half a share's price per security. A non-numeric `price` (for example `target abc`) isn't rejected. It produces `NaN` share counts and prices, and the process still exits with code 0.
+
+---
+
+## UC-5: Find the minimal portfolio
+
+**Class:** `GetPortfolioWithMinimumSharesUseCase` · **Command:** `npm run cli -- minimal [-p <precision>] [-s <step>]`
+
+**Intent:** find the smallest whole-share allocation whose actual weights are all within `precision` of their targets. This tells you the minimum capital needed to hold the portfolio at its intended weights.
+
+**Inputs (validated in the constructor):**
+
+| Input | Default | Constraint |
+| --- | --- | --- |
+| `precision` | 0.01 (±1 percentage point) | 0 ≤ p ≤ 1 |
+| `sharesStep` | 1 | integer ≥ 1 |
+
+**Flow:**
+1. Load the portfolio.
+2. While **not** every security satisfies `|actualPercentage − target| ≤ precision` (measured on the proposed state):
+   1. Set the **first** security's shares to `n` (n = step, 2·step, 3·step, …).
+   2. For every other security `i`, scale from the first one:
+      `shares_i = roundToMultiple(round(price₀ × shares₀ ÷ target₀ × target_i ÷ price_i), step)`.
+3. Return the portfolio.
+
+**Example (default precision):** n = 1 gives 31.4% (fails), n = 2 gives 47.8% (fails), n = 3 gives QDVE 3 / SPYD 2 = 40.73% / 59.27%. Value 209.55 EUR. With `-p 0.001`: QDVE 16 / SPYD 11, value 1138.30 EUR.
+
+**Notes and edge cases:**
+- The acceptance test is checked **before** the first iteration, on the current holdings. If they're already within precision, they're returned unchanged instead of the minimum.
+- The result doesn't depend on current holdings otherwise. It's presented as a target state only (`ONLY_NEW`, with no trades or fees).
+- The first security drives the search. A target of 0 for it divides by zero.
+- `0` or non-numeric values for `-p`/`-s` silently fall back to the defaults, because the constructor tests them for truthiness.
+- Smaller precision means more iterations and larger results. There's no iteration cap.
+
+---
+
+## Adding a use case
+
+1. Create `src/UseCases/<Name>.UseCase.ts` extending `PortfolioUserCase` and implement `handler()`.
+2. Express the calculation as a method on the `Portfolio` aggregate when possible (as `balanceForPrice` is), so use cases stay thin.
+3. If the use case takes parameters with constraints, decorate them and end the constructor with `validateClassErrors(this, <Name>UseCase)` ([ADR-0004](../architecture/adr/0004-self-validating-entities.md)).
+4. Wire up a CLI command (see the [architecture overview](../architecture/overview.md#extension-points)) and add it to this document.

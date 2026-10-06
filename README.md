@@ -25,6 +25,22 @@ The `securities` list consists of security objects, which contains:
 
 The price of each security is fetched automatically from public records using either the combination of the tick and exchange, or using the isin if available.
 
+### Price overrides
+
+To skip fetching for some securities (for example, when no source lists them), create `src/data/_overrides.<portfolio_name>.jsonc`, keyed by tick:
+
+```jsonc
+{
+  "QDVE": { "price": 28.45, "currency": "EUR" }
+}
+```
+
+The override currency must match the rest of the portfolio. See `src/data/*.jsonc.example` for templates.
+
+## Documentation
+
+Architecture, decision records, and domain docs are in [`docs/`](docs/README.md).
+
 ## Available operations
 
 The tool can be used by running:
