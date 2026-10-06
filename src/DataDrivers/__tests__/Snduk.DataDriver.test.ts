@@ -45,11 +45,11 @@ describe('SndukDataDriver', () => {
     expect(SNDUK_TIMEOUT).toBe(15_000)
   })
 
-  it('leaves the date out when the page has none', async () => {
-    const fetchPage = fakeFetch(sndukFundPage({ ...BMM_FUND, lastPriceUpdate: null }))
+  it.each([null, undefined])('rejects a NAV without its date (%j), which would pass for today\'s', async (date) => {
+    const fetchPage = fakeFetch(sndukFundPage({ ...BMM_FUND, lastPriceUpdate: date }))
 
-    await expect(new SndukDataDriver(fetchPage).getPrice(BMM_SETTING))
-      .resolves.toEqual({ price: 2.4326, currency: 'EGP', quotedAt: undefined })
+    expect(await causeOf(new SndukDataDriver(fetchPage).getPrice(BMM_SETTING)))
+      .toBe('The page gives no date for the NAV of \'BMM\'')
   })
 
   it('takes the record whose code is the tick, ignoring case, when the page has several', async () => {
@@ -109,11 +109,22 @@ describe('SndukDataDriver', () => {
     expect(await causeOf(new SndukDataDriver(fetchPage).getPrice(BMM_SETTING))).toBe(cause)
   })
 
-  it('wraps a failed request, such as a timeout', async () => {
-    const fetchPage = vi.fn<PageFetcher>().mockRejectedValue(Error('The operation was aborted'))
+  it('gives up on a page that takes longer than its timeout', async () => {
+    // A fetch that only ever ends by being aborted, like a server that never answers
+    const fetchPage = vi.fn<PageFetcher>((_, { signal }) => new Promise((_resolve, reject) => {
+      signal?.addEventListener('abort', () => reject(signal.reason))
+    }))
+
+    const cause = await causeOf(new SndukDataDriver(fetchPage, 20).getPrice(BMM_SETTING))
+
+    expect(cause).toMatch(/timed out|aborted/i)
+  })
+
+  it('wraps a failed request', async () => {
+    const fetchPage = vi.fn<PageFetcher>().mockRejectedValue(Error('getaddrinfo ENOTFOUND'))
 
     expect(await causeOf(new SndukDataDriver(fetchPage).getPrice(BMM_SETTING)))
-      .toBe('The operation was aborted')
+      .toBe('getaddrinfo ENOTFOUND')
   })
 
   it('has no browser to launch or close', async () => {

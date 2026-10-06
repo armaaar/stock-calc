@@ -6,8 +6,8 @@ import { z } from 'zod'
  */
 const SndukFundSchema = z.object({
   code: z.string().trim().min(1),
-  nameEn: z.string().optional(),
-  currency: z.string().trim().min(1),
+  // A code, as the rest of the portfolio's prices and rates use
+  currency: z.string().regex(/^[A-Z]{3}$/),
   currentPrice: z.union([z.string(), z.number()]).nullable(),
   lastPriceUpdate: z.iso.date().nullable().optional(),
 })

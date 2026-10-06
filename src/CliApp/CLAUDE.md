@@ -21,7 +21,7 @@ The commander CLI. `app.ts` is the entry point (`createCli(composePortfolioUseCa
   6. one `Warning: <sentence>` line per fee warning, then a blank line.
 - There is no Currency column: the currency is in the heading and the totals. `Exchange` shows `Unknown` when missing. `Quote` is `<source> <time to the minute, UTC>` or `<source> <date>` for overrides (`sourceOf`).
 - `Listed` (`<price> <CURRENCY> @ <rate>`) appears only when some security is converted, and then every row gets a cell (empty for unconverted rows), because `console.table` orders columns by the first row's keys. Keep that, or the column moves away from `Price`.
-- `ErrorCliPresenter.Presenter.ts` prints to stderr in red: each inner error of an `AggregateError` recursively, a `ClassValidatorError` with one `console.table` of constraints per violated property (nested children indented with more `-`), any other `Error` as `<name>: <message>`, and anything else as `String(error)`. It doesn't set the exit code; the command does.
+- `ErrorCliPresenter.Presenter.ts` prints errors to stderr in red (the constraint tables go through `console.table`, so to stdout): each inner error of an `AggregateError` recursively, a `ClassValidatorError` with one `console.table` of constraints per violated property (nested children indented with more `-`), any other `Error` as `<name>: <message>`, and anything else as `String(error)`. It doesn't set the exit code; the command does.
 - Presenters are the only place that prints. They `/* eslint-disable no-console */` at the top; nothing else in the layer uses `console`.
 
 ## Tests

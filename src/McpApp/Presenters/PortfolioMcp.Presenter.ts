@@ -20,7 +20,7 @@ const securitySchema = z.object({
     .describe('Listed in another currency only: what one unit of listedCurrency is worth'),
   priceSource: z.string().optional().describe('Where the price came from, e.g. justetf.com or override'),
   pricedAt: z.string().optional()
-    .describe('When the price was quoted: ISO 8601 UTC timestamp, or a date for overrides'),
+    .describe('When the price was quoted: ISO 8601 UTC timestamp, or a date (an override, a fund NAV)'),
   targetPercent: z.number().describe('Target weight in percent'),
   shares: z.number(),
   totalPrice: z.number(),

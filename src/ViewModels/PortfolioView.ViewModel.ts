@@ -30,7 +30,10 @@ export type SecurityView = {
   exchangeRate?: number
   /** Where the price came from, such as `justetf.com` or `override`, when known. */
   priceSource?: string
-  /** When the price was quoted, when known: an ISO 8601 UTC timestamp, or a date for overrides. */
+  /**
+   * When the price was quoted, when known: an ISO 8601 UTC timestamp, or a date (an override's
+   * `asOf`, or a fund's NAV date).
+   */
   pricedAt?: string
   /** Target weight in percent. */
   targetPercent: number

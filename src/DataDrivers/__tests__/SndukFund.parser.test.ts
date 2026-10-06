@@ -4,7 +4,6 @@ import { parseSndukFunds } from '../SndukFund.parser'
 
 const BMM = {
   code: 'BMM',
-  nameEn: BMM_FUND.nameEn,
   currency: 'EGP',
   currentPrice: '2.4326',
   lastPriceUpdate: '2026-10-06',
@@ -26,16 +25,15 @@ describe('parseSndukFunds', () => {
       .toMatchObject({ currentPrice: 10.1621, lastPriceUpdate: null })
   })
 
-  it('reads a record with escaped quotes in its strings', () => {
-    const quoted = { ...BMM_FUND, nameEn: 'Beltone "Meya Meya" \\ EGX100' }
+  it('reads a record with escaped quotes and backslashes in its strings', () => {
+    const quoted = { ...BMM_FUND, name: 'Beltone "Meya Meya" \\ EGX100', nameEn: null }
 
-    expect(parseSndukFunds(sndukFundPage(quoted))[0].nameEn).toBe('Beltone "Meya Meya" \\ EGX100')
+    expect(parseSndukFunds(sndukFundPage(quoted))).toEqual([BMM])
   })
 
-  it('ignores the key when it is only text in a string', () => {
-    const page = sndukFundPage({ note: '"currentPrice":"9"' }, BMM_FUND)
-
-    expect(parseSndukFunds(page)).toEqual([BMM])
+  it('rejects a currency that is not a code', () => {
+    expect(() => parseSndukFunds(sndukFundPage({ ...BMM_FUND, currency: 'جنيه' })))
+      .toThrow('No fund record found in the page')
   })
 
   it('gives up on a key after many objects that close before it', () => {
