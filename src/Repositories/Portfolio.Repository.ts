@@ -50,8 +50,10 @@ export class PortfolioRepository {
         securities: PortfolioSecurities.map((s) => new PortfolioSecurity(s)),
       })
     } finally {
-      this.justEtfDD.closeBrowser()
-      this.tradingViewDD.closeBrowser()
+      await Promise.all([
+        this.justEtfDD.closeBrowser(),
+        this.tradingViewDD.closeBrowser(),
+      ])
     }
   }
 
@@ -59,7 +61,7 @@ export class PortfolioRepository {
     setting: SettingsSecurityDto,
     overrides: Record<string, SecurityPriceDto>,
   ): Promise<SecurityPriceDto> {
-    if (setting.tick in overrides) return overrides[setting.tick]
+    if (Object.hasOwn(overrides, setting.tick)) return overrides[setting.tick]
 
     const priceDataDrivers: IPriceDataDriver[] = [
       this.justEtfDD,
