@@ -176,16 +176,39 @@ export class Portfolio {
   }
 
   /**
-   * Cancels buys, most overweight first, until the plan needs no more cash than it has or no
-   * buys are left. Far short, it cancels several shares at once, so large fees stay fast.
+   * Cancels buys until the plan needs no more cash than it has, or no buys are left. Each step
+   * tries cancelling, for every buy, just enough shares to cover the shortfall (or the whole buy),
+   * and keeps the one that leaves the weights closest to target. A cheap share often covers a
+   * small shortfall better than an expensive one would, and large shortfalls take few steps.
    */
   private cancelBuysUntilAffordable() {
     while (this.cashAfterTrades.lessThan(0)) {
-      const buys = this.securities.filter((sec) => sec.shares > sec.initialShares)
-      const sec = this.mostOverweight(buys)
-      if (!sec) return
-      sec.shares -= this.sharesToRemove(sec, buys.length, sec.shares - sec.initialShares)
+      const short = this.cashAfterTrades.negated()
+      const options = this.securities
+        .filter((sec) => sec.shares > sec.initialShares)
+        .map((sec) => {
+          // A share cancelled saves its price and its part of a percentage fee
+          const saving = this.cashChange(sec, 1)
+          const toCover = short.dividedBy(Decimal.max(saving, sec.price)).ceil().toNumber()
+          const count = Math.min(sec.shares - sec.initialShares, Math.max(1, toCover))
+          sec.shares -= count
+          const distance = this.distanceFromTargets()
+          sec.shares += count
+          return { sec, count, distance }
+        })
+      if (options.length === 0) return
+      const best = options.reduce((a, b) => (b.distance.lessThan(a.distance) ? b : a))
+      best.sec.shares -= best.count
     }
+  }
+
+  /** Σ (actual weight − target weight)² over the proposed holdings: 0 when exactly on target. */
+  private distanceFromTargets(): Decimal {
+    const totalPrice = this.totalPrice
+    return this.securities.reduce((acc, sec) => {
+      const drift = sec.calcActualPercentage(totalPrice).minus(sec.targetPercentage)
+      return acc.plus(drift.times(drift))
+    }, new Decimal(0))
   }
 
   /**
@@ -222,11 +245,16 @@ export class Portfolio {
 
   /** Whether selling `shares` more of `sec` (or buying that many fewer) leaves more cash. */
   private raisesCash(sec: PortfolioSecurity, shares: number): boolean {
+    return this.cashChange(sec, shares).greaterThan(0)
+  }
+
+  /** How much more cash the plan leaves with `shares` fewer of `sec`. */
+  private cashChange(sec: PortfolioSecurity, shares: number): Decimal {
     const before = this.cashAfterTrades
     sec.shares -= shares
     const after = this.cashAfterTrades
     sec.shares += shares
-    return after.greaterThan(before)
+    return after.minus(before)
   }
 
   /**
@@ -256,25 +284,50 @@ export class Portfolio {
     this.resetShares()
     buyable.forEach((sec) => {
       const gap = level.times(sec.targetPercentage).minus(sec.initialTotalPrice)
-      const buyValue = Decimal.max(0, gap)
-      // Rounding down never spends more than the cash; fees are fitted below
-      sec.shares += buyValue.dividedBy(sec.price).floor().toNumber()
+      // To the nearest share, so an expensive security isn't skipped for being just short of one
+      sec.shares += Decimal.max(0, gap).dividedBy(sec.price).round().toNumber()
     })
 
-    // Fees can still overshoot: cancel buys of the most overweight security first. With no
-    // sells, cancelling every buy always fits, since cash + deposit ≥ 0.
+    // Rounding up and fees can overshoot. With no sells, cancelling every buy always fits,
+    // since cash + deposit ≥ 0.
     this.cancelBuysUntilAffordable()
 
-    // Spend what rounding left over, one share at a time, on whatever is most underweight
+    this.spendRemainder(buyable)
+  }
+
+  /**
+   * Spends the cash left after a buy-only plan on the securities still below target, most
+   * underweight first, measured against the holdings plus that cash. A security gets a share
+   * only if it is at least half a share short, so the remainder never pushes one far over.
+   */
+  private spendRemainder(buyable: PortfolioSecurity[]) {
     let candidates = buyable
-    while (candidates.length > 0) {
-      const sec = this.mostUnderweight(candidates) as PortfolioSecurity
-      sec.shares += 1
-      if (this.cashAfterTrades.lessThan(0)) {
-        sec.shares -= 1
+    for (;;) {
+      const total = this.totalPrice.plus(this.cashAfterTrades)
+      const shortOf = (sec: PortfolioSecurity) => (
+        total.times(sec.targetPercentage).minus(sec.totalPrice)
+      )
+      candidates = candidates.filter((sec) => (
+        shortOf(sec).greaterThanOrEqualTo(sec.price.dividedBy(2))
+      ))
+      if (candidates.length === 0) return
+
+      const sec = candidates.reduce((a, b) => (shortOf(b).greaterThan(shortOf(a)) ? b : a))
+      // Several shares at once when far short, so cheap shares don't take a step each
+      const many = Decimal.min(shortOf(sec), this.cashAfterTrades)
+        .dividedBy(sec.price).floor().toNumber()
+      if (!this.tryBuy(sec, Math.max(1, many)) && !(many > 1 && this.tryBuy(sec, 1))) {
         candidates = candidates.filter((other) => other !== sec)
       }
     }
+  }
+
+  /** Buys `count` more shares of `sec` if the plan can still pay for them, fees included. */
+  private tryBuy(sec: PortfolioSecurity, count: number): boolean {
+    sec.shares += count
+    if (this.cashAfterTrades.greaterThanOrEqualTo(0)) return true
+    sec.shares -= count
+    return false
   }
 
   /**
@@ -315,21 +368,9 @@ export class Portfolio {
 
   /** The candidate whose proposed weight is furthest above its target (the first on a tie). */
   private mostOverweight(candidates: PortfolioSecurity[]): PortfolioSecurity | undefined {
-    return this.furthestFromTarget(candidates, 1)
-  }
-
-  /** The candidate whose proposed weight is furthest below its target (the first on a tie). */
-  private mostUnderweight(candidates: PortfolioSecurity[]): PortfolioSecurity | undefined {
-    return this.furthestFromTarget(candidates, -1)
-  }
-
-  private furthestFromTarget(
-    candidates: PortfolioSecurity[],
-    direction: 1 | -1,
-  ): PortfolioSecurity | undefined {
     const totalPrice = this.totalPrice
     const drift = (sec: PortfolioSecurity) => (
-      sec.calcActualPercentage(totalPrice).minus(sec.targetPercentage).times(direction)
+      sec.calcActualPercentage(totalPrice).minus(sec.targetPercentage)
     )
     return candidates.reduce<PortfolioSecurity | undefined>(
       (best, sec) => (best === undefined || drift(sec).greaterThan(drift(best)) ? sec : best),

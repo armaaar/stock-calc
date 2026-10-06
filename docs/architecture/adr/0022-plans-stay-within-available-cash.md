@@ -19,7 +19,7 @@
 - **`allocateCash(deposit)`** is the domain operation behind `invest` and `rebalance`. Rebalance is a deposit of 0. It works like this:
   1. It records the deposit (negative to withdraw).
   2. It balances to `holdings + cash + deposit` with `balanceForPrice`.
-  3. It cancels buys, most overweight first, until `cashAfterTrades = cash + deposit − net traded − fees` is ≥ 0. When it's far short, for example because of large percentage fees, it cancels several shares at a time.
+  3. Until `cashAfterTrades = cash + deposit − net traded − fees` is ≥ 0, it cancels buys: each step cancels just enough shares of one buy to cover the shortfall (or the whole buy), choosing the buy whose cancellation leaves the weights closest to target (least Σ squared drift). A cheap share often covers a small shortfall better than an expensive one.
   4. If no buys are left and `cash + deposit ≥ 0`, it plans **no trades**. Sells only exist to fund buys or a withdrawal. On their own they just turn holdings into fees.
   5. A withdrawal that is still short sells more:
      - it first undoes any sell whose fee is at least what it raises;
@@ -31,7 +31,7 @@
 
 ## Consequences
 
-- `invest X` never needs more than `X` plus the cash already held, fees included, and `rebalance` never needs new money. The worked examples are unchanged (rebalance 127 / 87, invest 1000 141 / 97, target 5000 70 / 48), because none of them overspent.
-- Trimming is greedy (most overweight first, in bulk when far short). It isn't a globally optimal fit, but it is deterministic, fast, and leaves weights close to target.
+- `invest X` never needs more than `X` plus the cash already held, fees included, and `rebalance` never needs new money. The one exception is a withdrawal that even selling everything can't cover after fees, where `cashAfterTrades` shows the shortfall. The worked examples are unchanged (rebalance 127 / 87, invest 1000 141 / 97, target 5000 70 / 48), because none of them overspent.
+- Trimming is greedy (one buy at a time, in bulk, closest to target first). It isn't a globally optimal fit, but it is deterministic, fast, and leaves weights close to target.
 - CLI output gains a "Cash" line (`show`) or a "Cash After Trades" line (plans). The MCP output gains `cash` / `cashAfterTrades`.
 - `minimal` is unaffected. It searches for a target state from scratch and has no budget.

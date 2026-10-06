@@ -599,9 +599,9 @@ describe('Portfolio', () => {
         expect(sec.shares).toBeGreaterThanOrEqual(sec.initialShares)
       }
       expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
-      // Target values at 1200 are A 600, B 360, C 240. Rounding down gives 590 / 360 / 240,
-      // and the 7 left after 3 fees buys one more C, the most underweight: 590 / 360 / 245.
-      expect(sharesOf(portfolio)).toEqual({ A: 59, B: 18, C: 49 })
+      // Target values at 1200 are A 600, B 360, C 240. Rounding to the nearest share gives
+      // 600 / 360 / 240, 3 too much with the fees, so one C is cancelled: 600 / 360 / 235.
+      expect(sharesOf(portfolio)).toEqual({ A: 60, B: 18, C: 47 })
       expect(portfolio.cashAfterTrades.toNumber()).toBe(2)
     })
 
@@ -656,10 +656,108 @@ describe('Portfolio', () => {
         portfolio.buyWithCash(new Decimal(deposit))
         expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
         expect(portfolio.securities.every((sec) => sec.shares >= sec.initialShares)).toBe(true)
-        // Whatever is left can't buy one more share of anything, fees included
-        const cheapest = Math.min(...portfolio.securities.map((sec) => sec.price.toNumber()))
-        expect(portfolio.cashAfterTrades.toNumber()).toBeLessThan(cheapest + 1)
+        // Whatever is left can't buy a share of anything still half a share or more below
+        // target (against holdings + cash), fees included
+        const total = portfolio.totalPrice.plus(portfolio.cashAfterTrades)
+        for (const sec of portfolio.securities) {
+          const shortOf = total.times(sec.targetPercentage).minus(sec.totalPrice)
+          if (shortOf.greaterThanOrEqualTo(sec.price.dividedBy(2))) {
+            sec.shares += 1
+            expect(portfolio.cashAfterTrades.lessThan(0)).toBe(true)
+            sec.shares -= 1
+          }
+        }
       }
+    })
+
+    it('buys an expensive underweight security instead of piling into a cheap one', () => {
+      // 990 to spend at 50/50: rounding down would skip A (its gap is 495, one share is 500)
+      // and leave B overweight. Buying 1 A and 98 B lands exactly on target.
+      const portfolio = new Portfolio({
+        securities: [
+          security({ tick: 'A', price: 500, shares: 10, targetPercentage: 0.5, brokerageFeeFlat: 0 }),
+          security({ tick: 'B', price: 5, shares: 1000, targetPercentage: 0.5, brokerageFeeFlat: 0 }),
+        ],
+      })
+
+      portfolio.buyWithCash(new Decimal(990))
+
+      expect(sharesOf(portfolio)).toEqual({ A: 11, B: 1098 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
+    })
+
+    it('cancels the buy that keeps the weights closest to target when fees overshoot', () => {
+      // One A (999.99 + 5% fee = 1049.99) fits in 1123.45 if the cheap C buy is cut back
+      const portfolio = new Portfolio({
+        securities: [
+          security({
+            tick: 'A', price: 999.99, shares: 1, targetPercentage: 0.8,
+            brokerageFeeFlat: 0, tradingFeePercentage: 0.05,
+          }),
+          security({ tick: 'B', price: 5000, shares: 1, targetPercentage: 0.1, brokerageFeeFlat: 0 }),
+          security({ tick: 'C', price: 0.01, shares: 100, targetPercentage: 0.1, brokerageFeeFlat: 0 }),
+        ],
+      })
+
+      portfolio.buyWithCash(new Decimal(1123.45))
+
+      expect(sharesOf(portfolio).A).toBe(2)
+      expect(sharesOf(portfolio).B).toBe(1)
+      expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+      expect(portfolio.cashAfterTrades.lessThan(0.01)).toBe(true)
+    })
+
+    it('never pushes a security over target with the remainder', () => {
+      // A is far over target; the 30 left over must not go to it
+      const portfolio = new Portfolio({
+        securities: [
+          security({ tick: 'A', price: 10, shares: 90, targetPercentage: 0.5, brokerageFeeFlat: 0 }),
+          security({ tick: 'B', price: 400, shares: 0, targetPercentage: 0.5, brokerageFeeFlat: 0 }),
+        ],
+      })
+
+      portfolio.buyWithCash(new Decimal(30))
+
+      expect(sharesOf(portfolio)).toEqual({ A: 90, B: 0 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(30)
+    })
+
+    it('keeps the money when a minimum fee makes even one share too expensive', () => {
+      // B is far below target, but 5 buys neither 5 shares nor 1 share once its 3 + 2 fee is
+      // added
+      const portfolio = new Portfolio({
+        securities: [
+          security({
+            tick: 'A', price: 28.45, shares: 22, targetPercentage: 0.55,
+            brokerageFeeFlat: 1, tradingFeePercentage: 0.01, minimumTradingFeeFlat: 2,
+          }),
+          security({
+            tick: 'B', price: 1, shares: 8, targetPercentage: 0.45,
+            brokerageFeeFlat: 3, tradingFeePercentage: 0.01, minimumTradingFeeFlat: 2,
+          }),
+        ],
+      })
+
+      portfolio.buyWithCash(new Decimal(5))
+
+      expect(sharesOf(portfolio)).toEqual({ A: 22, B: 8 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(5)
+    })
+
+    it('stays fast with very different prices', () => {
+      const portfolio = new Portfolio({
+        securities: [
+          security({ tick: 'A', price: 100000, shares: 0, targetPercentage: 0.5 }),
+          security({ tick: 'B', price: 0.01, shares: 0, targetPercentage: 0.5 }),
+        ],
+      })
+
+      const started = performance.now()
+      portfolio.buyWithCash(new Decimal(199999))
+
+      expect(performance.now() - started).toBeLessThan(1000)
+      expect(sharesOf(portfolio).A).toBe(1)
+      expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
     })
 
     it('skips securities with a 0 target or a 0 price', () => {

@@ -76,7 +76,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
    - balance to `holdings + cash + investment`;
    - then trim, cancelling buys first, until the trades and fees fit in `cash + investment`.
 
-**Postconditions:** proposed weights are as close to target as whole shares allow, and `cashAfterTrades ≥ 0`. The plan never needs more than the investment plus the cash held, fees included.
+**Postconditions:** proposed weights are as close to target as whole shares allow, and `cashAfterTrades ≥ 0`. The plan never needs more than the investment plus the cash held, fees included. The exception is a withdrawal that even selling everything can't cover after fees (see below).
 
 **Example (`invest 1000`):** buy 41 QDVE (+1166.45) and **sell 3 SPYD** (−186.30). Net 980.15 EUR, fees 2 EUR, new value 10035.15 EUR, 17.85 EUR cash after trades.
 
@@ -84,7 +84,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Notes:**
 - By default this is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added.
-- **Buy-only** (`--buy-only` / `-b`, MCP `buyOnly: true`) never sells. `buyWithCash` spends the money on the most underweight securities first, water-filling them toward a common weight gap. It rounds down to whole shares, then spends the remainder one share at a time while it fits, fees included. The investment must be ≥ 0; a negative one fails with a `ClassValidatorError` (`Investment.buyOnlyAmount`) before anything is loaded. Example: `invest 1000 --buy-only` buys 35 QDVE (995.75 + 1 fee) and leaves 3.25 EUR.
+- **Buy-only** (`--buy-only` / `-b`, MCP `buyOnly: true`) never sells. `buyWithCash` spends the money on the most underweight securities first, water-filling them toward a common portfolio value. It rounds to the nearest whole share, cancels buys if that overshoots with fees, then spends the remainder only on securities still at least half a share below target. The investment must be ≥ 0; a negative one fails with a `ClassValidatorError` (`Investment.buyOnlyAmount`) before anything is loaded. Example: `invest 1000 --buy-only` buys 35 QDVE (995.75 + 1 fee) and leaves 3.25 EUR.
 - Cash needed (net traded + fees) is never above `investment` + cash held. What's left over is reported as cash after trades.
 - Negative amounts plan a withdrawal: `invest -4055` gives the same plan as `target 5000`. A withdrawal larger than the portfolio's value (holdings + cash) fails with `Cannot withdraw <amount>: more than the portfolio value (<value>)`. A withdrawal must also cover the sell fees, so the plan sells enough to pay for them. Withdrawing exactly the whole value plans selling everything, and cash after trades shows the fees as a shortfall (−2 EUR in the example).
 - The investment must be a finite number. The CLI rejects anything else while parsing arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`Investment.amount`).

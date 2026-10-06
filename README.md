@@ -116,7 +116,7 @@ npm run cli:invest -- [options] <investment>
 - Options:
   - `-b, --buy-only`: only buy, never sell. The money goes to the most underweight securities first. The investment must be 0 or more.
 
-The plan never needs more than the investment plus the portfolio's `cash`, fees included. "Cash After Trades" shows what's left over.
+The plan never needs more than the investment plus the portfolio's `cash`, fees included. "Cash After Trades" shows what's left over. It's negative only for a withdrawal that even selling everything can't cover after fees.
 
 ### Rebalance portfolio
 

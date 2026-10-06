@@ -11,7 +11,7 @@ export function registerInvestTool(
 ): void {
   server.registerTool('invest', {
     title: 'Invest in portfolio',
-    description: 'Calculates the number of shares you need to buy to satisfy your portfolio if you invest additionally. Also rebalances, so it may sell overweight securities, unless buyOnly is set. The plan never needs more than the investment plus the cash held, fees included.',
+    description: 'Calculates the number of shares you need to buy to satisfy your portfolio if you invest additionally. Also rebalances, so it may sell overweight securities, unless buyOnly is set. The plan stays within the investment plus the cash held, fees included; cashAfterTrades shows what is left (negative only when even selling everything cannot cover a withdrawal and its fees).',
     inputSchema: {
       // zod 4 numbers are finite: NaN and +/-Infinity are rejected
       investment: z.number()
