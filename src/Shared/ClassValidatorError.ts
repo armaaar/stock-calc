@@ -10,7 +10,10 @@ export class ClassValidatorError extends Error {
   }
 }
 
-export function validateClassErrors(object: object, cls: new (...args: any[]) => any): void {
+export function validateClassErrors(
+  object: object,
+  cls: abstract new (...args: never[]) => object,
+): void {
   // Only validate if the object is of the exact same class
   if (object.constructor.name !== cls.name) return
 

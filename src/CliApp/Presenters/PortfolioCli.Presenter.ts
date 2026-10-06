@@ -3,15 +3,15 @@ import { Portfolio } from '@/Entities/Portfolio.Entity'
 import { roundPercentage, sortObjectByKey } from '@/Shared/utils'
 
 interface StaticTableData {
-  Tick: string
-  Exchange: string
-  Currency: string
-  Price: number
+  'Tick': string
+  'Exchange': string
+  'Currency': string
+  'Price': number
   'Target Percentage %': number
 }
 
 interface PerPortfolioTableData {
-  Shares: number
+  'Shares': number
   'Total Price': number
   'Percentage %': number
   'Traded Shares'?: number
@@ -63,65 +63,65 @@ export class PortfolioCliPresenter {
     return portfolio.securities
       .filter((sec) => (mode === PresentMode.ONLY_DELTA ? sec.isBeingTraded : true))
       .map<PortfolioSecurityTableData>((sec) => {
-      const infoData: StaticTableData = {
-        Tick: sec.tick,
-        Exchange: sec.exchange ?? 'Unknown',
-        Currency: sec.currency ?? 'Unknown',
-        Price: sec.price.toNumber(),
-        'Target Percentage %': roundPercentage(sec.targetPercentage.toNumber()),
-      }
-      let portfolioData: PerPortfolioTableData
+        const infoData: StaticTableData = {
+          'Tick': sec.tick,
+          'Exchange': sec.exchange ?? 'Unknown',
+          'Currency': sec.currency ?? 'Unknown',
+          'Price': sec.price.toNumber(),
+          'Target Percentage %': roundPercentage(sec.targetPercentage.toNumber()),
+        }
+        let portfolioData: PerPortfolioTableData
 
-      if (mode === PresentMode.ONLY_NEW) {
-        portfolioData = {
-          Shares: sec.shares,
-          'Total Price': sec.totalPrice.toNumber(),
-          'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
+        if (mode === PresentMode.ONLY_NEW) {
+          portfolioData = {
+            'Shares': sec.shares,
+            'Total Price': sec.totalPrice.toNumber(),
+            'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
+          }
+        } else if (mode === PresentMode.ONLY_INITIAL) {
+          portfolioData = {
+            'Shares': sec.initialShares,
+            'Total Price': sec.initialTotalPrice.toNumber(),
+            'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.initialTotalPrice, sec.initialTotalPrice).toNumber()),
+          }
+        } else if (mode === PresentMode.ONLY_DELTA) {
+          portfolioData = {
+            'Shares': sec.shares - sec.initialShares,
+            'Total Price': sec.totalPrice.minus(sec.initialTotalPrice).toNumber(),
+            'Percentage %': roundPercentage(
+              sec.calcActualPercentage(portfolio.totalTradedPrice, sec.tradedPrice).toNumber(),
+            ),
+            'Trading Fee': sec.tradingFee.toNumber(),
+          }
+        } else if (mode === PresentMode.WITH_DELTA) {
+          portfolioData = {
+            'Shares': sec.shares,
+            'Total Price': sec.totalPrice.toNumber(),
+            'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
+            'Traded Shares': sec.shares - sec.initialShares,
+            'Trading Price': sec.tradedPrice.toNumber(),
+            'Trading Fee': sec.tradingFee.toNumber(),
+          }
+        } else {
+          throw Error(`Unknown present mode '${mode}`)
         }
-      } else if (mode === PresentMode.ONLY_INITIAL) {
-        portfolioData = {
-          Shares: sec.initialShares,
-          'Total Price': sec.initialTotalPrice.toNumber(),
-          'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.initialTotalPrice, sec.initialTotalPrice).toNumber()),
-        }
-      } else if (mode === PresentMode.ONLY_DELTA) {
-        portfolioData = {
-          Shares: sec.shares - sec.initialShares,
-          'Total Price': sec.totalPrice.minus(sec.initialTotalPrice).toNumber(),
-          'Percentage %': roundPercentage(
-            sec.calcActualPercentage(portfolio.totalTradedPrice, sec.tradedPrice).toNumber(),
-          ),
-          'Trading Fee': sec.tradingFee.toNumber(),
-        }
-      } else if (mode === PresentMode.WITH_DELTA) {
-        portfolioData = {
-          Shares: sec.shares,
-          'Total Price': sec.totalPrice.toNumber(),
-          'Percentage %': roundPercentage(sec.calcActualPercentage(portfolio.totalPrice).toNumber()),
-          'Traded Shares': sec.shares - sec.initialShares,
-          'Trading Price': sec.tradedPrice.toNumber(),
-          'Trading Fee': sec.tradingFee.toNumber(),
-        }
-      } else {
-        throw Error(`Unknown present mode '${mode}`)
-      }
 
-      return sortObjectByKey<PortfolioSecurityTableData>({
-        ...infoData,
-        ...portfolioData,
-      }, [
-        'Tick',
-        'Exchange',
-        'Currency',
-        'Price',
-        'Shares',
-        'Total Price',
-        'Percentage %',
-        'Target Percentage %',
-        'Traded Shares',
-        'Trading Price',
-        'Trading Fee',
-      ])
-    })
+        return sortObjectByKey<PortfolioSecurityTableData>({
+          ...infoData,
+          ...portfolioData,
+        }, [
+          'Tick',
+          'Exchange',
+          'Currency',
+          'Price',
+          'Shares',
+          'Total Price',
+          'Percentage %',
+          'Target Percentage %',
+          'Traded Shares',
+          'Trading Price',
+          'Trading Fee',
+        ])
+      })
   }
 }

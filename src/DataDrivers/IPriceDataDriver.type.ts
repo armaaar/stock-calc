@@ -1,22 +1,13 @@
-export interface SettingsSecurityDto {
-  tick: string;
-  exchange: string;
-  isin?: string;
-  shares: number;
-  targetPercentage: number;
-}
+import type { z } from 'zod'
+import type {
+  SecurityPriceSchema, SettingsSchema, SettingsSecuritySchema,
+} from './DataFiles.schema'
 
-export interface SettingsDto {
-  brokerageFeeFlat: number
-  tradingFeePercentage: number
-  minimumTradingFeeFlat: number
-  securities: SettingsSecurityDto[]
-}
+export type SettingsSecurityDto = z.infer<typeof SettingsSecuritySchema>
 
-export interface SecurityPriceDto {
-  price: number,
-  currency: string
-}
+export type SettingsDto = z.infer<typeof SettingsSchema>
+
+export type SecurityPriceDto = z.infer<typeof SecurityPriceSchema>
 
 export interface IPriceDataDriver {
   getPrice(setting: SettingsSecurityDto): Promise<SecurityPriceDto>
