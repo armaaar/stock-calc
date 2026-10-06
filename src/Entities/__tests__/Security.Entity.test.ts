@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ClassValidatorError } from '@/Shared/ClassValidatorError'
-import { Security } from '.././Security.Entity'
+import { Security } from '../Security.Entity'
 
 describe('Security', () => {
   it('stores identity and converts the price to a Decimal', () => {
@@ -52,8 +52,8 @@ describe('Security', () => {
   it('skips validation when constructed as a subclass that does not validate itself', () => {
     class UnvalidatedSecurity extends Security {}
 
-    // Current behaviour: validateClassErrors compares constructor names, so a subclass that
-    // doesn't call validateClassErrors itself is never validated.
+    // By design (ADR-0004): validateClassErrors only runs when the object's constructor is
+    // exactly the given class, so a subclass that doesn't validate itself is never validated.
     expect(() => new UnvalidatedSecurity({ tick: '', price: -1 })).not.toThrow()
   })
 })

@@ -1,4 +1,6 @@
-import { IsInt, Max, Min } from 'class-validator'
+import {
+  IsInt, Max, Min, ValidateIf,
+} from 'class-validator'
 import Decimal from 'decimal.js'
 import { validateClassErrors } from '@/Shared/ClassValidatorError'
 import { ISecurety, Security } from './Security.Entity'
@@ -47,6 +49,9 @@ export class PortfolioSecurity extends Security {
   @Min(0)
   public shares: number
 
+  // initialShares defaults to shares; validating an equal value again would report one
+  // problem twice.
+  @ValidateIf((sec: PortfolioSecurity) => sec.initialShares !== sec.shares)
   @IsInt()
   @Min(0)
   public initialShares: number
@@ -92,9 +97,10 @@ export class PortfolioSecurity extends Security {
   }
 
   public calcActualPercentage(portfolioPrice: Decimal, securityPrice?: Decimal) {
+    if (portfolioPrice.isZero()) return new Decimal(0)
+
     const price = securityPrice ?? this.totalPrice
-    const actualPercentage = price.dividedBy(portfolioPrice)
-    return actualPercentage.isNaN() ? new Decimal(0) : actualPercentage
+    return price.dividedBy(portfolioPrice)
   }
 
   public clone(): PortfolioSecurity {

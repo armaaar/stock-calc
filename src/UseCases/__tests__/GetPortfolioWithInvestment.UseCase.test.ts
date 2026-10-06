@@ -3,7 +3,8 @@ import {
 } from 'vitest'
 import { buildPortfolio } from '@/__fixtures__/portfolio'
 import { Portfolio } from '@/Entities/Portfolio.Entity'
-import { GetPortfolioWithInvestmentUseCase } from '.././GetPortfolioWithInvestment.UseCase'
+import { ClassValidatorError } from '@/Shared/ClassValidatorError'
+import { GetPortfolioWithInvestmentUseCase } from '../GetPortfolioWithInvestment.UseCase'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
@@ -41,11 +42,42 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
   })
 
   it('accepts a negative investment as a withdrawal', async () => {
-    // Current behaviour: the use case does not reject negative amounts (only the CLI parser
-    // does); 9055 - 4055 = 5000 gives the same plan as `target 5000`.
+    // 9055 - 4055 = 5000 gives the same plan as `target 5000`.
     const portfolio = await new GetPortfolioWithInvestmentUseCase('EUR', -4055).handler()
 
     expect(sharesOf(portfolio)).toEqual([['QDVE', 70], ['SPYD', 48]])
+  })
+
+  it('accepts withdrawing the whole portfolio value', async () => {
+    const portfolio = await new GetPortfolioWithInvestmentUseCase('EUR', -9055).handler()
+
+    expect(sharesOf(portfolio)).toEqual([['QDVE', 0], ['SPYD', 0]])
+  })
+
+  it('rejects withdrawing more than the portfolio value', async () => {
+    const useCase = new GetPortfolioWithInvestmentUseCase('EUR', -10000)
+
+    await expect(useCase.handler())
+      .rejects.toThrow('Cannot withdraw 10000: more than the portfolio value (9055)')
+  })
+
+  it.each([
+    ['NaN (a non-numeric CLI argument)', Number('abc')],
+    ['Infinity', Infinity],
+    ['-Infinity', -Infinity],
+  ])('rejects %s in the constructor without loading the portfolio', (_, investment) => {
+    let error: unknown
+    try {
+      new GetPortfolioWithInvestmentUseCase('EUR', investment)
+    } catch (e) {
+      error = e
+    }
+
+    expect(error).toBeInstanceOf(ClassValidatorError)
+    const { message, errors } = error as ClassValidatorError
+    expect(message).toBe('Class \'GetPortfolioWithInvestmentUseCase\' validation failed')
+    expect(errors.map((e) => e.property)).toEqual(['investmentValue'])
+    expect(getPortfolio).not.toHaveBeenCalled()
   })
 
   it('passes the portfolio type through to the repository', async () => {

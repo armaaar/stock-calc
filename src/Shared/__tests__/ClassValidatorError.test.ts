@@ -1,6 +1,6 @@
 import { IsInt, Min, ValidationError } from 'class-validator'
 import { describe, expect, it } from 'vitest'
-import { ClassValidatorError, validateClassErrors } from '.././ClassValidatorError'
+import { ClassValidatorError, validateClassErrors } from '../ClassValidatorError'
 
 class Counter {
   @IsInt()
@@ -82,13 +82,17 @@ describe('validateClassErrors', () => {
     expect((error as ClassValidatorError).message).toBe('Class \'NamedCounter\' validation failed')
   })
 
-  it('validates any object whose constructor merely shares the class name', () => {
-    // Current behaviour: the check compares constructor names, not identity, so an unrelated
-    // class that happens to be called `Counter` is validated. It has no metadata, so
-    // class-validator's forbidUnknownValues default reports it as invalid.
+  it('skips an unrelated class that merely shares the class name', () => {
     const Impostor = { Counter: class {} }.Counter
 
     expect(Impostor.name).toBe(Counter.name)
-    expect(() => validateClassErrors(new Impostor(), Counter)).toThrow(ClassValidatorError)
+    expect(() => validateClassErrors(new Impostor(), Counter)).not.toThrow()
+  })
+
+  it('still validates an instance of the exact class', () => {
+    const counter = new Counter(1)
+    counter.count = -1
+
+    expect(() => validateClassErrors(counter, Counter)).toThrow(ClassValidatorError)
   })
 })

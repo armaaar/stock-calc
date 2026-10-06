@@ -20,6 +20,11 @@ export class Portfolio {
   constructor({
     securities,
   }: IPortfolio) {
+    this.securities = securities
+    this.currency = securities[0]?.currency
+
+    validateClassErrors(this, Portfolio)
+
     const totalPercentage = securities.reduce(
       (acc, sec) => acc.plus(sec.targetPercentage),
       new Decimal(0),
@@ -28,14 +33,15 @@ export class Portfolio {
       throw Error(`Portfolio percentage don't add up to 1 (${totalPercentage})`)
     }
 
-    if (!securities.every((sec) => sec.currency === securities[0].currency)) {
+    if (!securities.every((sec) => sec.currency === this.currency)) {
       throw Error('Portfolio have securities with different currencies')
     }
 
-    this.securities = securities
-    this.currency = securities[0].currency
-
-    validateClassErrors(this, Portfolio)
+    const ticks = securities.map((sec) => sec.tick)
+    const duplicateTicks = [...new Set(ticks.filter((tick, i) => ticks.indexOf(tick) !== i))]
+    if (duplicateTicks.length > 0) {
+      throw Error(`Portfolio has duplicate ticks (${duplicateTicks.join(', ')})`)
+    }
   }
 
   public get totalPrice(): Decimal {
@@ -64,6 +70,10 @@ export class Portfolio {
   }
 
   public balanceForPrice(price: Decimal) {
+    if (!price.isFinite() || price.lessThan(0)) {
+      throw Error(`Portfolio price must be a finite number of at least 0 (${price})`)
+    }
+
     for (let i = 0; i < this.securities.length; i++) {
       const sec = this.securities[i]
       const secTargetPrice = price.times(sec.targetPercentage)

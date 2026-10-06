@@ -3,7 +3,8 @@ export function roundToClosestMultiply(num: number, step: number): number {
 }
 
 export function roundPercentage(percentage: number): number {
-  return Math.round(percentage * 10000) / 100
+  // Math.round rounds halves toward +Infinity; round the magnitude so -0.12345 → -12.35
+  return Math.sign(percentage) * Math.round(Math.abs(percentage) * 10000) / 100
 }
 
 export function sortObjectByKey<T extends object>(

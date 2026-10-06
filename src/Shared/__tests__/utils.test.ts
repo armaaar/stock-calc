@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { roundPercentage, roundToClosestMultiply, sortObjectByKey } from '.././utils'
+import { roundPercentage, roundToClosestMultiply, sortObjectByKey } from '../utils'
 
 describe('roundToClosestMultiply', () => {
   it.each([
@@ -23,6 +23,10 @@ describe('roundPercentage', () => {
     [0, 0],
     [0.00005, 0.01],
     [-0.12346, -12.35],
+    [0.12345, 12.35],
+    [-0.12345, -12.35],
+    [-0.00005, -0.01],
+    [-1, -100],
   ])('converts the fraction %d to a percentage with two decimals (%d)', (fraction, expected) => {
     expect(roundPercentage(fraction)).toBe(expected)
   })

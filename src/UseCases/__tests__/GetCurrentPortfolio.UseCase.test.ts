@@ -2,7 +2,7 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
 import { buildPortfolio } from '@/__fixtures__/portfolio'
-import { GetCurrentPortfolioUseCase } from '.././GetCurrentPortfolio.UseCase'
+import { GetCurrentPortfolioUseCase } from '../GetCurrentPortfolio.UseCase'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 

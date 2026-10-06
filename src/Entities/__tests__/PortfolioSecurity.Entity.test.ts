@@ -2,7 +2,7 @@ import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
 import { QDVE } from '@/__fixtures__/portfolio'
 import { ClassValidatorError } from '@/Shared/ClassValidatorError'
-import { IPortfolioSecurity, PortfolioSecurity } from '.././PortfolioSecurity.Entity'
+import { IPortfolioSecurity, PortfolioSecurity } from '../PortfolioSecurity.Entity'
 
 function build(overrides: Partial<IPortfolioSecurity> = {}): PortfolioSecurity {
   return new PortfolioSecurity({ ...QDVE, ...overrides })
@@ -92,8 +92,20 @@ describe('PortfolioSecurity', () => {
       },
     )
 
-    it('rejects an invalid shares count twice when initialShares defaults to it', () => {
+    it('reports an invalid shares count once when initialShares defaults to it', () => {
       const error = validationErrorOf(() => build({ shares: -1 }))
+
+      expect(error.errors.map((e) => e.property)).toEqual(['shares'])
+    })
+
+    it('reports an invalid shares count once when initialShares is explicitly equal', () => {
+      const error = validationErrorOf(() => build({ shares: 1.5, initialShares: 1.5 }))
+
+      expect(error.errors.map((e) => e.property)).toEqual(['shares'])
+    })
+
+    it('reports shares and initialShares separately when both differ and are invalid', () => {
+      const error = validationErrorOf(() => build({ shares: -1, initialShares: 0.5 }))
 
       expect(error.errors.map((e) => e.property)).toEqual(['shares', 'initialShares'])
     })
@@ -201,11 +213,16 @@ describe('PortfolioSecurity', () => {
       expect(sec.calcActualPercentage(new Decimal(0)).toNumber()).toBe(0)
     })
 
-    it('returns Infinity when only the portfolio price is 0', () => {
-      // Current behaviour: only NaN (0 ÷ 0) is mapped to 0; x ÷ 0 yields Infinity.
+    it('returns 0 instead of Infinity when only the portfolio price is 0', () => {
       const sec = build()
 
-      expect(sec.calcActualPercentage(new Decimal(0)).toNumber()).toBe(Infinity)
+      expect(sec.calcActualPercentage(new Decimal(0)).toNumber()).toBe(0)
+    })
+
+    it('returns 0 for a given nonzero security price over a zero portfolio price', () => {
+      const sec = build()
+
+      expect(sec.calcActualPercentage(new Decimal(0), new Decimal(-50)).toNumber()).toBe(0)
     })
   })
 

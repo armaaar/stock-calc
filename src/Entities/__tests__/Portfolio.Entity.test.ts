@@ -2,8 +2,8 @@ import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
 import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
 import { ClassValidatorError } from '@/Shared/ClassValidatorError'
-import { Portfolio } from '.././Portfolio.Entity'
-import { IPortfolioSecurity, PortfolioSecurity } from '.././PortfolioSecurity.Entity'
+import { Portfolio } from '../Portfolio.Entity'
+import { IPortfolioSecurity, PortfolioSecurity } from '../PortfolioSecurity.Entity'
 
 function security(overrides: Partial<IPortfolioSecurity>): PortfolioSecurity {
   return new PortfolioSecurity({ ...QDVE, ...overrides })
@@ -83,9 +83,7 @@ describe('Portfolio', () => {
       expect(portfolio.currency).toBeUndefined()
     })
 
-    it('rejects an empty portfolio through the percentage check', () => {
-      // Current behaviour: the percentage sum (0) is checked before class-validator runs, so
-      // @ArrayNotEmpty is unreachable and the error is a plain Error, not ClassValidatorError.
+    it('rejects an empty portfolio as a ClassValidatorError', () => {
       let error: unknown
       try {
         new Portfolio({ securities: [] })
@@ -93,9 +91,38 @@ describe('Portfolio', () => {
         error = e
       }
 
-      expect(error).toBeInstanceOf(Error)
-      expect(error).not.toBeInstanceOf(ClassValidatorError)
-      expect((error as Error).message).toBe('Portfolio percentage don\'t add up to 1 (0)')
+      expect(error).toBeInstanceOf(ClassValidatorError)
+      const { message, errors } = error as ClassValidatorError
+      expect(message).toBe('Class \'Portfolio\' validation failed')
+      expect(errors).toHaveLength(1)
+      expect(errors[0].property).toBe('securities')
+      expect(Object.keys(errors[0].constraints ?? {})).toEqual(['arrayNotEmpty'])
+    })
+
+    it('validates the securities before checking the percentage sum', () => {
+      const qdve = security({ targetPercentage: 0.5 })
+      qdve.shares = -1
+
+      expect(() => new Portfolio({ securities: [qdve, new PortfolioSecurity(SPYD)] }))
+        .toThrow(ClassValidatorError)
+    })
+
+    it('rejects a duplicate tick', () => {
+      expect(() => buildPortfolio([
+        { ...QDVE, targetPercentage: 0.2 },
+        { ...QDVE, targetPercentage: 0.2 },
+        SPYD,
+      ])).toThrow('Portfolio has duplicate ticks (QDVE)')
+    })
+
+    it('names every duplicate tick once', () => {
+      expect(() => buildPortfolio([
+        { ...QDVE, targetPercentage: 0.2 },
+        { ...SPYD, targetPercentage: 0.2 },
+        { ...QDVE, targetPercentage: 0.2 },
+        { ...SPYD, targetPercentage: 0.2 },
+        { ...QDVE, targetPercentage: 0.2 },
+      ])).toThrow('Portfolio has duplicate ticks (QDVE, SPYD)')
     })
 
     it('reports invalid nested securities as a ClassValidatorError', () => {
@@ -124,7 +151,7 @@ describe('Portfolio', () => {
       const qdve = security({})
       qdve.shares = -1
 
-      // Current behaviour: validateClassErrors only validates the exact class it is given.
+      // By design (ADR-0004): only the most-derived constructor validates.
       expect(() => new UnvalidatedPortfolio({
         securities: [qdve, new PortfolioSecurity(SPYD)],
       })).not.toThrow()
@@ -191,13 +218,25 @@ describe('Portfolio', () => {
       expect(portfolio.securities[0].shares).toBe(2)
     })
 
-    it('produces negative shares for a negative price without any error', () => {
-      // Current behaviour: invariants are not re-checked after planning (known gap 2).
+    it('accepts a price of 0 and proposes no shares', () => {
       const portfolio = buildPortfolio()
 
-      portfolio.balanceForPrice(new Decimal(-5000))
+      portfolio.balanceForPrice(new Decimal(0))
 
-      expect(sharesOf(portfolio)).toEqual({ QDVE: -70, SPYD: -48 })
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 0, SPYD: 0 })
+    })
+
+    it.each([
+      [-5000, '-5000'],
+      [NaN, 'NaN'],
+      [Infinity, 'Infinity'],
+      [-Infinity, '-Infinity'],
+    ])('rejects the price %d without changing any shares', (price, shown) => {
+      const portfolio = buildPortfolio()
+
+      expect(() => portfolio.balanceForPrice(new Decimal(price)))
+        .toThrow(`Portfolio price must be a finite number of at least 0 (${shown})`)
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 100, SPYD: 100 })
     })
   })
 

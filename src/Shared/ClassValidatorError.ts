@@ -14,8 +14,8 @@ export function validateClassErrors(
   object: object,
   cls: abstract new (...args: never[]) => object,
 ): void {
-  // Only validate if the object is of the exact same class
-  if (object.constructor.name !== cls.name) return
+  // Only the most-derived constructor validates, once every field is set
+  if (object.constructor !== cls) return
 
   const errors = validateSync(object)
   if (errors.length > 0) {

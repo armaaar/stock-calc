@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js'
 import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
@@ -8,7 +9,8 @@ import {
   DEFAULT_ACCEPTABLE_PRECESION,
   DEFAULT_SHARES_STEP,
   GetPortfolioWithMinimumSharesUseCase,
-} from '.././GetPortfolioWithMinimumShares.UseCase'
+  MAX_SEARCH_ITERATIONS,
+} from '../GetPortfolioWithMinimumShares.UseCase'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
@@ -36,38 +38,46 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
     getPortfolio.mockReset().mockImplementation(async () => buildPortfolio())
   })
 
-  it('exports a default precision of 0.01 and shares step of 1', () => {
+  it('exports a default precision of 0.01, shares step of 1 and an iteration cap', () => {
     expect(DEFAULT_ACCEPTABLE_PRECESION).toBe(0.01)
     expect(DEFAULT_SHARES_STEP).toBe(1)
+    expect(MAX_SEARCH_ITERATIONS).toBe(100_000)
   })
 
   describe('constructor validation', () => {
     it.each([
       ['no arguments', undefined, undefined],
-      ['precision 0 (falls back to the default)', 0, undefined],
-      ['shares step 0 (falls back to the default)', undefined, 0],
       ['precision 1 and a large step', 1, 10],
-      ['NaN arguments (fall back to the defaults)', NaN, NaN],
+      ['a tiny positive precision', 0.0001, undefined],
     ])('accepts %s', (_, precision, step) => {
       expect(() => new GetPortfolioWithMinimumSharesUseCase('EUR', precision, step))
         .not.toThrow()
     })
 
     it.each([
-      ['a precision above 1', 1.5, undefined, 'acceptablePrecision'],
-      ['a negative precision', -0.01, undefined, 'acceptablePrecision'],
-      ['a fractional shares step', undefined, 1.5, 'sharesStep'],
-      ['a negative shares step', undefined, -1, 'sharesStep'],
-    ])('rejects %s', (_, precision, step, property) => {
-      const error = validationErrorOf(
-        () => new GetPortfolioWithMinimumSharesUseCase('EUR', precision, step),
-      )
+      ['a precision above 1', 1.5, undefined, ['acceptablePrecision']],
+      ['a negative precision', -0.01, undefined, ['acceptablePrecision']],
+      ['a precision of 0 (unattainable)', 0, undefined, ['acceptablePrecision']],
+      ['a NaN precision', NaN, undefined, ['acceptablePrecision']],
+      ['an infinite precision', Infinity, undefined, ['acceptablePrecision']],
+      ['a fractional shares step', undefined, 1.5, ['sharesStep']],
+      ['a negative shares step', undefined, -1, ['sharesStep']],
+      ['a shares step of 0', undefined, 0, ['sharesStep']],
+      ['a NaN shares step', undefined, NaN, ['sharesStep']],
+      ['NaN for both', NaN, NaN, ['acceptablePrecision', 'sharesStep']],
+    ] as [string, number | undefined, number | undefined, string[]][])(
+      'rejects %s',
+      (_, precision, step, properties) => {
+        const error = validationErrorOf(
+          () => new GetPortfolioWithMinimumSharesUseCase('EUR', precision, step),
+        )
 
-      expect(error).toBeInstanceOf(ClassValidatorError)
-      expect(error.message)
-        .toBe('Class \'GetPortfolioWithMinimumSharesUseCase\' validation failed')
-      expect(error.errors.map((e) => e.property)).toEqual([property])
-    })
+        expect(error).toBeInstanceOf(ClassValidatorError)
+        expect(error.message)
+          .toBe('Class \'GetPortfolioWithMinimumSharesUseCase\' validation failed')
+        expect(error.errors.map((e) => e.property)).toEqual(properties)
+      },
+    )
 
     it('does not touch the repository while constructing', () => {
       new GetPortfolioWithMinimumSharesUseCase('EUR')
@@ -84,12 +94,6 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
       expect(sharesOf(portfolio)).toEqual([['QDVE', 3], ['SPYD', 2]])
       expect(portfolio.totalPrice.toNumber()).toBe(209.55)
       expect(portfolio.securities.map((sec) => sec.initialShares)).toEqual([100, 100])
-    })
-
-    it('uses the defaults when given 0 for precision and step', async () => {
-      const portfolio = await new GetPortfolioWithMinimumSharesUseCase('EUR', 0, 0).handler()
-
-      expect(sharesOf(portfolio)).toEqual([['QDVE', 3], ['SPYD', 2]])
     })
 
     it('finds QDVE 16 / SPYD 11 with precision 0.001', async () => {
@@ -126,9 +130,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
       expect(sharesOf(portfolio)).toEqual([['QDVE', 9], ['SPYD', 2], ['CASH', 128]])
     })
 
-    it('returns current holdings unchanged when they are already within precision', async () => {
-      // Current behaviour: the acceptance test runs before the first iteration, so a
-      // portfolio already within precision is returned as-is rather than minimised.
+    it('minimises even when current holdings are already within precision', async () => {
       getPortfolio.mockImplementation(async () => buildPortfolio([
         { ...QDVE, shares: 127 },
         { ...SPYD, shares: 87 },
@@ -136,13 +138,66 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
 
       const portfolio = await new GetPortfolioWithMinimumSharesUseCase('EUR').handler()
 
-      expect(sharesOf(portfolio)).toEqual([['QDVE', 127], ['SPYD', 87]])
+      expect(sharesOf(portfolio)).toEqual([['QDVE', 3], ['SPYD', 2]])
+      expect(portfolio.securities.map((sec) => sec.initialShares)).toEqual([127, 87])
     })
 
-    it('accepts any holdings with precision 1', async () => {
+    it('starts from one shares step with precision 1', async () => {
       const portfolio = await new GetPortfolioWithMinimumSharesUseCase('EUR', 1).handler()
 
-      expect(sharesOf(portfolio)).toEqual([['QDVE', 100], ['SPYD', 100]])
+      expect(sharesOf(portfolio)).toEqual([['QDVE', 1], ['SPYD', 1]])
+    })
+
+    it('drives the search from the first security with a non-zero target', async () => {
+      getPortfolio.mockImplementation(async () => buildPortfolio([
+        {
+          ...QDVE, tick: 'ZERO', targetPercentage: 0,
+        },
+        QDVE,
+        SPYD,
+      ]))
+
+      const portfolio = await new GetPortfolioWithMinimumSharesUseCase('EUR').handler()
+
+      expect(sharesOf(portfolio)).toEqual([['ZERO', 0], ['QDVE', 3], ['SPYD', 2]])
+    })
+
+    it('gives 0 shares to every security with a 0 target, even one priced at 0', async () => {
+      getPortfolio.mockImplementation(async () => buildPortfolio([
+        QDVE,
+        {
+          ...SPYD, tick: 'FREE', price: 0, targetPercentage: 0,
+        },
+        SPYD,
+      ]))
+
+      const portfolio = await new GetPortfolioWithMinimumSharesUseCase('EUR').handler()
+
+      expect(sharesOf(portfolio)).toEqual([['QDVE', 3], ['FREE', 0], ['SPYD', 2]])
+    })
+
+    it('rejects a portfolio without any non-zero target', async () => {
+      // The aggregate forbids this at construction; guard against a portfolio changed afterwards.
+      const loaded = buildPortfolio()
+      loaded.securities.forEach((sec) => {
+        sec.targetPercentage = new Decimal(0)
+      })
+      getPortfolio.mockResolvedValueOnce(loaded)
+
+      await expect(new GetPortfolioWithMinimumSharesUseCase('EUR').handler())
+        .rejects.toThrow('Portfolio has no security with a target percentage above 0')
+    })
+
+    it('gives up with an error once the iteration cap is reached', async () => {
+      class CappedUseCase extends GetPortfolioWithMinimumSharesUseCase {
+        protected maxIterations = 2
+      }
+
+      await expect(new CappedUseCase('EUR').handler())
+        .rejects.toThrow('No portfolio within precision 0.01 found in 2 iterations')
+      // The default precision needs a third step (QDVE 3 / SPYD 2); 0.1 is met at QDVE 1 / SPYD 1
+      const portfolio = await new CappedUseCase('EUR', 0.1).handler()
+      expect(sharesOf(portfolio)).toEqual([['QDVE', 1], ['SPYD', 1]])
     })
   })
 })

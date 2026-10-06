@@ -2,7 +2,8 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
 import { buildPortfolio, QDVE, SPYD } from '@/__fixtures__/portfolio'
-import { GetPortfolioWithPriceUseCase } from '.././GetPortfolioWithPrice.UseCase'
+import { ClassValidatorError } from '@/Shared/ClassValidatorError'
+import { GetPortfolioWithPriceUseCase } from '../GetPortfolioWithPrice.UseCase'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
@@ -41,17 +42,30 @@ describe('GetPortfolioWithPriceUseCase', () => {
     expect(portfolio.securities.map((sec) => sec.initialShares)).toEqual([1, 0])
   })
 
-  it('sells everything for a target of 0', async () => {
-    const portfolio = await new GetPortfolioWithPriceUseCase('EUR', 0).handler()
+  it.each([
+    ['0', 0],
+    ['a negative price', -5000],
+    ['NaN (a non-numeric CLI argument)', Number('abc')],
+    ['Infinity', Infinity],
+  ])('rejects %s in the constructor without loading the portfolio', (_, price) => {
+    let error: unknown
+    try {
+      new GetPortfolioWithPriceUseCase('EUR', price)
+    } catch (e) {
+      error = e
+    }
+
+    expect(error).toBeInstanceOf(ClassValidatorError)
+    const { message, errors } = error as ClassValidatorError
+    expect(message).toBe('Class \'GetPortfolioWithPriceUseCase\' validation failed')
+    expect(errors.map((e) => e.property)).toEqual(['targetPriceValue'])
+    expect(getPortfolio).not.toHaveBeenCalled()
+  })
+
+  it('accepts a tiny positive price', async () => {
+    const portfolio = await new GetPortfolioWithPriceUseCase('EUR', 0.01).handler()
 
     expect(portfolio.securities.map((sec) => sec.shares)).toEqual([0, 0])
     expect(portfolio.totalTradedPrice.toNumber()).toBe(-9055)
-  })
-
-  it('produces NaN shares for a non-numeric target', async () => {
-    // Current behaviour: NaN is not rejected and propagates into the share counts.
-    const portfolio = await new GetPortfolioWithPriceUseCase('EUR', Number('abc')).handler()
-
-    expect(portfolio.securities.map((sec) => sec.shares)).toEqual([NaN, NaN])
   })
 })

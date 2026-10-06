@@ -3,7 +3,7 @@ import {
 } from 'vitest'
 import { buildPortfolio } from '@/__fixtures__/portfolio'
 import { PortfolioRepository } from '@/Repositories/Portfolio.Repository'
-import { PortfolioUserCase } from '.././PortfolioUseCase.abstract'
+import { PortfolioUserCase } from '../PortfolioUseCase.abstract'
 
 const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
 
