@@ -1,9 +1,8 @@
 import fs from 'fs'
-import path from 'path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
-import { createDataDir } from '#src/__fixtures__/dataFiles'
+import { createDataDir, exampleFiles } from '#src/__fixtures__/dataFiles'
 
 const { clientEnds } = vi.hoisted(() => ({ clientEnds: [] as Transport[] }))
 
@@ -21,15 +20,9 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', async () => {
   }
 })
 
-const EXAMPLES = path.resolve(import.meta.dirname, '../../data')
-
-/** A data folder holding the tracked examples as the TMP portfolio: every price is overridden. */
+/** A data folder holding the tracked example broker: every price is overridden. */
 function createTmpDataDir(): string {
-  const example = (name: string) => fs.readFileSync(path.join(EXAMPLES, name), 'utf8')
-  return createDataDir({
-    '_settings.TMP.jsonc': example('_settings.EUR.jsonc.example'),
-    '_overrides.TMP.jsonc': example('_overrides.EUR.jsonc.example'),
-  })
+  return createDataDir(exampleFiles())
 }
 
 type Holding = { tick: string, shares: number, tradedShares?: number }
@@ -78,7 +71,7 @@ describe('MCP app entry point', () => {
   it('runs the tools against the data folder, end to end', async () => {
     const result = await (await startApp()).callTool({
       name: 'invest',
-      arguments: { investment: 1000, portfolio: 'TMP' },
+      arguments: { investment: 1000, portfolio: 'example/eur' },
     })
 
     expect(result.isError).toBeFalsy()

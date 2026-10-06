@@ -22,9 +22,9 @@ export class TargetPrice {
 }
 
 export class GetPortfolioWithPriceUseCase extends PortfolioUseCase<TargetPriceRequest> {
-  public async execute({ portfolioType, targetPrice }: TargetPriceRequest) {
+  public async execute({ portfolio: portfolioId, targetPrice }: TargetPriceRequest) {
     const amount = new Decimal(new TargetPrice(targetPrice).amount)
-    const portfolio = await this.portfolioRepo.getPortfolio(portfolioType)
+    const portfolio = await this.portfolioRepo.getPortfolio(portfolioId)
 
     portfolio.allocateValue(amount)
 

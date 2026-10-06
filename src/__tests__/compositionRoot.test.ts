@@ -1,8 +1,7 @@
 import fs from 'fs'
-import path from 'path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Browser } from 'puppeteer'
-import { createDataDir } from '#src/__fixtures__/dataFiles'
+import { createDataDir, exampleFiles } from '#src/__fixtures__/dataFiles'
 import { createFakeBrowser, FakeBrowser } from '#src/__fixtures__/puppeteer'
 import { composePortfolioUseCases } from '../compositionRoot'
 
@@ -11,17 +10,8 @@ const { launch } = vi.hoisted(() => ({ launch: vi.fn<() => Promise<Browser>>() }
 // The outermost process boundary: no test may start a real Chromium
 vi.mock('puppeteer', () => ({ launch }))
 
-const EXAMPLES = path.resolve(import.meta.dirname, '../data')
-
-function example(name: string): string {
-  return fs.readFileSync(path.join(EXAMPLES, name), 'utf8')
-}
-
 /** QDVE is overridden, XYZ has to be scraped. */
 const LIVE_SETTINGS = JSON.stringify({
-  brokerageFeeFlat: 1,
-  tradingFeePercentage: 0,
-  minimumTradingFeeFlat: 0,
   securities: [
     { tick: 'QDVE', exchange: 'IBIS2', isin: 'IE00B3WJKG14', shares: 100, targetPercentage: 0.4 },
     { tick: 'XYZ', exchange: 'IBIS2', isin: 'IE0000000000', shares: 10, targetPercentage: 0.6 },
@@ -38,12 +28,12 @@ describe('composePortfolioUseCases', () => {
   let dataDir: string
 
   beforeAll(() => {
-    // The tracked examples as the TMP portfolio: every price is overridden
+    // The tracked example broker, where every price is overridden, and a live portfolio
+    const examples = exampleFiles()
     dataDir = createDataDir({
-      '_settings.TMP.jsonc': example('_settings.EUR.jsonc.example'),
-      '_overrides.TMP.jsonc': example('_overrides.EUR.jsonc.example'),
-      '_settings.LIVE.jsonc': LIVE_SETTINGS,
-      '_overrides.LIVE.jsonc': example('_overrides.EUR.jsonc.example'),
+      ...examples,
+      'example/live.jsonc': LIVE_SETTINGS,
+      'example/live.overrides.jsonc': examples['example/eur.overrides.jsonc'],
     })
   })
 
@@ -61,7 +51,7 @@ describe('composePortfolioUseCases', () => {
 
   it('wires the real use cases, repository and file drivers on the given data folder', async () => {
     const portfolio = await composePortfolioUseCases(dataDir).invest.execute({
-      portfolioType: 'TMP', investment: 1000,
+      portfolio: 'example/eur', investment: 1000,
     })
 
     expect(shares(portfolio)).toEqual([['QDVE', 141], ['SPYD', 97]])
@@ -78,7 +68,7 @@ describe('composePortfolioUseCases', () => {
   it('reads the data folder from STOCK_CALC_DATA_DIR by default', async () => {
     vi.stubEnv('STOCK_CALC_DATA_DIR', dataDir)
 
-    const portfolio = await composePortfolioUseCases().show.execute({ portfolioType: 'TMP' })
+    const portfolio = await composePortfolioUseCases().show.execute({ portfolio: 'example/eur' })
 
     expect(shares(portfolio)).toEqual([['QDVE', 100], ['SPYD', 100]])
   })
@@ -91,7 +81,7 @@ describe('composePortfolioUseCases', () => {
 
     // The fake pages never show a price, so both scrapers fail
     const error = await composePortfolioUseCases(dataDir).show
-      .execute({ portfolioType: 'LIVE' })
+      .execute({ portfolio: 'example/live' })
       .catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(AggregateError)

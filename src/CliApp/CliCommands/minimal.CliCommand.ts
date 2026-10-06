@@ -22,10 +22,10 @@ export function createMinimalCli(minimal: PortfolioUseCases['minimal']) {
       DEFAULT_SHARES_STEP,
     )
     .addOption(portfolioOption)
-    .action(async ({ precision, sharesStep, portfolio: portfolioType }) => {
+    .action(async ({ precision, sharesStep, portfolio: portfolioId }) => {
       try {
         const portfolio = await minimal.execute({
-          portfolioType,
+          portfolio: portfolioId,
           acceptablePrecision: precision,
           sharesStep,
         })

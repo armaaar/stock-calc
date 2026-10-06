@@ -35,7 +35,7 @@ describe('show command', () => {
     await showCli.parseAsync([], { from: 'user' })
 
     expect(show.execute).toHaveBeenCalledTimes(1)
-    expect(show.execute).toHaveBeenCalledWith({ portfolioType: 'EUR' })
+    expect(show.execute).toHaveBeenCalledWith({})
     expect(present).toHaveBeenCalledWith(
       await show.execute.mock.results[0].value,
       PresentMode.ONLY_INITIAL,
@@ -46,27 +46,27 @@ describe('show command', () => {
   })
 
   it.each([
-    ['--pt', 'EGP'],
-    ['--portfolio', 'EGP'],
+    ['--pt', 'thndr/egp'],
+    ['--portfolio', 'thndr/egp'],
   ])('uses the portfolio type given with %s', async (flag, type) => {
     await showCli.parseAsync([flag, type], { from: 'user' })
 
-    expect(show.execute).toHaveBeenCalledWith({ portfolioType: type })
+    expect(show.execute).toHaveBeenCalledWith({ portfolio: type })
   })
 
   it('accepts the --portfolio=<type> form', async () => {
-    await showCli.parseAsync(['--portfolio=TMP'], { from: 'user' })
+    await showCli.parseAsync(['--portfolio=example/eur'], { from: 'user' })
 
-    expect(show.execute).toHaveBeenCalledWith({ portfolioType: 'TMP' })
+    expect(show.execute).toHaveBeenCalledWith({ portfolio: 'example/eur' })
   })
 
   it('falls back to the default again on the next parse', async () => {
-    await showCli.parseAsync(['--pt', 'EGP'], { from: 'user' })
+    await showCli.parseAsync(['--pt', 'thndr/egp'], { from: 'user' })
     await showCli.parseAsync([], { from: 'user' })
 
     expect(show.execute.mock.calls).toEqual([
-      [{ portfolioType: 'EGP' }],
-      [{ portfolioType: 'EUR' }],
+      [{ portfolio: 'thndr/egp' }],
+      [{}],
     ])
   })
 

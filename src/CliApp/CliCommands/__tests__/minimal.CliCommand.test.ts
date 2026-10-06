@@ -50,7 +50,7 @@ describe('minimal command', () => {
       .toEqual([
         ['-p', '--precision', DEFAULT_ACCEPTABLE_PRECISION],
         ['-s', '--shares-step', DEFAULT_SHARES_STEP],
-        ['--pt', '--portfolio', 'EUR'],
+        ['--pt', '--portfolio', undefined],
       ])
   })
 
@@ -61,7 +61,7 @@ describe('minimal command', () => {
 
     expect(minimal.execute).toHaveBeenCalledTimes(1)
     expect(minimal.execute).toHaveBeenCalledWith({
-      portfolioType: 'EUR', acceptablePrecision: 0.01, sharesStep: 1,
+      acceptablePrecision: 0.01, sharesStep: 1,
     })
     // No mode is passed, so the presenter falls back to PresentMode.ONLY_NEW.
     expect(present).toHaveBeenCalledWith(await minimal.execute.mock.results[0].value)
@@ -72,15 +72,15 @@ describe('minimal command', () => {
   })
 
   it.each([
-    [['-p', '0.001', '-s', '5'], { portfolioType: 'EUR', acceptablePrecision: 0.001, sharesStep: 5 }],
+    [['-p', '0.001', '-s', '5'], { acceptablePrecision: 0.001, sharesStep: 5 }],
     [['--precision', '0.05', '--shares-step', '2'], {
-      portfolioType: 'EUR', acceptablePrecision: 0.05, sharesStep: 2,
+      acceptablePrecision: 0.05, sharesStep: 2,
     }],
-    [['--pt', 'EGP'], { portfolioType: 'EGP', acceptablePrecision: 0.01, sharesStep: 1 }],
-    [['--portfolio', 'EGP', '-p', '0.1'], {
-      portfolioType: 'EGP', acceptablePrecision: 0.1, sharesStep: 1,
+    [['--pt', 'thndr/egp'], { portfolio: 'thndr/egp', acceptablePrecision: 0.01, sharesStep: 1 }],
+    [['--portfolio', 'thndr/egp', '-p', '0.1'], {
+      portfolio: 'thndr/egp', acceptablePrecision: 0.1, sharesStep: 1,
     }],
-    [['-p', '1e-3'], { portfolioType: 'EUR', acceptablePrecision: 0.001, sharesStep: 1 }],
+    [['-p', '1e-3'], { acceptablePrecision: 0.001, sharesStep: 1 }],
   ])('converts the options %j to the use case request', async (argv, request) => {
     await minimalCli.parseAsync(argv, { from: 'user' })
 
@@ -105,7 +105,7 @@ describe('minimal command', () => {
     await minimalCli.parseAsync(['-p', '0', '-s', '0'], { from: 'user' })
 
     expect(minimal.execute).toHaveBeenCalledWith({
-      portfolioType: 'EUR', acceptablePrecision: 0, sharesStep: 0,
+      acceptablePrecision: 0, sharesStep: 0,
     })
   })
 
@@ -124,7 +124,7 @@ describe('minimal command', () => {
     await minimalCli.parseAsync(['-s', '1.5'], { from: 'user' })
 
     expect(minimal.execute).toHaveBeenCalledWith({
-      portfolioType: 'EUR', acceptablePrecision: 0.01, sharesStep: 1.5,
+      acceptablePrecision: 0.01, sharesStep: 1.5,
     })
     expect(presentError).toHaveBeenCalledWith(error)
     expect(present).not.toHaveBeenCalled()

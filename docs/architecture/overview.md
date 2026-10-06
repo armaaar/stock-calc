@@ -14,8 +14,8 @@ flowchart LR
   assistant([AI assistant / MCP client]) -- "MCP over stdio (.mcp.json)" --> mcp[stock-calc MCP server]
   cli --> core[Use cases + domain]
   mcp --> core
-  core -- reads --> settings[("src/data/_settings.&lt;TYPE&gt;.jsonc")]
-  core -- reads --> overrides[("src/data/_overrides.&lt;TYPE&gt;.jsonc<br/>(optional)")]
+  core -- reads --> settings[("&lt;broker&gt;/&lt;portfolio&gt;.jsonc<br/>&lt;broker&gt;/_broker.jsonc (optional)")]
+  core -- reads --> overrides[("&lt;broker&gt;/&lt;portfolio&gt;.overrides.jsonc<br/>(optional)")]
   core -- "headless Chromium (Puppeteer)" --> justetf[justetf.com<br/>ETF profile by ISIN]
   core -- "headless Chromium (Puppeteer)" --> tv[tradingview.com<br/>symbol page by exchange + tick]
 ```
@@ -24,7 +24,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | justetf.com | ETF quotes | `isin` | Only works for securities with an ISIN. 2 s selector timeout. |
 | tradingview.com | Any listed symbol | `exchange` + `tick` | 30 s selector timeout. |
-| Local JSONC files | Portfolio definition and price overrides | Portfolio type (`--pt`/`--portfolio` or the `portfolio` tool input, default `EUR`) | Git-ignored. Only `*.example` files are tracked. |
+| Local JSONC files | Broker fees, portfolio definition and price overrides | Portfolio id `<broker>/<portfolio>` (`--pt`/`--portfolio` or the `portfolio` tool input; optional with one portfolio) | Git-ignored. Only the `src/data/example/` broker is tracked. |
 | MCP clients (Claude Code, …) | Calling the use cases as tools | Tool name | Configured by the project's `.mcp.json`. |
 
 ## Layers
@@ -85,9 +85,9 @@ sequenceDiagram
   participant E as Portfolio (aggregate)
   participant V as PortfolioCliPresenter
 
-  U->>C: npm run cli -- rebalance --pt EUR
-  C->>UC: execute({ portfolioType })
-  UC->>R: getPortfolio("EUR")
+  U->>C: npm run cli -- rebalance --pt ibkr/eur
+  C->>UC: execute({ portfolio })
+  UC->>R: getPortfolio("ibkr/eur")
   R->>S: read + zod-validate settings & overrides
   R->>P: launchBrowser() (one Chromium per driver)
   loop each security (in parallel)
@@ -137,7 +137,7 @@ When a command fails, the CLI prints the error and exits with code 1.
 
 ## Data and configuration
 
-- **Portfolio type** (`--pt, --portfolio <type>` in the CLI, `portfolio` in MCP tools, default `EUR`; letters, digits, `_` and `-` only, see `src/Shared/portfolioName.ts`) selects `_settings.<TYPE>.jsonc` and `_overrides.<TYPE>.jsonc` in the data folder: `$STOCK_CALC_DATA_DIR` if set (a leading `~` means the home folder), otherwise `src/data` in the repository ([ADR-0016](adr/0016-run-mcp-server-from-github.md)).
+- **Portfolio id** `<broker>/<portfolio>` (`--pt, --portfolio <broker/portfolio>` in the CLI, `portfolio` in MCP tools; see `src/Shared/portfolioName.ts`) selects `<broker>/<portfolio>.jsonc`, its optional `<portfolio>.overrides.jsonc`, and the broker's optional `_broker.jsonc` in the data folder: `$STOCK_CALC_DATA_DIR` if set (a leading `~` means the home folder), otherwise `src/data` in the repository ([ADR-0016](adr/0016-run-mcp-server-from-github.md), [ADR-0027](adr/0027-portfolios-grouped-by-broker.md)). Without an id, the only portfolio is used; with several, the error lists them.
 - Files are JSONC (comments allowed), parsed with `jsonc-parser`, and validated at runtime with zod schemas in `src/DataDrivers/DataFiles.schema.ts` ([ADR-0007](adr/0007-local-jsonc-portfolio-files.md), [ADR-0012](adr/0012-validate-data-files-with-zod.md)). The DTO types are derived from those schemas. The fields are documented in the [README](../../README.md#portfolio).
 - `.mcp.json` registers the MCP server for this project (stdio, `node bin/stock-calc-mcp.js`). Users without a clone run the same launcher with `npx -y github:armaaar/stock-calc` ([ADR-0016](adr/0016-run-mcp-server-from-github.md)).
 
@@ -175,4 +175,4 @@ When a command fails, the CLI prints the error and exits with code 1.
 | A CLI command | Add `src/CliApp/CliCommands/<name>.CliCommand.ts` exporting `create<Name>Cli(useCase)` with the shared `portfolioOption` and a `try/catch` that calls `ErrorCliPresenter`, register it in `createCli` (`src/CliApp/cli.ts`), and add a `cli:<name>` npm script. |
 | An MCP tool | Add `src/McpApp/McpTools/<name>.McpTool.ts` exporting `register<Name>Tool(server, useCase)` with a zod `inputSchema` (spread `portfolioInput`), `outputSchema: portfolioOutputSchema`, `portfolioToolAnnotations`, and a `try/catch` that returns `ErrorMcpPresenter.present(e)`. Register it in `src/McpApp/server.ts`. |
 | A price source | Implement `IPriceDataDriver` (usually by extending `BrowserController`), then add it to the `prices` list in `src/compositionRoot.ts`. |
-| A portfolio | Create `src/data/_settings.<NAME>.jsonc` (and optionally `_overrides.<NAME>.jsonc`), then run with `--pt <NAME>` or call a tool with `"portfolio": "<NAME>"`. |
+| A portfolio | Create `src/data/<broker>/<name>.jsonc` (and optionally `<name>.overrides.jsonc`, and `_broker.jsonc` for fees the broker's portfolios share), then run with `--pt <broker>/<name>` or call a tool with `"portfolio": "<broker>/<name>"`. |

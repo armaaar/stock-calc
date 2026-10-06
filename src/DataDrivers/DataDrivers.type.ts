@@ -1,9 +1,11 @@
 import type { z } from 'zod'
 import type {
-  OverridePriceSchema, SecurityPriceSchema, SettingsSchema, SettingsSecuritySchema,
+  BrokerSchema, OverridePriceSchema, SecurityPriceSchema, SettingsSchema, SettingsSecuritySchema,
 } from './DataFiles.schema'
 
 export type SettingsSecurityDto = z.infer<typeof SettingsSecuritySchema>
+
+export type BrokerDto = z.infer<typeof BrokerSchema>
 
 export type SettingsDto = z.infer<typeof SettingsSchema>
 
@@ -13,14 +15,20 @@ export type OverridePriceDto = z.infer<typeof OverridePriceSchema>
 
 export type OverridesDto = Record<string, OverridePriceDto>
 
-/** Reads a portfolio's settings file. */
+/** Finds portfolios (`<broker>/<portfolio>` ids) and reads their settings. */
 export interface ISettingsDataDriver {
-  getPortfolioSettings(type: string): Promise<SettingsDto>
+  /**
+   * The id of the portfolio to load: the requested one if it exists, or the only portfolio in
+   * the data folder when none is requested. Throws, listing the portfolios found, otherwise.
+   */
+  resolvePortfolioId(requested?: string): Promise<string>
+  /** The portfolio's settings, with what it doesn't set taken from its broker's settings. */
+  getPortfolioSettings(portfolioId: string): Promise<SettingsDto>
 }
 
 /** Reads a portfolio's price overrides file (`{}` when there is none). */
 export interface IOverridesDataDriver {
-  getPortfolioOverrides(type: string): Promise<OverridesDto>
+  getPortfolioOverrides(portfolioId: string): Promise<OverridesDto>
 }
 
 /** A live price source. Its browser must be launched before `getPrice` and closed after. */

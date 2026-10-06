@@ -3,7 +3,7 @@
 Each CLI command, and the MCP tool of the same name, maps to one **application service** in `src/UseCases`. Every use case:
 
 1. extends `PortfolioUseCase` and is built once with an `IPortfolioRepository` (by `createPortfolioUseCases`, wired in `src/compositionRoot.ts`),
-2. receives a request naming the **portfolio type** on each `execute({ portfolioType, … })` call, and validates the rest of the request first,
+2. receives a request that may name the **portfolio id** on each `execute({ portfolio, … })` call (without one, the only portfolio is used), and validates the rest of the request first,
 3. loads the `Portfolio` aggregate through the repository,
 4. optionally changes the proposed `shares` (the initial state is never changed),
 5. returns the aggregate for the interface to present.
@@ -20,11 +20,11 @@ Use cases hold no state between calls and persist nothing.
 | [Allocate to a target value](#uc-4-allocate-to-a-target-value) | `target <price>` | `target { price > 0 }` | `allocateValue(price)` | `WITH_DELTA` |
 | [Find minimal portfolio](#uc-5-find-the-minimal-portfolio) | `minimal [-p] [-s]` | `minimal { precision ∈ (0,1], sharesStep ≥ 1 integer }` | iterative search | `ONLY_NEW` |
 
-Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfolio` input. Both default to `EUR`. **Actor:** the investor, running the CLI locally or asking an AI assistant connected to the MCP server.
+Every command takes `--pt, --portfolio <broker/portfolio>`, and every tool takes a `portfolio` input. Both are optional when the data folder holds one portfolio. **Actor:** the investor, running the CLI locally or asking an AI assistant connected to the MCP server.
 
-**Shared preconditions:** `src/data/_settings.<type>.jsonc` exists and passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the CLI prints the error(s) and exits with code 1, the MCP tool returns an `isError` result, and no plan is produced.
+**Shared preconditions:** the portfolio's `<broker>/<portfolio>.jsonc` exists and, with its broker's optional `_broker.jsonc`, passes validation, every security can be priced ([Market Data](market-data.md)), and the aggregate invariants hold ([Portfolio Allocation](portfolio-allocation.md#invariants-checked-at-construction)). If any of these fails, the CLI prints the error(s) and exits with code 1, the MCP tool returns an `isError` result, and no plan is produced.
 
-**Worked examples** below use the tracked example portfolio (`_settings.EUR.jsonc.example` with `_overrides.EUR.jsonc.example`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
+**Worked examples** below use the tracked example portfolio `example/eur` (`src/data/example/eur.jsonc` with its overrides, and the 1 EUR flat fee from `_broker.jsonc`): QDVE at 28.45 EUR (target 40%, 100 held) and SPYD at 62.10 EUR (target 60%, 100 held), with a flat fee of 1 EUR per order.
 
 ---
 

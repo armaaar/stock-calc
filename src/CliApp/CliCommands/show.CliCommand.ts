@@ -9,9 +9,9 @@ export function createShowCli(show: PortfolioUseCases['show']) {
     .name('show')
     .description('Show information about the current portfolio')
     .addOption(portfolioOption)
-    .action(async ({ portfolio: portfolioType }) => {
+    .action(async ({ portfolio: portfolioId }) => {
       try {
-        const portfolio = await show.execute({ portfolioType })
+        const portfolio = await show.execute({ portfolio: portfolioId })
         PortfolioCliPresenter.present(portfolio, PresentMode.ONLY_INITIAL)
       } catch (e: unknown) {
         ErrorCliPresenter.present(e)

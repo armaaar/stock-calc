@@ -52,7 +52,7 @@ describe('target command', () => {
     await targetCli.parseAsync(['5000'], { from: 'user' })
 
     expect(target.execute).toHaveBeenCalledTimes(1)
-    expect(target.execute).toHaveBeenCalledWith({ portfolioType: 'EUR', targetPrice: 5000 })
+    expect(target.execute).toHaveBeenCalledWith({ targetPrice: 5000 })
     expect(present).toHaveBeenCalledWith(
       await target.execute.mock.results[0].value,
       PresentMode.WITH_DELTA,
@@ -69,12 +69,12 @@ describe('target command', () => {
   })
 
   it.each([
-    ['--pt', 'EGP'],
-    ['--portfolio', 'EGP'],
+    ['--pt', 'thndr/egp'],
+    ['--portfolio', 'thndr/egp'],
   ])('uses the portfolio type given with %s', async (flag, type) => {
     await targetCli.parseAsync(['1e4', flag, type], { from: 'user' })
 
-    expect(target.execute).toHaveBeenCalledWith({ portfolioType: type, targetPrice: 10000 })
+    expect(target.execute).toHaveBeenCalledWith({ portfolio: type, targetPrice: 10000 })
   })
 
   it.each(['abc', '12abc', 'NaN', 'Infinity'])(
@@ -96,7 +96,7 @@ describe('target command', () => {
   it('leaves the range check (price > 0) to the use case', async () => {
     await targetCli.parseAsync(['-5'], { from: 'user' })
 
-    expect(target.execute).toHaveBeenCalledWith({ portfolioType: 'EUR', targetPrice: -5 })
+    expect(target.execute).toHaveBeenCalledWith({ targetPrice: -5 })
   })
 
   it('routes a failing use case to the error presenter and sets exit code 1', async () => {

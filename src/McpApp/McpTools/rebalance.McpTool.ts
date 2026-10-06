@@ -14,9 +14,9 @@ export function registerRebalanceTool(
     inputSchema: portfolioInput,
     outputSchema: portfolioOutputSchema,
     annotations: portfolioToolAnnotations,
-  }, async ({ portfolio: portfolioType }) => {
+  }, async ({ portfolio: portfolioId }) => {
     try {
-      const portfolio = await rebalance.execute({ portfolioType })
+      const portfolio = await rebalance.execute({ portfolio: portfolioId })
       return PortfolioMcpPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       return ErrorMcpPresenter.present(e)

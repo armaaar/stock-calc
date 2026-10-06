@@ -40,9 +40,11 @@ export class MinimumSharesSearch {
 export class GetPortfolioWithMinimumSharesUseCase extends PortfolioUseCase<MinimumSharesRequest> {
   protected maxIterations = MAX_SEARCH_ITERATIONS
 
-  public async execute({ portfolioType, acceptablePrecision, sharesStep }: MinimumSharesRequest) {
+  public async execute({
+    portfolio: portfolioId, acceptablePrecision, sharesStep,
+  }: MinimumSharesRequest) {
     const search = new MinimumSharesSearch(acceptablePrecision, sharesStep)
-    const portfolio = await this.portfolioRepo.getPortfolio(portfolioType)
+    const portfolio = await this.portfolioRepo.getPortfolio(portfolioId)
 
     // Drive the search from a security that must be held: scaling from a 0 target divides by 0
     const driver = portfolio.securities.find((sec) => sec.targetPercentage.greaterThan(0))

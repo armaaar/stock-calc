@@ -10,9 +10,9 @@ export function createTargetCli(target: PortfolioUseCases['target']) {
     .description('Calculates the number of shares you need to buy to satisfy your portfolio with a limited budget')
     .argument('<price>', 'target portfolio price', parseFiniteNumber)
     .addOption(portfolioOption)
-    .action(async (targetPrice, { portfolio: portfolioType }) => {
+    .action(async (targetPrice, { portfolio: portfolioId }) => {
       try {
-        const portfolio = await target.execute({ portfolioType, targetPrice })
+        const portfolio = await target.execute({ portfolio: portfolioId, targetPrice })
         PortfolioCliPresenter.present(portfolio, PresentMode.WITH_DELTA)
       } catch (e: unknown) {
         ErrorCliPresenter.present(e)

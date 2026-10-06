@@ -9,9 +9,9 @@ export function createRebalanceCli(rebalance: PortfolioUseCases['rebalance']) {
     .name('rebalance')
     .description('Rebalance the current portfolio')
     .addOption(portfolioOption)
-    .action(async ({ portfolio: portfolioType }) => {
+    .action(async ({ portfolio: portfolioId }) => {
       try {
-        const portfolio = await rebalance.execute({ portfolioType })
+        const portfolio = await rebalance.execute({ portfolio: portfolioId })
         PortfolioCliPresenter.present(portfolio, PresentMode.WITH_DELTA)
       } catch (e: unknown) {
         ErrorCliPresenter.present(e)

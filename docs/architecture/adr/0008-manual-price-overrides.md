@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2024-07-21
-- **Amended by:** [ADR-0025](0025-price-quotes-with-source-and-priority.md) (overrides are sourced `override` and may carry an `asOf` date)
+- **Amended by:** [ADR-0025](0025-price-quotes-with-source-and-priority.md) (overrides are sourced `override` and may carry an `asOf` date), [ADR-0027](0027-portfolios-grouped-by-broker.md) (the file is `<broker>/<portfolio>.overrides.jsonc`)
 - **Introduced in:** `975c124` "feat: create price overrides"
 
 ## Context

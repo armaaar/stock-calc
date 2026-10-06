@@ -1,4 +1,5 @@
 {
+  // This portfolio's own fees replace the broker's
   "brokerageFeeFlat": 2,
   "tradingFeePercentage": 0.002,
   "minimumTradingFeeFlat": 10,

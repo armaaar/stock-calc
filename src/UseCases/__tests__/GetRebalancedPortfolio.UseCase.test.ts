@@ -15,16 +15,16 @@ describe('GetRebalancedPortfolioUseCase', () => {
   })
 
   it('rebalances the example portfolio to QDVE 127 / SPYD 87', async () => {
-    const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+    const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
 
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EUR')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('ibkr/eur')
     expect(portfolio.securities.map((sec) => [sec.tick, sec.shares]))
       .toEqual([['QDVE', 127], ['SPYD', 87]])
     expect(portfolio.securities.map((sec) => sec.initialShares)).toEqual([100, 100])
   })
 
   it('reports the trade values and fees from the worked example', async () => {
-    const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+    const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
     const [qdve, spyd] = portfolio.securities
 
     expect(qdve.tradedPrice.toNumber()).toBe(768.15)
@@ -38,7 +38,7 @@ describe('GetRebalancedPortfolioUseCase', () => {
   it('invests the cash the portfolio holds', async () => {
     repo.getPortfolio.mockImplementation(async () => buildPortfolio(undefined, 500))
 
-    const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+    const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
 
     expect(portfolio.securities.map((sec) => sec.shares)).toEqual([134, 92])
     expect(portfolio.deposit.toNumber()).toBe(0)
@@ -51,9 +51,9 @@ describe('GetRebalancedPortfolioUseCase', () => {
       { ...SPYD, shares: 87 },
     ]))
 
-    const portfolio = await useCase.execute({ portfolioType: 'EGP' })
+    const portfolio = await useCase.execute({ portfolio: 'thndr/egp' })
 
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('thndr/egp')
     expect(portfolio.securities.map((sec) => sec.shares)).toEqual([127, 87])
     expect(portfolio.totalTradingFee.toNumber()).toBe(0)
   })

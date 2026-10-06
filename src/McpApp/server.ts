@@ -12,11 +12,12 @@ export function createMcpServer(useCases: PortfolioUseCases): McpServer {
     title: 'Portfolio calculator',
     version: '0.1.0',
   }, {
-    instructions: 'Tools to calculate shares in a stock portfolio. Every tool takes a `portfolio` '
-      + 'name (default "EUR") that selects _settings.<portfolio>.jsonc in the data folder '
-      + '(STOCK_CALC_DATA_DIR, or src/data in the repository). Results are '
-      + 'plans only: nothing is traded and no file is changed. Percentages are in percent; '
-      + 'negative traded shares or prices mean selling.',
+    instructions: 'Tools to calculate shares in a stock portfolio. Every tool takes an optional '
+      + '`portfolio` id, <broker>/<portfolio> (e.g. ibkr/eur), that selects '
+      + '<broker>/<portfolio>.jsonc in the data folder (STOCK_CALC_DATA_DIR, or src/data in the '
+      + 'repository). Without it, the only portfolio is used; with several, the error lists '
+      + 'them. Results are plans only: nothing is traded and no file is changed. Percentages '
+      + 'are in percent; negative traded shares or prices mean selling.',
   })
 
   registerShowTool(server, useCases.show)

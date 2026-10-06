@@ -7,11 +7,22 @@ const Fraction = z.number().min(0).max(1)
 
 const NonNegative = z.number().min(0)
 
-/** The three parts of a broker's tariff for one order. */
+/**
+ * The three parts of a broker's tariff for one order. Each part is optional wherever it's set: a
+ * security's part replaces its portfolio's, a portfolio's replaces its broker's, and a part set
+ * nowhere is 0.
+ */
 const FeesShape = {
-  brokerageFeeFlat: NonNegative,
-  tradingFeePercentage: Fraction,
-  minimumTradingFeeFlat: NonNegative,
+  brokerageFeeFlat: NonNegative.optional(),
+  tradingFeePercentage: Fraction.optional(),
+  minimumTradingFeeFlat: NonNegative.optional(),
+}
+
+/** Settings a broker's portfolios share, for example its fees. */
+const SharedShape = {
+  ...FeesShape,
+  /** Warn about orders whose fee is more than this fraction of their value (default 0.01). */
+  feeWarningPercentage: Fraction.optional(),
 }
 
 export const SettingsSecuritySchema = z.object({
@@ -20,18 +31,17 @@ export const SettingsSecuritySchema = z.object({
   isin: z.string().optional(),
   shares: z.number().int().min(0),
   targetPercentage: Fraction,
-  // A fee part set here replaces the portfolio's for this security's orders only
-  brokerageFeeFlat: FeesShape.brokerageFeeFlat.optional(),
-  tradingFeePercentage: FeesShape.tradingFeePercentage.optional(),
-  minimumTradingFeeFlat: FeesShape.minimumTradingFeeFlat.optional(),
+  ...FeesShape,
 }).strict() // a misspelled optional fee would otherwise be dropped silently
 
+/** `<broker>/_broker.jsonc`: what every portfolio of the broker shares unless it sets its own. */
+export const BrokerSchema = z.object(SharedShape).strict()
+
+/** `<broker>/<portfolio>.jsonc`. */
 export const SettingsSchema = z.object({
-  ...FeesShape,
+  ...SharedShape,
   /** Uninvested cash held with the holdings, in the portfolio's currency. */
   cash: NonNegative.optional(),
-  /** Warn about orders whose fee is more than this fraction of their value (default 0.01). */
-  feeWarningPercentage: Fraction.optional(),
   securities: z.array(SettingsSecuritySchema),
 }).strict()
 

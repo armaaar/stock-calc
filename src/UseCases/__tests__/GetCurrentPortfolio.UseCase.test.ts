@@ -15,9 +15,9 @@ describe('GetCurrentPortfolioUseCase', () => {
   })
 
   it('returns the loaded portfolio unchanged', async () => {
-    const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+    const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
 
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EUR')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('ibkr/eur')
     expect(portfolio.securities.map((sec) => [sec.tick, sec.shares, sec.initialShares]))
       .toEqual([['QDVE', 100, 100], ['SPYD', 100, 100]])
     expect(portfolio.totalPrice.toNumber()).toBe(9055)
@@ -28,21 +28,21 @@ describe('GetCurrentPortfolioUseCase', () => {
     const loaded = buildPortfolio()
     repo.getPortfolio.mockResolvedValueOnce(loaded)
 
-    await expect(useCase.execute({ portfolioType: 'EGP' })).resolves.toBe(loaded)
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+    await expect(useCase.execute({ portfolio: 'thndr/egp' })).resolves.toBe(loaded)
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('thndr/egp')
   })
 
   it('propagates repository errors', async () => {
     repo.getPortfolio.mockRejectedValueOnce(new Error('no settings'))
 
-    await expect(useCase.execute({ portfolioType: 'NOPE' })).rejects.toThrow('no settings')
+    await expect(useCase.execute({ portfolio: 'NOPE' })).rejects.toThrow('no settings')
   })
 
   it('loads the portfolio again on every execution (the use case keeps no state)', async () => {
-    const first = await useCase.execute({ portfolioType: 'EUR' })
-    const second = await useCase.execute({ portfolioType: 'EGP' })
+    const first = await useCase.execute({ portfolio: 'ibkr/eur' })
+    const second = await useCase.execute({ portfolio: 'thndr/egp' })
 
     expect(first).not.toBe(second)
-    expect(repo.getPortfolio.mock.calls).toEqual([['EUR'], ['EGP']])
+    expect(repo.getPortfolio.mock.calls).toEqual([['ibkr/eur'], ['thndr/egp']])
   })
 })

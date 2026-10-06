@@ -18,9 +18,9 @@ export function registerTargetTool(
     },
     outputSchema: portfolioOutputSchema,
     annotations: portfolioToolAnnotations,
-  }, async ({ price, portfolio: portfolioType }) => {
+  }, async ({ price, portfolio: portfolioId }) => {
     try {
-      const portfolio = await target.execute({ portfolioType, targetPrice: price })
+      const portfolio = await target.execute({ portfolio: portfolioId, targetPrice: price })
       return PortfolioMcpPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       return ErrorMcpPresenter.present(e)

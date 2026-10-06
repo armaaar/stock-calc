@@ -64,6 +64,7 @@
     "!src/**/__tests__",
     "!src/__fixtures__",
     "!src/**/CLAUDE.md",
-    "!src/data/_*.jsonc"
+    "!src/data/**",
+    "src/data/example"
   ]
 }

@@ -1,7 +1,7 @@
 import { PortfolioRequest, PortfolioUseCase } from './PortfolioUseCase.abstract'
 
 export class GetCurrentPortfolioUseCase extends PortfolioUseCase {
-  public async execute({ portfolioType }: PortfolioRequest) {
-    return this.portfolioRepo.getPortfolio(portfolioType)
+  public async execute({ portfolio: portfolioId }: PortfolioRequest) {
+    return this.portfolioRepo.getPortfolio(portfolioId)
   }
 }

@@ -7,12 +7,13 @@ Infrastructure: reads the portfolio data files and scrapes prices. Returns plain
 - `DataFiles.schema.ts` holds the zod schemas and is the **single source of truth** for the file shapes (ADR-0012). The DTO types in `DataDrivers.type.ts` are `z.infer`'d from it. Change the schema, never the types.
 - Always go through `DataFiles.reader.ts`:
   - `dataDirectory()` is `$STOCK_CALC_DATA_DIR` (with `~` expanded) or `src/data`. Users of the npx install keep their portfolios there (ADR-0016). Only `src/compositionRoot.ts` calls it; the file drivers receive the folder in their constructor (`new SettingsDataDriver(dataDir)`, ADR-0018). `vitest.config.ts` clears the variable so the `dataDirectory()` tests see the default.
-  - `dataFilePath(dataDir, prefix, type)` checks the portfolio name against `PORTFOLIO_NAME_PATTERN` (letters, digits, `_`, `-`) before resolving `<data folder>/_<prefix>.<TYPE>.jsonc`, so names can't escape the data folder.
+  - `portfolioFiles(dataDir, portfolioId)` checks the id against `PORTFOLIO_ID_PATTERN` (`<broker>/<portfolio>`, each a name of letters, digits, `_`, `-` starting with a letter or digit) before resolving the broker's `_broker.jsonc` and the portfolio's `<portfolio>.jsonc` / `<portfolio>.overrides.jsonc`, so ids can't escape the data folder and can't select `_broker`.
+  - `listPortfolioIds(dataDir)` lists every `<broker>/<portfolio>`; `readOptionalDataFile()` reads a file that may be missing, empty or only comments.
   - `parseJsonc()` rejects JSONC syntax errors with line and column.
   - After that, `parseDataFile()` validates against the schema and throws `Invalid data file '<path>'` with the failing field paths.
 - The schemas check ranges as well as types (integer shares ≥ 0, fractions in [0, 1], fees ≥ 0, override prices > 0, non-empty strings). The settings schemas are `.strict()`: an unknown key, such as a misspelled per-security fee, is an error rather than a silent fallback.
-- A missing settings file throws `Portfolio '<type>' not found`. A missing, empty or comments-only overrides file means no overrides (`{}`).
-- When a schema changes, update the tracked `src/data/*.jsonc.example` files. `__tests__/DataFiles.schema.test.ts` checks that they still parse. Real `_*.jsonc` files are personal and git-ignored: never read them into output, logs or commits.
+- `SettingsDataDriver.resolvePortfolioId(requested?)` returns the requested id if its file exists, or the only portfolio when none is requested. Otherwise it throws, listing the portfolios found (and how to move files from before broker folders). `getPortfolioSettings(id)` returns the portfolio's settings with what it leaves out taken from `_broker.jsonc` (optional), so the repository only falls back security → portfolio. A missing, empty or comments-only overrides or broker file means nothing set.
+- When a schema changes, update the tracked example broker `src/data/example/`. `__tests__/DataFiles.schema.test.ts` reads it through the drivers. Every other broker folder in `src/data` is personal and git-ignored: never read those files into output, logs or commits.
 
 ## Price scrapers
 

@@ -8,8 +8,8 @@ import { QDVE, SPYD } from './portfolio'
 
 /**
  * DTO counterparts of the shared QDVE / SPYD fixtures, i.e. what the settings and overrides
- * data drivers return for `src/data/_settings.EUR.jsonc.example` and
- * `_overrides.EUR.jsonc.example`.
+ * data drivers return for the tracked `src/data/example/eur.jsonc` (with its broker's fees) and
+ * `eur.overrides.jsonc`.
  */
 export const QDVE_SETTING: SettingsSecurityDto = {
   tick: QDVE.tick,
@@ -70,13 +70,27 @@ export const EUR_OVERRIDES_JSONC = `{
 `
 
 /**
- * A fresh temporary data folder holding the given files (name → content), for the file data
+ * The tracked example broker's files (`src/data/example`), keyed by their path in a data folder,
+ * for `createDataDir`. Every price in them is overridden, so they load without a browser.
+ */
+export function exampleFiles(): Record<string, string> {
+  const folder = path.resolve(import.meta.dirname, '../data/example')
+  return Object.fromEntries(fs.readdirSync(folder).map((name) => (
+    [`example/${name}`, fs.readFileSync(path.join(folder, name), 'utf8')]
+  )))
+}
+
+/**
+ * A fresh temporary data folder holding the given files (path → content), for the file data
  * drivers. Tests never write to `src/data`. Remove it with `fs.rmSync(dir, { recursive: true })`.
  */
 export function createDataDir(files: Record<string, string> = {}): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stock-calc-'))
   for (const [name, content] of Object.entries(files)) {
-    fs.writeFileSync(path.join(dir, name), content)
+    // Names may include folders, such as 'ibkr/eur.jsonc'
+    const file = path.join(dir, name)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, content)
   }
   return dir
 }

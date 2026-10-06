@@ -1,10 +1,10 @@
 import { InvalidArgumentError, Option } from '@commander-js/extra-typings'
-import { PORTFOLIO_NAME_PATTERN } from '#src/Shared/portfolioName'
+import { PORTFOLIO_ID_PATTERN, PORTFOLIO_ID_RULE } from '#src/Shared/portfolioName'
 
-/** commander argument parser: a portfolio name made of letters, digits, '_' or '-'. */
-export function parsePortfolioName(value: string): string {
-  if (!PORTFOLIO_NAME_PATTERN.test(value)) {
-    throw new InvalidArgumentError('Use letters, digits, \'_\' or \'-\'.')
+/** commander argument parser: a portfolio id, `<broker>/<portfolio>`. */
+export function parsePortfolioId(value: string): string {
+  if (!PORTFOLIO_ID_PATTERN.test(value)) {
+    throw new InvalidArgumentError(`Invalid portfolio: ${PORTFOLIO_ID_RULE}.`)
   }
   return value
 }
@@ -18,6 +18,7 @@ export function parseFiniteNumber(value: string): number {
   return number
 }
 
-export const portfolioOption = new Option('--pt, --portfolio <type>', 'the portfolio to use')
-  .argParser(parsePortfolioName)
-  .default('EUR')
+export const portfolioOption = new Option(
+  '--pt, --portfolio <broker/portfolio>',
+  'the portfolio to use, e.g. ibkr/eur (default: the only portfolio in the data folder)',
+).argParser(parsePortfolioId)

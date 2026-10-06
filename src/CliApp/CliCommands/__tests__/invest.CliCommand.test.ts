@@ -53,7 +53,7 @@ describe('invest command', () => {
 
     expect(invest.execute).toHaveBeenCalledTimes(1)
     expect(invest.execute)
-      .toHaveBeenCalledWith({ portfolioType: 'EUR', investment: 1000, buyOnly: false })
+      .toHaveBeenCalledWith({ investment: 1000, buyOnly: false })
     expect(present).toHaveBeenCalledWith(
       await invest.execute.mock.results[0].value,
       PresentMode.WITH_DELTA,
@@ -70,21 +70,21 @@ describe('invest command', () => {
   })
 
   it.each([
-    ['--pt', 'EGP'],
-    ['--portfolio', 'EGP'],
+    ['--pt', 'thndr/egp'],
+    ['--portfolio', 'thndr/egp'],
   ])('uses the portfolio type given with %s', async (flag, type) => {
     await investCli.parseAsync(['250.5', flag, type], { from: 'user' })
 
     expect(invest.execute)
-      .toHaveBeenCalledWith({ portfolioType: type, investment: 250.5, buyOnly: false })
+      .toHaveBeenCalledWith({ portfolio: type, investment: 250.5, buyOnly: false })
   })
 
   it('accepts the option before the argument', async () => {
-    await investCli.parseAsync(['--pt', 'EGP', '500'], { from: 'user' })
+    await investCli.parseAsync(['--pt', 'thndr/egp', '500'], { from: 'user' })
 
     expect(invest.execute)
 
-      .toHaveBeenCalledWith({ portfolioType: 'EGP', investment: 500, buyOnly: false })
+      .toHaveBeenCalledWith({ portfolio: 'thndr/egp', investment: 500, buyOnly: false })
   })
 
   it.each(['abc', 'Infinity', ''])(
@@ -103,13 +103,13 @@ describe('invest command', () => {
     },
   )
 
-  it('rejects an invalid portfolio name with a usage error', async () => {
+  it('rejects an invalid portfolio id with a usage error', async () => {
     const stderr = interceptExit()
 
-    await expect(investCli.parseAsync(['1000', '--pt', 'EUR.old'], { from: 'user' }))
+    await expect(investCli.parseAsync(['1000', '--pt', 'ibkr/eur.old'], { from: 'user' }))
       .rejects.toThrow('process.exit(1)')
 
-    expect(stderr()).toContain('argument \'EUR.old\' is invalid. Use letters, digits, \'_\' or \'-\'.')
+    expect(stderr()).toContain('argument \'ibkr/eur.old\' is invalid. Invalid portfolio: use')
     expect(invest.execute).not.toHaveBeenCalled()
   })
 
@@ -117,7 +117,7 @@ describe('invest command', () => {
     await investCli.parseAsync(['250', flag], { from: 'user' })
 
     expect(invest.execute)
-      .toHaveBeenCalledWith({ portfolioType: 'EUR', investment: 250, buyOnly: true })
+      .toHaveBeenCalledWith({ investment: 250, buyOnly: true })
   })
 
   it('accepts a negative amount as the investment, to plan a withdrawal', async () => {
@@ -125,7 +125,7 @@ describe('invest command', () => {
 
     expect(invest.execute)
 
-      .toHaveBeenCalledWith({ portfolioType: 'EUR', investment: -100, buyOnly: false })
+      .toHaveBeenCalledWith({ investment: -100, buyOnly: false })
   })
 
   it('routes a failing use case to the error presenter and sets exit code 1', async () => {

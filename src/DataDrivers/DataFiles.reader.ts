@@ -1,14 +1,20 @@
+import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { parse, ParseError, printParseErrorCode, stripComments } from 'jsonc-parser'
-import { PORTFOLIO_NAME_PATTERN } from '#src/Shared/portfolioName'
+import type { z } from 'zod'
+import { NAME_PATTERN, PORTFOLIO_ID_PATTERN, PORTFOLIO_ID_RULE } from '#src/Shared/portfolioName'
+import { parseDataFile } from './DataFiles.schema'
 
 /** How many JSONC syntax errors an "Invalid data file" message lists. */
 const MAX_REPORTED_SYNTAX_ERRORS = 3
 
-export function assertPortfolioName(type: string): void {
-  if (!PORTFOLIO_NAME_PATTERN.test(type)) {
-    throw Error(`Invalid portfolio name '${type}': use letters, digits, '_' or '-'`)
+/** The broker's shared settings, inside its folder. */
+export const BROKER_FILE = '_broker.jsonc'
+
+export function assertPortfolioId(portfolioId: string): void {
+  if (!PORTFOLIO_ID_PATTERN.test(portfolioId)) {
+    throw Error(`Invalid portfolio '${portfolioId}': ${PORTFOLIO_ID_RULE}`)
   }
 }
 
@@ -26,14 +32,41 @@ export function dataDirectory(): string {
   return path.resolve(configured.replace(/^~(?=$|[\\/])/, os.homedir()))
 }
 
-/** `<dataDir>/<prefix>.<type>.jsonc`, after checking that `type` is a valid portfolio name. */
-export function dataFilePath(
-  dataDir: string,
-  prefix: '_settings' | '_overrides',
-  type: string,
-): string {
-  assertPortfolioName(type)
-  return path.resolve(dataDir, `${prefix}.${type}.jsonc`)
+/** The files of a portfolio and of its broker, after checking the portfolio id. */
+export function portfolioFiles(dataDir: string, portfolioId: string) {
+  assertPortfolioId(portfolioId)
+  const [broker, portfolio] = portfolioId.split('/')
+  const brokerDir = path.resolve(dataDir, broker)
+  return {
+    /** `<dataDir>/<broker>/_broker.jsonc`: settings every portfolio of the broker shares. */
+    broker: path.join(brokerDir, BROKER_FILE),
+    /** `<dataDir>/<broker>/<portfolio>.jsonc` */
+    settings: path.join(brokerDir, `${portfolio}.jsonc`),
+    /** `<dataDir>/<broker>/<portfolio>.overrides.jsonc` */
+    overrides: path.join(brokerDir, `${portfolio}.overrides.jsonc`),
+  }
+}
+
+/** The ids of every portfolio in the data folder (`<broker>/<portfolio>`), sorted. */
+export function listPortfolioIds(dataDir: string): string[] {
+  if (!fs.existsSync(dataDir)) return []
+  // '<name>.overrides.jsonc' and '_broker.jsonc' aren't portfolios: their names don't match
+  const portfolioName = (file: fs.Dirent) => {
+    const name = file.name.slice(0, -'.jsonc'.length)
+    return file.isFile() && file.name.endsWith('.jsonc') && NAME_PATTERN.test(name) ? [name] : []
+  }
+  return fs.readdirSync(dataDir, { withFileTypes: true })
+    .filter((broker) => broker.isDirectory() && NAME_PATTERN.test(broker.name))
+    .flatMap((broker) => fs.readdirSync(path.join(dataDir, broker.name), { withFileTypes: true })
+      .flatMap(portfolioName)
+      .map((name) => `${broker.name}/${name}`))
+    .sort()
+}
+
+/** True when the data folder still has portfolio files from before broker folders. */
+export function hasLegacyPortfolioFiles(dataDir: string): boolean {
+  return fs.existsSync(dataDir)
+    && fs.readdirSync(dataDir).some((file) => /^_settings\..+\.jsonc$/.test(file))
 }
 
 /** True when the text holds nothing but whitespace and comments. */
@@ -67,4 +100,17 @@ export function parseJsonc(text: string, filePath: string): unknown {
   }
 
   return data
+}
+
+/**
+ * Reads and validates a data file that may be left out: `undefined` when it's missing, empty or
+ * holds only comments.
+ */
+export function readOptionalDataFile<T>(schema: z.ZodType<T>, filePath: string): T | undefined {
+  if (!fs.existsSync(filePath)) return undefined
+
+  const text = fs.readFileSync(filePath).toString()
+  if (isBlankJsonc(text)) return undefined
+
+  return parseDataFile(schema, parseJsonc(text, filePath), filePath)
 }

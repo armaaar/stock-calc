@@ -36,7 +36,7 @@ The **CLI** (`src/CliApp`) is an interface layer, not a bounded context. It tran
 flowchart LR
   subgraph Upstream
     MD["Market Data<br/>(JustEtf, TradingView, Overrides)"]
-    CFG["Portfolio Configuration<br/>(_settings.TYPE.jsonc)"]
+    CFG["Portfolio Configuration<br/>(broker/portfolio.jsonc, broker/_broker.jsonc)"]
     EXT1[(justetf.com)]
     EXT2[(tradingview.com)]
   end

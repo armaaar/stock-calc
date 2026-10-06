@@ -1,13 +1,10 @@
 {
-  "brokerageFeeFlat": 1,
-  "tradingFeePercentage": 0,
-  "minimumTradingFeeFlat": 0,
+  // Fees come from _broker.jsonc
   "securities": [
     /**
     Portfolio:
-    - 20% Gold
     - 40% Tech
-    - 40% High Dividend Value
+    - 60% High Dividend Value
     */
     {
       "tick": "QDVE", // Mirror FTEC @ Arca

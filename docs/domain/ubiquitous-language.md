@@ -7,7 +7,8 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | Term | Definition | Code | CLI column |
 | --- | --- | --- | --- |
 | **Portfolio** | A set of securities held together, priced in one currency, with target weights that sum to 100%. The aggregate root. | `Portfolio` | |
-| **Portfolio type** | The name that selects a portfolio's settings and overrides files (for example `EUR`, `EGP`). It's just a name; it often matches the currency by convention. | `portfolioType`, `--portfolio` / `--pt`, MCP `portfolio` input | |
+| **Broker** | Where a portfolio is held, such as IBKR or Thndr: a folder of portfolios that share its fees. Just a name; there's no code per broker. | `<broker>/`, `_broker.jsonc`, `BrokerSchema` | |
+| **Portfolio id** | `<broker>/<portfolio>`, such as `ibkr/eur`: selects a portfolio's files. Optional when there's only one portfolio. | `portfolioId`, `--portfolio` / `--pt`, MCP `portfolio` input | |
 | **Security** | A tradable instrument identified by tick and exchange (and optionally ISIN), with a current price and currency. | `Security` | |
 | **Portfolio security** (holding, position) | A security as held in a portfolio: share counts, target percentage, and fee settings. | `PortfolioSecurity` | one table row |
 | **Tick** (ticker) | The exchange symbol of a security, such as `QDVE` or `ETEL`. The practical identity of a security within a portfolio, and the key for price overrides. | `tick` | Tick |
@@ -65,5 +66,6 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | --- | --- | --- |
 | **Price quote** | A `{ price, currency }` pair for one security. | `SecurityPriceDto` |
 | **Price source** (data driver) | A provider that can produce a price quote for a security. | `IPriceDataDriver` |
-| **Price override** | A manually set quote for a tick that replaces live price lookup. | `_overrides.<TYPE>.jsonc`, `OverridesDataDriver` |
-| **Portfolio settings** | The file that defines a portfolio: default fees, plus securities with shares, targets and optional fee overrides. | `_settings.<TYPE>.jsonc`, `SettingsDto` |
+| **Price override** | A manually set quote for a tick that replaces live price lookup. | `<broker>/<portfolio>.overrides.jsonc`, `OverridesDataDriver` |
+| **Portfolio settings** | The file that defines a portfolio: optional fees and cash, plus securities with shares, targets and optional fee overrides. What it leaves out comes from its broker's settings. | `<broker>/<portfolio>.jsonc`, `SettingsDto` |
+| **Broker settings** | What a broker's portfolios share unless they set their own: fee parts and the fee warning percentage. | `<broker>/_broker.jsonc`, `BrokerDto` |

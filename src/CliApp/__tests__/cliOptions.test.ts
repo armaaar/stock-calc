@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Command, InvalidArgumentError } from '@commander-js/extra-typings'
-import { parseFiniteNumber, parsePortfolioName, portfolioOption } from '../cliOptions'
+import { parseFiniteNumber, parsePortfolioId, portfolioOption } from '../cliOptions'
 
 describe('parseFiniteNumber', () => {
   it.each([
@@ -23,32 +23,42 @@ describe('parseFiniteNumber', () => {
   )
 })
 
-describe('parsePortfolioName', () => {
-  it.each(['EUR', 'egp', 'TMP_2', 'my-portfolio'])('accepts %j', (value) => {
-    expect(parsePortfolioName(value)).toBe(value)
+const INVALID = 'Invalid portfolio: use <broker>/<portfolio>, each made of letters, digits, '
+  + '\'_\' or \'-\' and starting with a letter or digit.'
+
+describe('parsePortfolioId', () => {
+  it.each(['ibkr/eur', 'thndr/EGP', 'my-broker/TMP_2', '0/1'])('accepts %j', (value) => {
+    expect(parsePortfolioId(value)).toBe(value)
   })
 
-  it.each(['', '../EUR', 'EUR.old', 'my portfolio', 'a/b'])(
+  it.each([
+    '', 'EUR', 'ibkr/', '/eur', 'a/b/c', '../eur', 'ibkr/../eur', 'ibkr/eur.old', 'ibkr/my eur',
+    'ibkr/_broker', '_x/eur', 'ibkr\\eur',
+  ])(
     'rejects %j with an InvalidArgumentError',
     (value) => {
-      expect(() => parsePortfolioName(value)).toThrow(InvalidArgumentError)
-      expect(() => parsePortfolioName(value)).toThrow('Use letters, digits, \'_\' or \'-\'.')
+      expect(() => parsePortfolioId(value)).toThrow(InvalidArgumentError)
+      expect(() => parsePortfolioId(value)).toThrow(INVALID)
     },
   )
 })
 
 describe('portfolioOption', () => {
-  it('accepts both --pt and --portfolio with a required <type> value', () => {
-    expect(portfolioOption.flags).toBe('--pt, --portfolio <type>')
+  const FLAGS = '--pt, --portfolio <broker/portfolio>'
+
+  it('accepts both --pt and --portfolio with a required <broker/portfolio> value', () => {
+    expect(portfolioOption.flags).toBe(FLAGS)
     expect(portfolioOption.short).toBe('--pt')
     expect(portfolioOption.long).toBe('--portfolio')
     expect(portfolioOption.required).toBe(true)
-    expect(portfolioOption.description).toBe('the portfolio to use')
+    expect(portfolioOption.description).toBe(
+      'the portfolio to use, e.g. ibkr/eur (default: the only portfolio in the data folder)',
+    )
   })
 
-  it('stores its value as `portfolio` and defaults to EUR', () => {
+  it('stores its value as `portfolio` and has no default', () => {
     expect(portfolioOption.attributeName()).toBe('portfolio')
-    expect(portfolioOption.defaultValue).toBe('EUR')
+    expect(portfolioOption.defaultValue).toBeUndefined()
   })
 
   describe('when parsed', () => {
@@ -59,32 +69,31 @@ describe('portfolioOption', () => {
       .parse(args, { from: 'user' })
       .opts()
 
-    it('defaults to EUR', () => {
-      expect(parse([])).toEqual({ portfolio: 'EUR' })
+    it('leaves the portfolio out when not given', () => {
+      expect(parse([])).toEqual({})
     })
 
     it.each([
-      [['--pt', 'EGP']],
-      [['--portfolio', 'EGP']],
-      [['--portfolio=EGP']],
-    ])('reads the type from %j', (args) => {
-      expect(parse(args)).toEqual({ portfolio: 'EGP' })
+      [['--pt', 'thndr/egp']],
+      [['--portfolio', 'thndr/egp']],
+      [['--portfolio=thndr/egp']],
+    ])('reads the portfolio from %j', (args) => {
+      expect(parse(args)).toEqual({ portfolio: 'thndr/egp' })
     })
 
     it('rejects the old single-dash -pt form', () => {
       // commander 15 only allows single-character short flags, so `-pt` is `-p -t`
-      expect(() => parse(['-pt', 'EGP'])).toThrow('unknown option \'-pt\'')
+      expect(() => parse(['-pt', 'thndr/egp'])).toThrow('unknown option \'-pt\'')
     })
 
-    it('rejects a type that is not a valid portfolio name', () => {
+    it('rejects a value that is not a portfolio id', () => {
       expect(() => parse(['--pt', '../secrets'])).toThrow(
-        'option \'--pt, --portfolio <type>\' argument \'../secrets\' is invalid. '
-        + 'Use letters, digits, \'_\' or \'-\'.',
+        `option '${FLAGS}' argument '../secrets' is invalid. ${INVALID}`,
       )
     })
 
     it('requires a value', () => {
-      expect(() => parse(['--pt'])).toThrow('option \'--pt, --portfolio <type>\' argument missing')
+      expect(() => parse(['--pt'])).toThrow(`option '${FLAGS}' argument missing`)
     })
   })
 })

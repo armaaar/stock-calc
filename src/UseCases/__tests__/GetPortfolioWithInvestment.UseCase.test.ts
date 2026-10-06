@@ -49,14 +49,14 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
     useCase = new GetPortfolioWithInvestmentUseCase(repo)
   })
 
-  const invest = (investment: number, portfolioType = 'EUR') => (
-    useCase.execute({ portfolioType, investment })
+  const invest = (investment: number, portfolio = 'ibkr/eur') => (
+    useCase.execute({ portfolio, investment })
   )
 
   it('invests 1000 into QDVE 141 / SPYD 97, selling SPYD on the way', async () => {
     const portfolio = await invest(1000)
 
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EUR')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('ibkr/eur')
     expect(sharesOf(portfolio)).toEqual([['QDVE', 141], ['SPYD', 97]])
     expect(portfolio.securities[0].tradedPrice.toNumber()).toBe(1166.45)
     expect(portfolio.securities[1].tradedPrice.toNumber()).toBe(-186.3)
@@ -126,7 +126,7 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
   describe('buying only', () => {
     it('buys 35 QDVE with 1000 and sells nothing', async () => {
       const portfolio = await useCase.execute({
-        portfolioType: 'EUR', investment: 1000, buyOnly: true,
+        portfolio: 'ibkr/eur', investment: 1000, buyOnly: true,
       })
 
       expect(sharesOf(portfolio)).toEqual([['QDVE', 135], ['SPYD', 100]])
@@ -135,7 +135,7 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
 
     it('rejects a negative investment without loading the portfolio', async () => {
       const error = await useCase.execute({
-        portfolioType: 'EUR', investment: -100, buyOnly: true,
+        portfolio: 'ibkr/eur', investment: -100, buyOnly: true,
       }).catch((e: unknown) => e)
 
       expect(error).toBeInstanceOf(ClassValidatorError)
@@ -144,8 +144,8 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
   })
 
   it('passes the portfolio type through to the repository', async () => {
-    await invest(1, 'EGP')
+    await invest(1, 'thndr/egp')
 
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('thndr/egp')
   })
 })

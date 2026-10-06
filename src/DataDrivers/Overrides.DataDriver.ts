@@ -1,21 +1,14 @@
-import fs from 'fs'
 import { IOverridesDataDriver, OverridesDto } from './DataDrivers.type'
-import { OverridesSchema, parseDataFile } from './DataFiles.schema'
-import { dataFilePath, isBlankJsonc, parseJsonc } from './DataFiles.reader'
+import { OverridesSchema } from './DataFiles.schema'
+import { portfolioFiles, readOptionalDataFile } from './DataFiles.reader'
 
 export class OverridesDataDriver implements IOverridesDataDriver {
-  /** @param dataDir the folder holding the portfolio files */
+  /** @param dataDir the folder holding a folder per broker */
   constructor(private readonly dataDir: string) {}
 
-  public async getPortfolioOverrides(type: string): Promise<OverridesDto> {
-    const filePath = dataFilePath(this.dataDir, '_overrides', type)
-
-    if (!fs.existsSync(filePath)) return {}
-
-    const jsoncString = fs.readFileSync(filePath).toString()
-    // An empty (or comments-only) file means no overrides, just like a missing one
-    if (isBlankJsonc(jsoncString)) return {}
-
-    return parseDataFile(OverridesSchema, parseJsonc(jsoncString, filePath), filePath)
+  public async getPortfolioOverrides(portfolioId: string): Promise<OverridesDto> {
+    const { overrides } = portfolioFiles(this.dataDir, portfolioId)
+    // A missing, empty or comments-only file means no overrides
+    return readOptionalDataFile(OverridesSchema, overrides) ?? {}
   }
 }

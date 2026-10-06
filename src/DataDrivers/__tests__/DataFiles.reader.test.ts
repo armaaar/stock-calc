@@ -1,13 +1,19 @@
+import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { EUR_SETTINGS, EUR_SETTINGS_JSONC } from '#src/__fixtures__/dataFiles'
+import { z } from 'zod'
+import { createDataDir, EUR_SETTINGS, EUR_SETTINGS_JSONC } from '#src/__fixtures__/dataFiles'
 import {
-  assertPortfolioName, DATA_DIR_ENV, dataDirectory, dataFilePath, isBlankJsonc, parseJsonc,
+  assertPortfolioId, DATA_DIR_ENV, dataDirectory, hasLegacyPortfolioFiles, isBlankJsonc,
+  listPortfolioIds, parseJsonc, portfolioFiles, readOptionalDataFile,
 } from '../DataFiles.reader'
-import { PORTFOLIO_NAME_PATTERN } from '#src/Shared/portfolioName'
+import { PORTFOLIO_ID_PATTERN } from '#src/Shared/portfolioName'
 
 const FILE = '/data/_settings.TEST.jsonc'
+
+const INVALID_RULE = 'use <broker>/<portfolio>, each made of letters, digits, \'_\' or \'-\' and '
+  + 'starting with a letter or digit'
 
 const toPosix = (p: string) => p.replace(/\\/g, '/')
 
@@ -20,18 +26,21 @@ function errorMessage(fn: () => unknown): string {
   throw Error('expected the call to throw')
 }
 
-describe('assertPortfolioName', () => {
-  it.each(['EUR', 'egp', 'TMP_2', 'my-portfolio', '0'])('accepts %s', (name) => {
-    expect(() => assertPortfolioName(name)).not.toThrow()
-    expect(PORTFOLIO_NAME_PATTERN.test(name)).toBe(true)
-  })
+describe('assertPortfolioId', () => {
+  it.each(['ibkr/eur', 'thndr/EGP', 'b/TMP_2', 'my-broker/my-portfolio', '0/1'])(
+    'accepts %s',
+    (id) => {
+      expect(() => assertPortfolioId(id)).not.toThrow()
+      expect(PORTFOLIO_ID_PATTERN.test(id)).toBe(true)
+    },
+  )
 
   it.each([
-    '', '../../x', '..', 'a/b', 'a\\b', 'EUR.jsonc', 'E UR', 'C:', 'EUR\n', 'ÄÖ', '~',
-  ])('rejects %j', (name) => {
-    expect(() => assertPortfolioName(name)).toThrow(
-      `Invalid portfolio name '${name}': use letters, digits, '_' or '-'`,
-    )
+    '', 'EUR', 'ibkr', 'ibkr/', '/eur', 'a/b/c', '../../x', '..', 'ibkr/..', 'ibkr/../eur',
+    'ibkr\\eur', 'ibkr/eur.jsonc', 'ibkr/eur.overrides', 'ibkr/_broker', '_ibkr/eur',
+    'ibkr/-eur', 'ibkr/E UR', 'C:/eur', 'ibkr/eur\n', 'ÄÖ/eur', '~/eur',
+  ])('rejects %j', (id) => {
+    expect(() => assertPortfolioId(id)).toThrow(`Invalid portfolio '${id}': ${INVALID_RULE}`)
   })
 })
 
@@ -74,34 +83,138 @@ describe('dataDirectory', () => {
   })
 })
 
-describe('dataFilePath', () => {
+describe('portfolioFiles', () => {
   const dataDir = path.join(os.tmpdir(), 'portfolios')
 
   afterEach(() => {
     vi.unstubAllEnvs()
   })
 
-  it.each(['_settings', '_overrides'] as const)('resolves %s files inside the data folder', (
-    prefix,
-  ) => {
-    expect(dataFilePath(dataDir, prefix, 'EUR')).toBe(path.join(dataDir, `${prefix}.EUR.jsonc`))
+  it('resolves the portfolio\'s files and its broker\'s file inside the broker\'s folder', () => {
+    expect(portfolioFiles(dataDir, 'ibkr/eur')).toEqual({
+      broker: path.join(dataDir, 'ibkr', '_broker.jsonc'),
+      settings: path.join(dataDir, 'ibkr', 'eur.jsonc'),
+      overrides: path.join(dataDir, 'ibkr', 'eur.overrides.jsonc'),
+    })
   })
 
   it('resolves a relative data folder against the working directory', () => {
-    expect(dataFilePath('portfolios', '_settings', 'EUR'))
-      .toBe(path.resolve('portfolios', '_settings.EUR.jsonc'))
+    expect(portfolioFiles('portfolios', 'ibkr/eur').settings)
+      .toBe(path.resolve('portfolios', 'ibkr', 'eur.jsonc'))
   })
 
   it('uses the given data folder, not STOCK_CALC_DATA_DIR', () => {
     vi.stubEnv(DATA_DIR_ENV, path.join(os.tmpdir(), 'elsewhere'))
 
-    expect(dataFilePath(dataDir, '_settings', 'EUR'))
-      .toBe(path.join(dataDir, '_settings.EUR.jsonc'))
+    expect(portfolioFiles(dataDir, 'ibkr/eur').settings)
+      .toBe(path.join(dataDir, 'ibkr', 'eur.jsonc'))
   })
 
-  it('rejects a portfolio name that would leave the data folder', () => {
-    expect(() => dataFilePath(dataDir, '_settings', '../../../x'))
-      .toThrow('Invalid portfolio name \'../../../x\': use letters, digits, \'_\' or \'-\'')
+  it('rejects a portfolio id that would leave the data folder', () => {
+    expect(() => portfolioFiles(dataDir, '../../x'))
+      .toThrow(`Invalid portfolio '../../x': ${INVALID_RULE}`)
+  })
+})
+
+describe('listPortfolioIds', () => {
+  let dataDir: string
+
+  afterEach(() => {
+    fs.rmSync(dataDir, { recursive: true, force: true })
+  })
+
+  it('lists <broker>/<portfolio> for every portfolio file in a broker folder, sorted', () => {
+    dataDir = createDataDir({
+      'thndr/egp.jsonc': '{}',
+      'ibkr/eur.jsonc': '{}',
+      'ibkr/growth.jsonc': '{}',
+      'ibkr/eur.overrides.jsonc': '{}',
+      'ibkr/_broker.jsonc': '{}',
+    })
+
+    expect(listPortfolioIds(dataDir)).toEqual(['ibkr/eur', 'ibkr/growth', 'thndr/egp'])
+  })
+
+  it('skips files outside broker folders, other files, and folders it could not select', () => {
+    dataDir = createDataDir({
+      '_settings.EUR.jsonc': '{}',
+      'eur.jsonc': '{}',
+      'ibkr/notes.txt': '',
+      'ibkr/my eur.jsonc': '{}',
+      'ibkr/eur.jsonc/inner.jsonc': '{}',
+      '_private/eur.jsonc': '{}',
+      '.hidden/eur.jsonc': '{}',
+    })
+
+    expect(listPortfolioIds(dataDir)).toEqual([])
+  })
+
+  it('is empty when the data folder does not exist', () => {
+    dataDir = path.join(createDataDir(), 'missing')
+
+    expect(listPortfolioIds(dataDir)).toEqual([])
+  })
+})
+
+describe('hasLegacyPortfolioFiles', () => {
+  let dataDir: string
+
+  afterEach(() => {
+    fs.rmSync(dataDir, { recursive: true, force: true })
+  })
+
+  it('is true when settings files from before broker folders are left', () => {
+    dataDir = createDataDir({ '_settings.EUR.jsonc': '{}' })
+
+    expect(hasLegacyPortfolioFiles(dataDir)).toBe(true)
+  })
+
+  it.each([
+    ['broker folders only', { 'ibkr/eur.jsonc': '{}' }],
+    ['an old overrides file only', { '_overrides.EUR.jsonc': '{}' }],
+    ['an old example', { '_settings.EUR.jsonc.example': '{}' }],
+  ])('is false with %s', (_, files) => {
+    dataDir = createDataDir(files)
+
+    expect(hasLegacyPortfolioFiles(dataDir)).toBe(false)
+  })
+
+  it('is false when the data folder does not exist', () => {
+    dataDir = path.join(createDataDir(), 'missing')
+
+    expect(hasLegacyPortfolioFiles(dataDir)).toBe(false)
+  })
+})
+
+describe('readOptionalDataFile', () => {
+  const Schema = z.object({ a: z.number() })
+  let dataDir: string
+
+  afterEach(() => {
+    fs.rmSync(dataDir, { recursive: true, force: true })
+  })
+
+  it('parses and validates the file', () => {
+    dataDir = createDataDir({ 'x.jsonc': '{ "a": 1, } // note' })
+
+    expect(readOptionalDataFile(Schema, path.join(dataDir, 'x.jsonc'))).toEqual({ a: 1 })
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['comments only', '// nothing yet'],
+  ])('is undefined when the file is %s', (_, content) => {
+    dataDir = createDataDir(content === undefined ? {} : { 'x.jsonc': content })
+
+    expect(readOptionalDataFile(Schema, path.join(dataDir, 'x.jsonc'))).toBeUndefined()
+  })
+
+  it('throws "Invalid data file" for a file that does not match the schema', () => {
+    dataDir = createDataDir({ 'x.jsonc': '{ "a": "1" }' })
+    const file = path.join(dataDir, 'x.jsonc')
+
+    expect(() => readOptionalDataFile(Schema, file)).toThrow(`Invalid data file '${file}':`)
   })
 })
 

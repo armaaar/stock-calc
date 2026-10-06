@@ -1,12 +1,11 @@
 {
-  "ACTF": {
-    "price": 2.90,
+  "ETEL": {
+    "price": 38.50,
     "currency": "EGP"
   },
-  "CI30": {
-    "price": 19.54,
+  "ESRS": {
+    "price": 73.25,
     "currency": "EGP",
     "asOf": "2026-10-01" // optional: when the price was looked up
   }
 }
-

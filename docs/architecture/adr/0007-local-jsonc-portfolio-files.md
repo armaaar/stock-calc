@@ -1,6 +1,6 @@
 # ADR-0007: Local JSONC portfolio files validated with typia
 
-- **Status:** Accepted. Validation with typia superseded by [ADR-0012](0012-validate-data-files-with-zod.md)
+- **Status:** Accepted. Validation with typia superseded by [ADR-0012](0012-validate-data-files-with-zod.md); file names and selection amended by [ADR-0027](0027-portfolios-grouped-by-broker.md) (a folder per broker, `<broker>/<portfolio>` ids, no default)
 - **Date:** 2023-10-07
 - **Introduced in:** `c109258` "feat: support multiple portfolios" (typia, per-type files), `3355a5e` "feat: use jsonc for data"
 

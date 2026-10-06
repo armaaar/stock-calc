@@ -1,5 +1,5 @@
 {
-  // Keyed by tick. A matching security skips live price fetching.
+  // Optional. Keyed by tick. A matching security skips live price fetching.
   "QDVE": {
     "price": 28.45,
     "currency": "EUR"

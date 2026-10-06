@@ -11,9 +11,9 @@ export function createInvestCli(invest: PortfolioUseCases['invest']) {
     .argument('<investment>', 'Additional investment (negative to withdraw)', parseFiniteNumber)
     .option('-b, --buy-only', 'only buy: never sell to rebalance (the investment must be at least 0)')
     .addOption(portfolioOption)
-    .action(async (investment, { portfolio: portfolioType, buyOnly = false }) => {
+    .action(async (investment, { portfolio: portfolioId, buyOnly = false }) => {
       try {
-        const portfolio = await invest.execute({ portfolioType, investment, buyOnly })
+        const portfolio = await invest.execute({ portfolio: portfolioId, investment, buyOnly })
         PortfolioCliPresenter.present(portfolio, PresentMode.WITH_DELTA)
       } catch (e: unknown) {
         ErrorCliPresenter.present(e)

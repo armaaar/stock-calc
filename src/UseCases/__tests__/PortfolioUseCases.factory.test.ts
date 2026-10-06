@@ -38,11 +38,11 @@ describe('createPortfolioUseCases', () => {
   })
 
   it('builds every use case over the given repository', async () => {
-    await useCases.show.execute({ portfolioType: 'SHOW' })
-    await useCases.minimal.execute({ portfolioType: 'MINIMAL' })
-    await useCases.target.execute({ portfolioType: 'TARGET', targetPrice: 5000 })
-    await useCases.rebalance.execute({ portfolioType: 'REBALANCE' })
-    const invested = await useCases.invest.execute({ portfolioType: 'INVEST', investment: 1000 })
+    await useCases.show.execute({ portfolio: 'SHOW' })
+    await useCases.minimal.execute({ portfolio: 'MINIMAL' })
+    await useCases.target.execute({ portfolio: 'TARGET', targetPrice: 5000 })
+    await useCases.rebalance.execute({ portfolio: 'REBALANCE' })
+    const invested = await useCases.invest.execute({ portfolio: 'INVEST', investment: 1000 })
 
     expect(repo.getPortfolio.mock.calls)
       .toEqual([['SHOW'], ['MINIMAL'], ['TARGET'], ['REBALANCE'], ['INVEST']])

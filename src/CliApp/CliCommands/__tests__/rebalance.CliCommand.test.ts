@@ -37,7 +37,7 @@ describe('rebalance command', () => {
     await rebalanceCli.parseAsync([], { from: 'user' })
 
     expect(rebalance.execute).toHaveBeenCalledTimes(1)
-    expect(rebalance.execute).toHaveBeenCalledWith({ portfolioType: 'EUR' })
+    expect(rebalance.execute).toHaveBeenCalledWith({})
     expect(present).toHaveBeenCalledWith(
       await rebalance.execute.mock.results[0].value,
       PresentMode.WITH_DELTA,
@@ -54,12 +54,12 @@ describe('rebalance command', () => {
   })
 
   it.each([
-    ['--pt', 'EGP'],
-    ['--portfolio', 'EGP'],
+    ['--pt', 'thndr/egp'],
+    ['--portfolio', 'thndr/egp'],
   ])('uses the portfolio type given with %s', async (flag, type) => {
     await rebalanceCli.parseAsync([flag, type], { from: 'user' })
 
-    expect(rebalance.execute).toHaveBeenCalledWith({ portfolioType: type })
+    expect(rebalance.execute).toHaveBeenCalledWith({ portfolio: type })
   })
 
   it('routes a failing use case to the error presenter and sets exit code 1', async () => {

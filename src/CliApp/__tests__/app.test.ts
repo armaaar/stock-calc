@@ -1,18 +1,11 @@
 import fs from 'fs'
-import path from 'path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
-import { createDataDir } from '#src/__fixtures__/dataFiles'
+import { createDataDir, exampleFiles } from '#src/__fixtures__/dataFiles'
 
-const EXAMPLES = path.resolve(import.meta.dirname, '../../data')
-
-/** A data folder holding the tracked examples as the TMP portfolio: every price is overridden. */
+/** A data folder holding the tracked example broker: every price is overridden. */
 function createTmpDataDir(): string {
-  const example = (name: string) => fs.readFileSync(path.join(EXAMPLES, name), 'utf8')
-  return createDataDir({
-    '_settings.TMP.jsonc': example('_settings.EUR.jsonc.example'),
-    '_overrides.TMP.jsonc': example('_overrides.EUR.jsonc.example'),
-  })
+  return createDataDir(exampleFiles())
 }
 
 const originalArgv = process.argv
@@ -49,7 +42,7 @@ describe('CLI app entry point', () => {
 
   it('runs a command end to end against the data folder', async () => {
     // The app awaits cli.parseAsync(), so the action has finished once the import resolves.
-    await runApp('invest', '1000', '--pt', 'TMP')
+    await runApp('invest', '1000', '--pt', 'example/eur')
 
     const [rows] = spies.table.mock.calls[0] as [{ Tick: string, Shares: number }[]]
     expect(rows.map(({ Tick, Shares }) => [Tick, Shares])).toEqual([['QDVE', 141], ['SPYD', 97]])
@@ -64,11 +57,21 @@ describe('CLI app entry point', () => {
     expect(process.exitCode).toBeUndefined()
   })
 
-  it('presents a missing portfolio as an error and sets exit code 1', async () => {
-    await runApp('show', '--pt', 'NOPE')
+  it('asks to choose a portfolio when there are several and none is given', async () => {
+    await runApp('show')
 
-    expect(printedLines(spies.error)).toHaveLength(1)
-    expect(printedLines(spies.error)[0]).toMatch(/^Error: .*NOPE/)
+    expect(printedLines(spies.error))
+      .toEqual(['Error: Choose a portfolio. Portfolios: example/egp, example/eur'])
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('presents a missing portfolio as an error and sets exit code 1', async () => {
+    await runApp('show', '--pt', 'example/nope')
+
+    expect(printedLines(spies.error)).toEqual([
+      `Error: Portfolio 'example/nope' not found in '${dataDir}'. `
+      + 'Portfolios: example/egp, example/eur',
+    ])
     expect(spies.table).not.toHaveBeenCalled()
     expect(process.exitCode).toBe(1)
   })

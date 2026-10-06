@@ -36,10 +36,10 @@ export class Investment {
 }
 
 export class GetPortfolioWithInvestmentUseCase extends PortfolioUseCase<InvestmentRequest> {
-  public async execute({ portfolioType, investment, buyOnly }: InvestmentRequest) {
+  public async execute({ portfolio: portfolioId, investment, buyOnly }: InvestmentRequest) {
     const request = new Investment(investment, buyOnly)
     const amount = new Decimal(request.amount)
-    const portfolio = await this.portfolioRepo.getPortfolio(portfolioType)
+    const portfolio = await this.portfolioRepo.getPortfolio(portfolioId)
 
     if (request.buyOnly) {
       portfolio.buyWithCash(amount)

@@ -37,10 +37,10 @@ export class PortfolioRepository implements IPortfolioRepository {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  public async getPortfolio(type: string): Promise<Portfolio> {
+  public async getPortfolio(portfolioId?: string): Promise<Portfolio> {
     let portfolio: Portfolio
     try {
-      portfolio = await this.loadPortfolio(type)
+      portfolio = await this.loadPortfolio(portfolioId)
     } catch (error) {
       // A browser that fails to close must not hide why the portfolio couldn't be loaded
       await Promise.allSettled(this.closeBrowsers())
@@ -56,14 +56,15 @@ export class PortfolioRepository implements IPortfolioRepository {
     return this.dataDrivers.prices.map((priceDD) => priceDD.closeBrowser())
   }
 
-  private async loadPortfolio(type: string): Promise<Portfolio> {
+  private async loadPortfolio(requestedId?: string): Promise<Portfolio> {
     const { settings, overrides: overridesDD, prices } = this.dataDrivers
 
+    const portfolioId = await settings.resolvePortfolioId(requestedId)
     const {
       brokerageFeeFlat, tradingFeePercentage, minimumTradingFeeFlat, cash, feeWarningPercentage,
       securities,
-    } = await settings.getPortfolioSettings(type)
-    const overrides = await overridesDD.getPortfolioOverrides(type)
+    } = await settings.getPortfolioSettings(portfolioId)
+    const overrides = await overridesDD.getPortfolioOverrides(portfolioId)
 
     // Only start the browsers when at least one price has to be scraped. They start together,
     // so a cold start costs the slowest launch, not the sum. If one fails, closing them waits

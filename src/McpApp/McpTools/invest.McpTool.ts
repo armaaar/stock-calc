@@ -23,9 +23,9 @@ export function registerInvestTool(
     },
     outputSchema: portfolioOutputSchema,
     annotations: portfolioToolAnnotations,
-  }, async ({ investment, buyOnly = false, portfolio: portfolioType }) => {
+  }, async ({ investment, buyOnly = false, portfolio: portfolioId }) => {
     try {
-      const portfolio = await invest.execute({ portfolioType, investment, buyOnly })
+      const portfolio = await invest.execute({ portfolio: portfolioId, investment, buyOnly })
       return PortfolioMcpPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       return ErrorMcpPresenter.present(e)

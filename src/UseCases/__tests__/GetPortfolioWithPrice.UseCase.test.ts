@@ -22,9 +22,9 @@ describe('GetPortfolioWithPriceUseCase', () => {
   })
 
   it('allocates a target value of 5000 to QDVE 70 / SPYD 48', async () => {
-    const portfolio = await useCase.execute({ portfolioType: 'EUR', targetPrice: 5000 })
+    const portfolio = await useCase.execute({ portfolio: 'ibkr/eur', targetPrice: 5000 })
 
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EUR')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('ibkr/eur')
     expect(portfolio.securities.map((sec) => [sec.tick, sec.shares]))
       .toEqual([['QDVE', 70], ['SPYD', 48]])
     expect(portfolio.securities.map((sec) => sec.initialShares)).toEqual([100, 100])
@@ -34,7 +34,7 @@ describe('GetPortfolioWithPriceUseCase', () => {
 
   it('never allocates more than the target value', async () => {
     // Rounding alone gives QDVE 2 / SPYD 2, worth 181.10
-    const portfolio = await useCase.execute({ portfolioType: 'EUR', targetPrice: 156 })
+    const portfolio = await useCase.execute({ portfolio: 'ibkr/eur', targetPrice: 156 })
 
     expect(portfolio.securities.map((sec) => sec.shares)).toEqual([2, 1])
     expect(portfolio.totalPrice.toNumber()).toBe(119)
@@ -46,9 +46,9 @@ describe('GetPortfolioWithPriceUseCase', () => {
       { ...SPYD, shares: 0 },
     ]))
 
-    const portfolio = await useCase.execute({ portfolioType: 'EGP', targetPrice: 5000 })
+    const portfolio = await useCase.execute({ portfolio: 'thndr/egp', targetPrice: 5000 })
 
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('thndr/egp')
     expect(portfolio.securities.map((sec) => sec.shares)).toEqual([70, 48])
     expect(portfolio.securities.map((sec) => sec.initialShares)).toEqual([1, 0])
   })
@@ -59,7 +59,7 @@ describe('GetPortfolioWithPriceUseCase', () => {
     ['NaN (a non-numeric CLI argument)', Number('abc')],
     ['Infinity', Infinity],
   ])('rejects %s without loading the portfolio', async (_, targetPrice) => {
-    const error = await useCase.execute({ portfolioType: 'EUR', targetPrice })
+    const error = await useCase.execute({ portfolio: 'ibkr/eur', targetPrice })
       .catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(ClassValidatorError)
@@ -70,7 +70,7 @@ describe('GetPortfolioWithPriceUseCase', () => {
   })
 
   it('accepts a tiny positive price', async () => {
-    const portfolio = await useCase.execute({ portfolioType: 'EUR', targetPrice: 0.01 })
+    const portfolio = await useCase.execute({ portfolio: 'ibkr/eur', targetPrice: 0.01 })
 
     expect(portfolio.securities.map((sec) => sec.shares)).toEqual([0, 0])
     expect(portfolio.totalTradedPrice.toNumber()).toBe(-9055)

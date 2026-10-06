@@ -123,7 +123,7 @@ A security's **drift** is `actualPercentage − targetPercentage`. The presenter
 
 ## Configuration (portfolio definition)
 
-The **Portfolio Configuration** context provides the input for building the aggregate. The file `src/data/_settings.<TYPE>.jsonc` is validated against `SettingsDto`:
+The **Portfolio Configuration** context provides the input for building the aggregate. The file `<broker>/<portfolio>.jsonc` is validated against `SettingsDto`, with the fee settings it leaves out taken from the broker's optional `_broker.jsonc` ([ADR-0027](../architecture/adr/0027-portfolios-grouped-by-broker.md)). Every fee part is optional; one set nowhere is 0:
 
 ```jsonc
 {

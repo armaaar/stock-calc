@@ -1,9 +1,10 @@
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import { IPortfolioRepository } from './IPortfolioRepository.type'
 
-/** Every request names the portfolio to load. */
+/** Every request may name the portfolio to load; without one, the only portfolio is used. */
 export interface PortfolioRequest {
-  portfolioType: string
+  /** `<broker>/<portfolio>`, e.g. `ibkr/eur`. */
+  portfolio?: string
 }
 
 /** What the interfaces call: one operation on a portfolio, returning the planned portfolio. */

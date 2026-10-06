@@ -14,9 +14,9 @@ export function registerShowTool(
     inputSchema: portfolioInput,
     outputSchema: portfolioOutputSchema,
     annotations: portfolioToolAnnotations,
-  }, async ({ portfolio: portfolioType }) => {
+  }, async ({ portfolio: portfolioId }) => {
     try {
-      const portfolio = await show.execute({ portfolioType })
+      const portfolio = await show.execute({ portfolio: portfolioId })
       return PortfolioMcpPresenter.present(portfolio, PresentMode.ONLY_INITIAL)
     } catch (e: unknown) {
       return ErrorMcpPresenter.present(e)

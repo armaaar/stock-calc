@@ -90,7 +90,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
       'rejects %s without loading the portfolio',
       async (_, acceptablePrecision, sharesStep, properties) => {
         const error = await useCase
-          .execute({ portfolioType: 'EUR', acceptablePrecision, sharesStep })
+          .execute({ portfolio: 'ibkr/eur', acceptablePrecision, sharesStep })
           .catch((e: unknown) => e)
 
         expectSearchValidationError(error, properties)
@@ -107,25 +107,25 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
 
   describe('execute', () => {
     it('finds QDVE 3 / SPYD 2 with the default precision', async () => {
-      const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+      const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
 
-      expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EUR')
+      expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('ibkr/eur')
       expect(sharesOf(portfolio)).toEqual([['QDVE', 3], ['SPYD', 2]])
       expect(portfolio.totalPrice.toNumber()).toBe(209.55)
       expect(portfolio.securities.map((sec) => sec.initialShares)).toEqual([100, 100])
     })
 
     it('finds QDVE 16 / SPYD 11 with precision 0.001', async () => {
-      const portfolio = await useCase.execute({ portfolioType: 'EGP', acceptablePrecision: 0.001 })
+      const portfolio = await useCase.execute({ portfolio: 'thndr/egp', acceptablePrecision: 0.001 })
 
-      expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+      expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('thndr/egp')
       expect(sharesOf(portfolio)).toEqual([['QDVE', 16], ['SPYD', 11]])
       expect(portfolio.totalPrice.toNumber()).toBe(1138.3)
     })
 
     it('keeps every share count a multiple of the shares step', async () => {
       const portfolio = await useCase.execute({
-        portfolioType: 'EUR', acceptablePrecision: 0.01, sharesStep: 5,
+        portfolio: 'ibkr/eur', acceptablePrecision: 0.01, sharesStep: 5,
       })
 
       expect(sharesOf(portfolio)).toEqual([['QDVE', 15], ['SPYD', 10]])
@@ -133,7 +133,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
     })
 
     it('uses the default precision when only the shares step is given', async () => {
-      const portfolio = await useCase.execute({ portfolioType: 'EUR', sharesStep: 5 })
+      const portfolio = await useCase.execute({ portfolio: 'ibkr/eur', sharesStep: 5 })
 
       expect(sharesOf(portfolio)).toEqual([['QDVE', 15], ['SPYD', 10]])
     })
@@ -147,7 +147,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
         },
       ]))
 
-      const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+      const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
 
       portfolio.securities.forEach((sec) => {
         const drift = sec.calcActualPercentage(portfolio.totalPrice).minus(sec.targetPercentage)
@@ -163,14 +163,14 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
         { ...SPYD, shares: 87 },
       ]))
 
-      const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+      const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
 
       expect(sharesOf(portfolio)).toEqual([['QDVE', 3], ['SPYD', 2]])
       expect(portfolio.securities.map((sec) => sec.initialShares)).toEqual([127, 87])
     })
 
     it('starts from one shares step with precision 1', async () => {
-      const portfolio = await useCase.execute({ portfolioType: 'EUR', acceptablePrecision: 1 })
+      const portfolio = await useCase.execute({ portfolio: 'ibkr/eur', acceptablePrecision: 1 })
 
       expect(sharesOf(portfolio)).toEqual([['QDVE', 1], ['SPYD', 1]])
     })
@@ -184,7 +184,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
         SPYD,
       ]))
 
-      const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+      const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
 
       expect(sharesOf(portfolio)).toEqual([['ZERO', 0], ['QDVE', 3], ['SPYD', 2]])
     })
@@ -198,7 +198,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
         SPYD,
       ]))
 
-      const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+      const portfolio = await useCase.execute({ portfolio: 'ibkr/eur' })
 
       expect(sharesOf(portfolio)).toEqual([['QDVE', 3], ['FREE', 0], ['SPYD', 2]])
     })
@@ -211,7 +211,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
       })
       repo.getPortfolio.mockResolvedValueOnce(loaded)
 
-      await expect(useCase.execute({ portfolioType: 'EUR' }))
+      await expect(useCase.execute({ portfolio: 'ibkr/eur' }))
         .rejects.toThrow('Portfolio has no security with a target percentage above 0')
     })
 
@@ -221,16 +221,16 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
       }
       const capped = new CappedUseCase(repo)
 
-      await expect(capped.execute({ portfolioType: 'EUR' }))
+      await expect(capped.execute({ portfolio: 'ibkr/eur' }))
         .rejects.toThrow('No portfolio within precision 0.01 found in 2 iterations')
       // The default precision needs a third step (QDVE 3 / SPYD 2); 0.1 is met at QDVE 1 / SPYD 1
-      const portfolio = await capped.execute({ portfolioType: 'EUR', acceptablePrecision: 0.1 })
+      const portfolio = await capped.execute({ portfolio: 'ibkr/eur', acceptablePrecision: 0.1 })
       expect(sharesOf(portfolio)).toEqual([['QDVE', 1], ['SPYD', 1]])
     })
 
     it('keeps no state between executions on the same instance', async () => {
-      const coarse = await useCase.execute({ portfolioType: 'EUR', sharesStep: 5 })
-      const fine = await useCase.execute({ portfolioType: 'EUR' })
+      const coarse = await useCase.execute({ portfolio: 'ibkr/eur', sharesStep: 5 })
+      const fine = await useCase.execute({ portfolio: 'ibkr/eur' })
 
       expect(sharesOf(coarse)).toEqual([['QDVE', 15], ['SPYD', 10]])
       expect(sharesOf(fine)).toEqual([['QDVE', 3], ['SPYD', 2]])

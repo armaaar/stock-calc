@@ -11,7 +11,7 @@ Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/Data
 | **Security identity** (lookup request) | `SettingsSecurityDto`: `tick`, `exchange`, `isin?` (plus `shares` and `targetPercentage`, which drivers ignore) | Each source uses a different part of the identity. |
 | **Price quote** | `SecurityPriceDto`: `{ price: number, currency: string }` from a source; in the core, the `PriceQuote` value object (price, currency, `source`, `quotedAt`) | The repository adds the source's `name` and the time it was quoted ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md)). |
 | **Price source** | `IPriceDataDriver`: a `name` and `getPrice(identity) → Promise<SecurityPriceDto>` | Rejects when the source can't price the security. |
-| **Price override** | `Record<tick, { price, currency, asOf? }>` from `_overrides.<TYPE>.jsonc` | Per portfolio type. Optional file. Sourced `override`, dated by `asOf` (`YYYY-MM-DD`) when given. |
+| **Price override** | `Record<tick, { price, currency, asOf? }>` from `<broker>/<portfolio>.overrides.jsonc` | Per portfolio. Optional file. Sourced `override`, dated by `asOf` (`YYYY-MM-DD`) when given. |
 
 ## Sources
 

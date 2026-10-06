@@ -1,11 +1,13 @@
-import fs from 'fs'
 import path from 'path'
 import { describe, expect, it } from 'vitest'
 import { EUR_OVERRIDES, EUR_SETTINGS, withoutIsin } from '#src/__fixtures__/dataFiles'
 import {
-  OverridesSchema, parseDataFile, SecurityPriceSchema, SettingsSchema, SettingsSecuritySchema,
+  BrokerSchema, OverridesSchema, parseDataFile, SecurityPriceSchema, SettingsSchema,
+  SettingsSecuritySchema,
 } from '../DataFiles.schema'
-import { parseJsonc } from '../DataFiles.reader'
+import { listPortfolioIds } from '../DataFiles.reader'
+import { OverridesDataDriver } from '../Overrides.DataDriver'
+import { SettingsDataDriver } from '../Settings.DataDriver'
 
 const FILE = '/data/_settings.TEST.jsonc'
 
@@ -30,14 +32,16 @@ describe('parseDataFile', () => {
   it('reports every invalid field', () => {
     let message = ''
     try {
-      parseDataFile(SettingsSchema, { securities: 'none' }, FILE)
+      parseDataFile(SettingsSchema, {
+        brokerageFeeFlat: '1', tradingFeePercentage: 2, cash: -1, securities: 'none',
+      }, FILE)
     } catch (e) {
       message = (e as Error).message
     }
 
     expect(message).toContain('brokerageFeeFlat')
     expect(message).toContain('tradingFeePercentage')
-    expect(message).toContain('minimumTradingFeeFlat')
+    expect(message).toContain('cash')
     expect(message).toContain('securities')
   })
 
@@ -139,6 +143,10 @@ describe('SettingsSecuritySchema', () => {
 })
 
 describe('SettingsSchema', () => {
+  it('needs only the securities: every fee part is optional', () => {
+    expect(SettingsSchema.parse({ securities: [] })).toEqual({ securities: [] })
+  })
+
   it.each([
     ['brokerageFeeFlat', -1],
     ['minimumTradingFeeFlat', -0.01],
@@ -258,38 +266,64 @@ describe('OverridesSchema', () => {
   })
 })
 
+describe('BrokerSchema', () => {
+  it('accepts an empty object: every shared setting is optional', () => {
+    expect(BrokerSchema.parse({})).toEqual({})
+  })
+
+  it('accepts the fee parts and the fee warning percentage', () => {
+    const broker = {
+      brokerageFeeFlat: 1,
+      tradingFeePercentage: 0.001,
+      minimumTradingFeeFlat: 2,
+      feeWarningPercentage: 0.02,
+    }
+
+    expect(BrokerSchema.parse(broker)).toEqual(broker)
+  })
+
+  it.each([
+    ['brokerageFeeFlat', -1],
+    ['tradingFeePercentage', 1.5],
+    ['feeWarningPercentage', -0.1],
+  ])('rejects %s = %j', (field, value) => {
+    const result = BrokerSchema.safeParse({ [field]: value })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual([field])
+  })
+
+  it.each(['cash', 'securities', 'brokerageFee'])(
+    'rejects %s, which belongs to a portfolio or is misspelled',
+    (key) => {
+      expect(BrokerSchema.safeParse({ [key]: 1 }).success).toBe(false)
+    },
+  )
+})
+
 describe('tracked example data files', () => {
   const dataDir = path.resolve(import.meta.dirname, '../../data')
-  // parseJsonc also rejects JSONC syntax errors, like the data drivers do
-  const read = (name: string) => parseJsonc(
-    fs.readFileSync(path.join(dataDir, name)).toString(),
-    name,
-  )
+  const settings = new SettingsDataDriver(dataDir)
+  const overrides = new OverridesDataDriver(dataDir)
 
-  it('_settings.EUR.jsonc.example matches SettingsSchema', () => {
-    const file = '_settings.EUR.jsonc.example'
-
-    expect(parseDataFile(SettingsSchema, read(file), file)).toEqual(EUR_SETTINGS)
+  it('are the example broker, read through the data drivers', () => {
+    expect(listPortfolioIds(dataDir).filter((id) => id.startsWith('example/')))
+      .toEqual(['example/egp', 'example/eur'])
   })
 
-  it('_overrides.EUR.jsonc.example matches OverridesSchema', () => {
-    const file = '_overrides.EUR.jsonc.example'
-
-    expect(parseDataFile(OverridesSchema, read(file), file)).toEqual(EUR_OVERRIDES)
+  it('example/eur is the example portfolio, with its fees from the broker file', async () => {
+    await expect(settings.getPortfolioSettings('example/eur')).resolves.toEqual(EUR_SETTINGS)
+    await expect(overrides.getPortfolioOverrides('example/eur')).resolves.toEqual(EUR_OVERRIDES)
   })
 
-  it('_settings.EGP.jsonc.example matches SettingsSchema', () => {
-    const file = '_settings.EGP.jsonc.example'
+  it('example/egp sets its own fees, a per-security fee, and dated overrides', async () => {
+    const egp = await settings.getPortfolioSettings('example/egp')
 
-    const settings = parseDataFile(SettingsSchema, read(file), file)
-
-    // It also shows a per-security fee override
-    expect(settings.securities.map((sec) => sec.minimumTradingFeeFlat)).toEqual([undefined, 5])
-  })
-
-  it('_overrides.EGP.jsonc.example matches OverridesSchema', () => {
-    const file = '_overrides.EGP.jsonc.example'
-
-    expect(() => parseDataFile(OverridesSchema, read(file), file)).not.toThrow()
+    expect(egp.brokerageFeeFlat).toBe(2)
+    expect(egp.securities.map((sec) => sec.minimumTradingFeeFlat)).toEqual([undefined, 5])
+    // Every security is overridden, so the example runs offline
+    const prices = await overrides.getPortfolioOverrides('example/egp')
+    expect(Object.keys(prices)).toEqual(egp.securities.map((sec) => sec.tick))
+    expect(prices.ESRS.asOf).toBe('2026-10-01')
   })
 })

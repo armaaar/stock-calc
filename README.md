@@ -13,18 +13,31 @@ npx puppeteer browsers install chrome   # only if npm install didn't download Ch
 
 ## Portfolio
 
-The tool allows multiple portfolios to be chosen from. Portfolios are supplied in JSON format. It uses `.jsonc` extension to allow comments.
+Portfolios live in the data folder (`src/data`, or `STOCK_CALC_DATA_DIR`), in a folder per broker. A broker is just a folder name, so any broker works, and a broker can hold several portfolios:
 
-To create a new portfolio, create a portfolio file under `src/data` named `_settings.<portfolio_name>.jsonc`. Portfolio names may only contain letters, digits, `_` and `-`.
+```
+src/data/
+  ibkr/
+    _broker.jsonc          optional: fees every IBKR portfolio shares
+    eur.jsonc              the portfolio ibkr/eur
+    eur.overrides.jsonc    optional: price overrides for ibkr/eur
+    growth.jsonc           the portfolio ibkr/growth
+  thndr/
+    egp.jsonc              the portfolio thndr/egp
+```
 
-A portfolio object contains:
+To create a portfolio, create `src/data/<broker>/<portfolio>.jsonc`, and select it with `--pt <broker>/<portfolio>` (for example `--pt ibkr/eur`). Broker and portfolio names may contain letters, digits, `_` and `-`, and start with a letter or digit. With only one portfolio in the data folder, `--pt` can be left out. The files use the `.jsonc` extension, so comments are allowed. `src/data/example/` is a complete example (`--pt example/eur` runs offline, since every price in it is overridden); your own folders are git-ignored.
 
-- `brokerageFeeFlat`: A flat amount of money the brokerage takes on each order. It's added to each order no matter what the value is.
-- `tradingFeePercentage`: The trading fee is taken as a percentage of the total order value, for buys and sells alike.
-- `minimumTradingFeeFlat`: The minimum amount of trading fee that is taken.
-- `cash`: (Optional) Uninvested cash you hold with the portfolio, in its currency (default 0). `rebalance` and `invest` spend it too.
-- `feeWarningPercentage`: (Optional) Plans warn about each order whose fee is more than this fraction of the order's value (default `0.01`, so 1%). Small orders with a flat fee are the usual culprits.
+A portfolio file contains:
+
 - `securities`: A list of securities in a portfolio.
+- `cash`: (Optional) Uninvested cash you hold with the portfolio, in its currency (default 0). `rebalance` and `invest` spend it too. Cash a broker account holds for several portfolios is split by hand: give each portfolio the part it may use.
+- `brokerageFeeFlat`: (Optional) A flat amount of money the brokerage takes on each order. It's added to each order no matter what the value is.
+- `tradingFeePercentage`: (Optional) The trading fee is taken as a percentage of the total order value, for buys and sells alike.
+- `minimumTradingFeeFlat`: (Optional) The minimum amount of trading fee that is taken.
+- `feeWarningPercentage`: (Optional) Plans warn about each order whose fee is more than this fraction of the order's value (default `0.01`, so 1%). Small orders with a flat fee are the usual culprits.
+
+`<broker>/_broker.jsonc` (optional) holds the fee settings (`brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`, `feeWarningPercentage`) that the broker's portfolios share. Each fee part is taken from the most specific place that sets it: the security, then the portfolio, then the broker. A part set nowhere is 0.
 
 The `securities` list consists of security objects, which contains:
 
@@ -33,13 +46,13 @@ The `securities` list consists of security objects, which contains:
 - `shares`: The number of shares the portfolio have of this security.
 - `targetPercentage`: The percentage this security contributes to in the portfolio. Must be 1 or less.
 - `isin`: (Optional) An [International Securities Identification Number (ISIN)](https://en.wikipedia.org/wiki/International_Securities_Identification_Number) is a 12-digit alphanumeric code that uniquely identifies a specific security. Can be used to find the security.
-- `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`: (Optional) This security's own fees, for a broker that charges this listing differently. Each one you leave out uses the portfolio's value. Fees are amounts in the portfolio's currency, so convert a fee quoted in another currency by hand (for example 4 USD ≈ 3.56 EUR). A portfolio has one currency: give a security listed in another currency a [price override](#price-overrides) in the portfolio's currency.
+- `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`: (Optional) This security's own fees, for a broker that charges this listing differently. Fees are amounts in the portfolio's currency, so convert a fee quoted in another currency by hand (for example 4 USD ≈ 3.56 EUR). A portfolio has one currency: give a security listed in another currency a [price override](#price-overrides) in the portfolio's currency.
 
 The price of each security is fetched automatically from public records using either the combination of the tick and exchange, or using the isin if available.
 
 ### Price overrides
 
-To skip fetching for some securities (for example, when no source lists them), create `src/data/_overrides.<portfolio_name>.jsonc`, keyed by tick:
+To skip fetching for some securities (for example, when no source lists them), create `<broker>/<portfolio>.overrides.jsonc` next to the portfolio, keyed by tick:
 
 ```jsonc
 {
@@ -47,7 +60,7 @@ To skip fetching for some securities (for example, when no source lists them), c
 }
 ```
 
-The override currency must match the rest of the portfolio. Add `"asOf": "YYYY-MM-DD"` to record when you looked the price up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), so a stale override is easy to spot. See `src/data/*.jsonc.example` for templates.
+The override currency must match the rest of the portfolio. Add `"asOf": "YYYY-MM-DD"` to record when you looked the price up. Plans show each price's source and time in the `Quote` column (`override`, `justetf.com`, `tradingview.com`), so a stale override is easy to spot. See `src/data/example/` for templates.
 
 When both sites can price a security, justetf.com's price is used, so the same portfolio always gets the same prices.
 
@@ -65,7 +78,7 @@ npm run cli -- <command> [options]
 
 This is a list of global options available in all operations
 
-- `--pt, --portfolio <type>`: the portfolio to use (default: "EUR")
+- `--pt, --portfolio <broker/portfolio>`: the portfolio to use, for example `ibkr/eur` (default: the only portfolio in the data folder; with several, the error lists them)
 - `-h, --help`: display help for command
 
 ### Show Portfolio
@@ -129,9 +142,9 @@ npm run cli:rebalance -- [options]
 
 ## MCP server
 
-The same operations are available as [Model Context Protocol](https://modelcontextprotocol.io) tools: `show`, `minimal`, `target`, `invest` and `rebalance`. Each tool takes a `portfolio` input (default `"EUR"`) plus the same arguments as its CLI command (`precision`, `sharesStep`, `price`, `investment`, `buyOnly`), and returns structured JSON.
+The same operations are available as [Model Context Protocol](https://modelcontextprotocol.io) tools: `show`, `minimal`, `target`, `invest` and `rebalance`. Each tool takes an optional `portfolio` input (`<broker>/<portfolio>`, for example `"ibkr/eur"`; it can be left out when there's only one portfolio) plus the same arguments as its CLI command (`precision`, `sharesStep`, `price`, `investment`, `buyOnly`), and returns structured JSON.
 
-The server reads your portfolios from the folder named by the `STOCK_CALC_DATA_DIR` environment variable (a leading `~` means your home folder). Put your `_settings.<portfolio_name>.jsonc` and optional `_overrides.<portfolio_name>.jsonc` files there; see [Portfolio](#portfolio) for the format. If it isn't set, the server uses `src/data` in its own folder.
+The server reads your portfolios from the folder named by the `STOCK_CALC_DATA_DIR` environment variable (a leading `~` means your home folder). Put your broker folders there; see [Portfolio](#portfolio) for the layout and format. If it isn't set, the server uses `src/data` in its own folder.
 
 You need Node 22 (or newer) and git. The first start takes a while, because npm installs the server and Puppeteer downloads Chrome.
 

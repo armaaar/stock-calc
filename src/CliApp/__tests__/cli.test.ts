@@ -45,12 +45,12 @@ describe('CLI program', () => {
   })
 
   it.each([
-    [['show'], 'show', { portfolioType: 'EUR' }],
-    [['rebalance', '--pt', 'EGP'], 'rebalance', { portfolioType: 'EGP' }],
-    [['invest', '1000'], 'invest', { portfolioType: 'EUR', investment: 1000, buyOnly: false }],
-    [['target', '5000', '--portfolio', 'EGP'], 'target', { portfolioType: 'EGP', targetPrice: 5000 }],
+    [['show'], 'show', {}],
+    [['rebalance', '--pt', 'thndr/egp'], 'rebalance', { portfolio: 'thndr/egp' }],
+    [['invest', '1000'], 'invest', { investment: 1000, buyOnly: false }],
+    [['target', '5000', '--portfolio', 'thndr/egp'], 'target', { portfolio: 'thndr/egp', targetPrice: 5000 }],
     [['minimal', '-p', '0.001'], 'minimal', {
-      portfolioType: 'EUR', acceptablePrecision: 0.001, sharesStep: 1,
+      acceptablePrecision: 0.001, sharesStep: 1,
     }],
   ] as const)('dispatches %j to its use case', async (args, name, request) => {
     await run(...args)
@@ -65,7 +65,7 @@ describe('CLI program', () => {
     await run('invest', '-100')
 
     expect(useCases.invest.execute)
-      .toHaveBeenCalledWith({ portfolioType: 'EUR', investment: -100, buyOnly: false })
+      .toHaveBeenCalledWith({ investment: -100, buyOnly: false })
   })
 
   it('presents errors from the use case and sets exit code 1 without exiting early', async () => {
@@ -109,14 +109,15 @@ describe('CLI program', () => {
     expect(useCases.minimal.execute).not.toHaveBeenCalled()
   })
 
-  it('exits with a usage error for an invalid portfolio name', async () => {
+  it('exits with a usage error for an invalid portfolio id', async () => {
     const io = interceptExit()
 
-    await expect(run('show', '--pt', '../EUR')).rejects.toThrow('process.exit(1)')
+    await expect(run('show', '--pt', 'ibkr/../eur')).rejects.toThrow('process.exit(1)')
 
     expect(io.stderr()).toBe(
-      'error: option \'--pt, --portfolio <type>\' argument \'../EUR\' is invalid. '
-      + 'Use letters, digits, \'_\' or \'-\'.\n',
+      'error: option \'--pt, --portfolio <broker/portfolio>\' argument \'ibkr/../eur\' is invalid. '
+      + 'Invalid portfolio: use <broker>/<portfolio>, each made of letters, digits, \'_\' or \'-\' '
+      + 'and starting with a letter or digit.\n',
     )
     expect(useCases.show.execute).not.toHaveBeenCalled()
   })

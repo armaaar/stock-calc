@@ -52,10 +52,10 @@ describe('MCP server', () => {
     }
   })
 
-  it('show: returns current holdings for the default EUR portfolio', async () => {
+  it('show: returns current holdings, leaving the portfolio to the repository when not given', async () => {
     const { result, output } = await callTool('show')
 
-    expect(repo.getPortfolio).toHaveBeenCalledWith('EUR')
+    expect(repo.getPortfolio).toHaveBeenCalledWith(undefined)
     expect(result.isError).toBeFalsy()
     expect(output).toMatchObject({ currency: 'EUR', portfolioPrice: 9055 })
     expect(output.securities.map(({ tick, shares, percent }) => ({ tick, shares, percent })))
@@ -67,9 +67,9 @@ describe('MCP server', () => {
   })
 
   it('rebalance: returns proposed holdings with trades and fees', async () => {
-    const { output } = await callTool('rebalance', { portfolio: 'EGP' })
+    const { output } = await callTool('rebalance', { portfolio: 'thndr/egp' })
 
-    expect(repo.getPortfolio).toHaveBeenCalledWith('EGP')
+    expect(repo.getPortfolio).toHaveBeenCalledWith('thndr/egp')
     expect(output).toMatchObject({ portfolioPrice: 9015.85, tradedPrice: -39.15, tradingFee: 2 })
     expect(holdings(output.securities)).toEqual([
       { tick: 'QDVE', shares: 127, tradedShares: 27 },
@@ -162,7 +162,9 @@ describe('MCP server', () => {
     ['minimal', { sharesStep: 0 }],
     ['minimal', { sharesStep: 1.5 }],
     ['show', { portfolio: '' }],
-    ['rebalance', { portfolio: 'EUR.old' }],
+    ['rebalance', { portfolio: 'EUR' }],
+    ['rebalance', { portfolio: 'ibkr/eur.old' }],
+    ['rebalance', { portfolio: 'ibkr/_broker' }],
   ])('%s: rejects invalid input %j before running the use case', async (name, args) => {
     const { result } = await callTool(name, args)
 
@@ -172,13 +174,15 @@ describe('MCP server', () => {
   })
 
   it.each(['show', 'rebalance', 'minimal', 'target', 'invest'])(
-    '%s: rejects a portfolio name that could leave the data folder',
+    '%s: rejects a portfolio id that could leave the data folder',
     async (name) => {
-      const { result } = await callTool(name, { portfolio: '../EUR', price: 1, investment: 1 })
+      const { result } = await callTool(name, { portfolio: 'ibkr/../eur', price: 1, investment: 1 })
 
       expect(result.isError).toBe(true)
-      expect((result.content as { text: string }[])[0].text)
-        .toContain('Invalid portfolio name: use letters, digits, \'_\' or \'-\'')
+      expect((result.content as { text: string }[])[0].text).toContain(
+        'Invalid portfolio: use <broker>/<portfolio>, each made of letters, digits, \'_\' or \'-\' '
+        + 'and starting with a letter or digit',
+      )
       expect(repo.getPortfolio).not.toHaveBeenCalled()
     },
   )
@@ -195,17 +199,20 @@ describe('MCP server', () => {
     expect(schema('target').price).toMatchObject({ type: 'number', exclusiveMinimum: 0 })
     expect(schema('invest').investment).toMatchObject({ type: 'number' })
     expect(schema('show').portfolio).toMatchObject({
-      type: 'string', pattern: '^[A-Za-z0-9_-]+$', default: 'EUR',
+      type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_-]*\\/[A-Za-z0-9][A-Za-z0-9_-]*$',
     })
+    expect(schema('show').portfolio).not.toHaveProperty('default')
+    expect(tools.every((tool) => !tool.inputSchema.required?.includes('portfolio'))).toBe(true)
   })
 
   it.each(['show', 'rebalance', 'minimal'])('%s: returns domain errors as tool errors', async (name) => {
-    repo.getPortfolio.mockRejectedValue(Error('Portfolio \'NOPE\' not found'))
+    repo.getPortfolio.mockRejectedValue(Error('Portfolio \'ibkr/nope\' not found'))
 
-    const { result } = await callTool(name, { portfolio: 'NOPE' })
+    const { result } = await callTool(name, { portfolio: 'ibkr/nope' })
 
     expect(result.isError).toBe(true)
-    expect(result.content).toEqual([{ type: 'text', text: 'Error: Portfolio \'NOPE\' not found' }])
+    expect(result.content)
+      .toEqual([{ type: 'text', text: 'Error: Portfolio \'ibkr/nope\' not found' }])
   })
 
   it.each([

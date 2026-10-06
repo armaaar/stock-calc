@@ -7,8 +7,8 @@ import { PortfolioRequest, PortfolioUseCase } from '../PortfolioUseCase.abstract
 
 /** The smallest concrete use case: loads the requested portfolio and exposes the repository. */
 class ProbeUseCase extends PortfolioUseCase {
-  public async execute({ portfolioType }: PortfolioRequest) {
-    return this.portfolioRepo.getPortfolio(portfolioType)
+  public async execute({ portfolio }: PortfolioRequest) {
+    return this.portfolioRepo.getPortfolio(portfolio)
   }
 
   public get repo() {
@@ -44,14 +44,14 @@ describe('PortfolioUseCase', () => {
     const loaded = buildPortfolio()
     repo.getPortfolio.mockResolvedValueOnce(loaded)
 
-    await expect(new ProbeUseCase(repo).execute({ portfolioType: 'EGP' })).resolves.toBe(loaded)
-    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+    await expect(new ProbeUseCase(repo).execute({ portfolio: 'thndr/egp' })).resolves.toBe(loaded)
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('thndr/egp')
   })
 
   it('propagates repository errors', async () => {
     repo.getPortfolio.mockRejectedValueOnce(new Error('no settings'))
 
-    await expect(new ProbeUseCase(repo).execute({ portfolioType: 'NOPE' }))
+    await expect(new ProbeUseCase(repo).execute({ portfolio: 'NOPE' }))
       .rejects.toThrow('no settings')
     expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('NOPE')
   })
