@@ -250,6 +250,176 @@ describe('Portfolio', () => {
     })
   })
 
+  describe('cash', () => {
+    it('holds no cash and plans no deposit by default', () => {
+      const portfolio = buildPortfolio()
+
+      expect(portfolio.cash.toNumber()).toBe(0)
+      expect(portfolio.deposit.toNumber()).toBe(0)
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
+    })
+
+    it('keeps the cash it holds', () => {
+      expect(buildPortfolio(undefined, 250.5).cash.toNumber()).toBe(250.5)
+    })
+
+    it.each([-0.01, NaN, Infinity])('rejects %d cash as a ClassValidatorError', (cash) => {
+      let error: unknown
+      try {
+        buildPortfolio(undefined, cash)
+      } catch (e) {
+        error = e
+      }
+
+      expect(error).toBeInstanceOf(ClassValidatorError)
+      expect((error as ClassValidatorError).errors.map((e) => e.property)).toEqual(['cashValue'])
+    })
+
+    it('counts cash held + deposit - net traded - fees as the cash after trades', () => {
+      const portfolio = buildPortfolio(undefined, 100)
+      portfolio.securities[0].shares = 110 // buy 10 QDVE: 284.5, fee 1
+
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(100 - 284.5 - 1)
+    })
+  })
+
+  describe('allocateCash', () => {
+    it('rebalances the example portfolio with no deposit to QDVE 127 / SPYD 87', () => {
+      const portfolio = buildPortfolio()
+
+      portfolio.allocateCash(new Decimal(0))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 127, SPYD: 87 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(37.15)
+    })
+
+    it('invests 1000 in the example portfolio as QDVE 141 / SPYD 97, leaving 17.85', () => {
+      const portfolio = buildPortfolio()
+
+      portfolio.allocateCash(new Decimal(1000))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 141, SPYD: 97 })
+      expect(portfolio.deposit.toNumber()).toBe(1000)
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(17.85)
+    })
+
+    it('invests the cash held as well as the deposit', () => {
+      const portfolio = buildPortfolio(undefined, 500)
+
+      portfolio.allocateCash(new Decimal(0))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 134, SPYD: 92 })
+      expect(portfolio.totalTradedPrice.toNumber()).toBe(470.5)
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(27.5)
+    })
+
+    it('cancels buys when rounding and fees would need more than the deposit', () => {
+      // Rounding alone gives QDVE 127 / SPYD 88: 24.95 needed for a deposit of 2
+      const naive = buildPortfolio()
+      naive.balanceForPrice(naive.initialTotalPrice.plus(2))
+      expect(naive.totalTradedPrice.plus(naive.totalTradingFee).toNumber()).toBe(24.95)
+
+      const portfolio = buildPortfolio()
+      portfolio.allocateCash(new Decimal(2))
+
+      // One QDVE buy fewer; SPYD (sold) is untouched while there are buys to cancel
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 126, SPYD: 88 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(5.5)
+    })
+
+    it('cancels only as many buys as needed', () => {
+      const portfolio = buildPortfolio()
+
+      portfolio.allocateCash(new Decimal(25))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 127, SPYD: 88 })
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(0.05)
+    })
+
+    it('never needs more cash than it was given, for any deposit', () => {
+      for (let deposit = 0; deposit <= 300; deposit += 1) {
+        const portfolio = buildPortfolio()
+        portfolio.allocateCash(new Decimal(deposit))
+        expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+      }
+    })
+
+    it('sells more when cancelling buys is not enough to cover a withdrawal and its fees', () => {
+      // 10 x 10 held, flat fee 5. Withdrawing 50 by selling 5 raises only 45 after the fee.
+      const portfolio = new Portfolio({
+        securities: [security({ price: 10, shares: 10, targetPercentage: 1, brokerageFeeFlat: 5 })],
+      })
+
+      portfolio.allocateCash(new Decimal(-50))
+
+      expect(portfolio.securities[0].shares).toBe(4)
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(5)
+    })
+
+    it('sells everything and reports the shortfall when even that is not enough', () => {
+      const portfolio = buildPortfolio()
+
+      portfolio.allocateCash(new Decimal(-9055))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 0, SPYD: 0 })
+      // Selling everything raises 9055 but costs 2 in fees
+      expect(portfolio.cashAfterTrades.toNumber()).toBe(-2)
+    })
+
+    it('rejects a withdrawal larger than the holdings and the cash held together', () => {
+      const portfolio = buildPortfolio(undefined, 45)
+
+      expect(() => portfolio.allocateCash(new Decimal(-9100.01)))
+        .toThrow('Cannot withdraw 9100.01: more than the portfolio value (9100)')
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 100, SPYD: 100 })
+      expect(portfolio.deposit.toNumber()).toBe(0)
+    })
+
+    it.each([NaN, Infinity, -Infinity])('rejects the deposit %d', (deposit) => {
+      const portfolio = buildPortfolio()
+
+      expect(() => portfolio.allocateCash(new Decimal(deposit)))
+        .toThrow(`Deposit must be a finite number (${deposit})`)
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 100, SPYD: 100 })
+    })
+  })
+
+  describe('allocateValue', () => {
+    it('allocates a target value of 5000 to QDVE 70 / SPYD 48', () => {
+      const portfolio = buildPortfolio()
+
+      portfolio.allocateValue(new Decimal(5000))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 70, SPYD: 48 })
+    })
+
+    it('trims the most overweight security when rounding goes above the value', () => {
+      // Rounding alone gives QDVE 2 / SPYD 2, worth 181.10, for a value of 156
+      const portfolio = buildPortfolio()
+
+      portfolio.allocateValue(new Decimal(156))
+
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 2, SPYD: 1 })
+      expect(portfolio.totalPrice.toNumber()).toBe(119)
+    })
+
+    it('never goes above the value, for any value', () => {
+      for (let value = 1; value <= 2000; value += 13) {
+        const portfolio = buildPortfolio()
+        portfolio.allocateValue(new Decimal(value))
+        expect(portfolio.totalPrice.lessThanOrEqualTo(value)).toBe(true)
+      }
+    })
+
+    it('rejects an invalid value without changing any shares', () => {
+      const portfolio = buildPortfolio()
+
+      expect(() => portfolio.allocateValue(new Decimal(-1)))
+        .toThrow('Portfolio price must be a finite number of at least 0 (-1)')
+      expect(sharesOf(portfolio)).toEqual({ QDVE: 100, SPYD: 100 })
+    })
+  })
+
   describe('clone', () => {
     it('produces an equal but independent deep copy', () => {
       const portfolio = buildPortfolio()
@@ -264,6 +434,17 @@ describe('Portfolio', () => {
 
       copy.securities[0].shares = 1
       expect(portfolio.securities[0].shares).toBe(127)
+    })
+
+    it('copies the cash held and the planned deposit', () => {
+      const portfolio = buildPortfolio(undefined, 12.5)
+      portfolio.allocateCash(new Decimal(1000))
+
+      const copy = portfolio.clone()
+
+      expect(copy.cash.toNumber()).toBe(12.5)
+      expect(copy.deposit.toNumber()).toBe(1000)
+      expect(copy.cashAfterTrades.toNumber()).toBe(portfolio.cashAfterTrades.toNumber())
     })
 
     it('re-validates through the constructors', () => {

@@ -79,7 +79,9 @@ describe('MCP server', () => {
   it('invest: balances for the current value plus the investment', async () => {
     const { output } = await callTool('invest', { investment: 1000 })
 
-    expect(output).toMatchObject({ portfolioPrice: 10035.15, tradedPrice: 980.15 })
+    expect(output).toMatchObject({
+      portfolioPrice: 10035.15, tradedPrice: 980.15, cashAfterTrades: 17.85,
+    })
     expect(holdings(output.securities)).toEqual([
       { tick: 'QDVE', shares: 141, tradedShares: 41 },
       { tick: 'SPYD', shares: 97, tradedShares: -3 },

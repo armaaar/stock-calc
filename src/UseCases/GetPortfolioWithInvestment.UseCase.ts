@@ -25,13 +25,7 @@ export class GetPortfolioWithInvestmentUseCase extends PortfolioUseCase<Investme
     const amount = new Decimal(new Investment(investment).amount)
     const portfolio = await this.portfolioRepo.getPortfolio(portfolioType)
 
-    const newTargetPrice = portfolio.totalPrice.add(amount)
-    if (newTargetPrice.lessThan(0)) {
-      throw Error(
-        `Cannot withdraw ${amount.negated()}: more than the portfolio value (${portfolio.totalPrice})`,
-      )
-    }
-    portfolio.balanceForPrice(newTargetPrice)
+    portfolio.allocateCash(amount)
 
     return portfolio
   }

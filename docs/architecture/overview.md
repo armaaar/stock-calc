@@ -100,11 +100,11 @@ sequenceDiagram
   R->>E: new Portfolio({ securities }) (validates invariants)
   R->>P: closeBrowser() (finally)
   R-->>UC: Portfolio
-  UC->>E: balanceForPrice(totalPrice)
+  UC->>E: allocateCash(0)
   UC-->>C: Portfolio (shares mutated, initialShares kept)
   C->>V: present(portfolio, WITH_DELTA)
   V->>V: toPortfolioView(portfolio, WITH_DELTA)
-  V-->>U: table + trading fee / traded price / portfolio price
+  V-->>U: table + trading fee / traded price / portfolio price / cash after trades
 ```
 
 Over MCP, the client calls the `rebalance` tool with `{ "portfolio": "EUR" }`. The SDK validates the input against the tool's zod schema, and `PortfolioMcpPresenter` returns the same `PortfolioView` the CLI renders as `structuredContent` (plus the same JSON as text) instead of printing a table.

@@ -1,6 +1,7 @@
 import {
   beforeEach, describe, expect, it,
 } from 'vitest'
+import { buildPortfolio } from '#src/__fixtures__/portfolio'
 import { FakePortfolioRepository, fakePortfolioRepository } from '#src/__fixtures__/repository'
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
@@ -41,6 +42,25 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
     expect(portfolio.totalTradedPrice.toNumber()).toBe(980.15)
     expect(portfolio.totalTradingFee.toNumber()).toBe(2)
     expect(portfolio.totalPrice.toNumber()).toBe(10035.15)
+    expect(portfolio.cashAfterTrades.toNumber()).toBe(17.85)
+  })
+
+  it('never plans to spend more than the investment, fees included', async () => {
+    // Rounding alone would buy one more QDVE and need 24.95
+    const portfolio = await invest(2)
+
+    expect(sharesOf(portfolio)).toEqual([['QDVE', 126], ['SPYD', 88]])
+    expect(portfolio.cashAfterTrades.toNumber()).toBe(5.5)
+  })
+
+  it('invests the cash the portfolio already holds as well', async () => {
+    repo.getPortfolio.mockImplementation(async () => buildPortfolio(undefined, 500))
+
+    const portfolio = await invest(500)
+
+    expect(portfolio.deposit.toNumber()).toBe(500)
+    expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+    expect(portfolio.totalPrice.toNumber()).toBeGreaterThan(9055 + 1000 - 62.1 - 2)
   })
 
   it('behaves like a rebalance when investing 0', async () => {
@@ -56,10 +76,11 @@ describe('GetPortfolioWithInvestmentUseCase', () => {
     expect(sharesOf(portfolio)).toEqual([['QDVE', 70], ['SPYD', 48]])
   })
 
-  it('accepts withdrawing the whole portfolio value', async () => {
+  it('accepts withdrawing the whole portfolio value, showing the fees as a shortfall', async () => {
     const portfolio = await invest(-9055)
 
     expect(sharesOf(portfolio)).toEqual([['QDVE', 0], ['SPYD', 0]])
+    expect(portfolio.cashAfterTrades.toNumber()).toBe(-2)
   })
 
   it('rejects withdrawing more than the portfolio value', async () => {

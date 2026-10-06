@@ -61,6 +61,7 @@ describe('target command', () => {
       'Trading Fee: 2 EUR',
       'Trading Price: -4082.7 EUR',
       'Portfolio Price: 4972.3 EUR',
+      'Cash After Trades: 4080.7 EUR',
       '',
     ])
     expect(spies.error).not.toHaveBeenCalled()

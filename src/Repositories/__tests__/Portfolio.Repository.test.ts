@@ -323,6 +323,14 @@ describe('PortfolioRepository', () => {
       })
     })
 
+    it('passes the cash held to the portfolio, or none when the settings have none', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      expect((await repository.getPortfolio('EUR')).cash.toNumber()).toBe(0)
+
+      settings.getPortfolioSettings.mockResolvedValue({ ...EUR_SETTINGS, cash: 321.5 })
+      expect((await repository.getPortfolio('EUR')).cash.toNumber()).toBe(321.5)
+    })
+
     it('uses the fee parts a security sets, falling back to the portfolio fees part by part', async () => {
       settings.getPortfolioSettings.mockResolvedValue({
         ...EUR_SETTINGS,

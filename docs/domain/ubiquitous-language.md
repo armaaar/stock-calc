@@ -28,6 +28,9 @@ Terms used consistently across the code, settings files, CLI output, and these d
 | **Initial total price** | `price × initialShares`: the value of current holdings. | `initialTotalPrice` | "Portfolio Price" (in `show`) |
 | **Traded price** (trade value) | `totalPrice − initialTotalPrice`. Positive means buy, negative means sell. | `tradedPrice`, `totalTradedPrice` | Trading Price, "Trading Price" |
 | **Traded shares** | `shares − initialShares`. Positive means buy, negative means sell. | (presenter) | Traded Shares |
+| **Cash** | Uninvested cash held with the holdings, from the settings file (default 0). | `cash` | "Cash" (in `show`) |
+| **Deposit** | Money a plan adds (negative: withdraws): the `invest` amount, or 0 for `rebalance`. | `deposit` | |
+| **Cash after trades** | `cash + deposit − traded price − trading fees`: what's left once the plan is carried out. Negative means the plan needs that much more money. | `cashAfterTrades` | "Cash After Trades" |
 | **Being traded** | True when a security's proposed shares differ from its initial shares, meaning an order is needed. | `isBeingTraded` | |
 
 ## Fees

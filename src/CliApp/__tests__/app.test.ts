@@ -57,6 +57,7 @@ describe('CLI app entry point', () => {
       'Trading Fee: 2 EUR',
       'Trading Price: 980.15 EUR',
       'Portfolio Price: 10035.15 EUR',
+      'Cash After Trades: 17.85 EUR',
       '',
     ])
     expect(spies.error).not.toHaveBeenCalled()

@@ -28,6 +28,8 @@ export const SettingsSecuritySchema = z.object({
 
 export const SettingsSchema = z.object({
   ...FeesShape,
+  /** Uninvested cash held with the holdings, in the portfolio's currency. */
+  cash: NonNegative.optional(),
   securities: z.array(SettingsSecuritySchema),
 }).strict()
 

@@ -50,6 +50,13 @@ export type PortfolioView = {
   tradedPrice?: number
   /** `ONLY_DELTA`, `WITH_DELTA`. */
   tradingFee?: number
+  /** `ONLY_INITIAL`: uninvested cash held now. */
+  cash?: number
+  /**
+   * `ONLY_DELTA`, `WITH_DELTA`: cash left once the plan is carried out (cash held + money added
+   * − net traded − fees). Negative: how much more money the plan needs.
+   */
+  cashAfterTrades?: number
 }
 
 /** Throws for a value that isn't a `PresentMode` (numeric enums map only real values back). */
@@ -70,13 +77,19 @@ export function toPortfolioView(
   const trades = {
     tradedPrice: portfolio.totalTradedPrice.toNumber(),
     tradingFee: portfolio.totalTradingFee.toNumber(),
+    cashAfterTrades: portfolio.cashAfterTrades.toNumber(),
   }
 
   switch (mode) {
     case PresentMode.ONLY_NEW:
       return { currency, securities, portfolioPrice: portfolio.totalPrice.toNumber() }
     case PresentMode.ONLY_INITIAL:
-      return { currency, securities, portfolioPrice: portfolio.initialTotalPrice.toNumber() }
+      return {
+        currency,
+        securities,
+        portfolioPrice: portfolio.initialTotalPrice.toNumber(),
+        cash: portfolio.cash.toNumber(),
+      }
     case PresentMode.ONLY_DELTA:
       return { currency, securities, ...trades }
     case PresentMode.WITH_DELTA:

@@ -26,7 +26,7 @@ export class GetPortfolioWithPriceUseCase extends PortfolioUseCase<TargetPriceRe
     const amount = new Decimal(new TargetPrice(targetPrice).amount)
     const portfolio = await this.portfolioRepo.getPortfolio(portfolioType)
 
-    portfolio.balanceForPrice(amount)
+    portfolio.allocateValue(amount)
 
     return portfolio
   }

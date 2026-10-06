@@ -15,9 +15,9 @@ Use cases hold no state between calls and persist nothing.
 | Use case | CLI command | MCP tool and inputs | Domain operation | Presented as |
 | --- | --- | --- | --- | --- |
 | [Show current portfolio](#uc-1-show-current-portfolio) | `show` | `show` | none | `ONLY_INITIAL` |
-| [Rebalance](#uc-2-rebalance-portfolio) | `rebalance` | `rebalance` | `balanceForPrice(totalPrice)` | `WITH_DELTA` |
-| [Invest additional amount](#uc-3-invest-an-additional-amount) | `invest <investment>` | `invest { investment }` | `balanceForPrice(totalPrice + investment)` | `WITH_DELTA` |
-| [Allocate to a target value](#uc-4-allocate-to-a-target-value) | `target <price>` | `target { price > 0 }` | `balanceForPrice(price)` | `WITH_DELTA` |
+| [Rebalance](#uc-2-rebalance-portfolio) | `rebalance` | `rebalance` | `allocateCash(0)` | `WITH_DELTA` |
+| [Invest additional amount](#uc-3-invest-an-additional-amount) | `invest <investment>` | `invest { investment }` | `allocateCash(investment)` | `WITH_DELTA` |
+| [Allocate to a target value](#uc-4-allocate-to-a-target-value) | `target <price>` | `target { price > 0 }` | `allocateValue(price)` | `WITH_DELTA` |
 | [Find minimal portfolio](#uc-5-find-the-minimal-portfolio) | `minimal [-p] [-s]` | `minimal { precision ∈ (0,1], sharesStep ≥ 1 integer }` | iterative search | `ONLY_NEW` |
 
 Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfolio` input. Both default to `EUR`. **Actor:** the investor, running the CLI locally or asking an AI assistant connected to the MCP server.
@@ -36,7 +36,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Flow:** load the portfolio and return it unchanged.
 
-**Output:** for each security, initial shares, value, and actual vs target percentage, plus the total value of current holdings.
+**Output:** for each security, initial shares, value, and actual vs target percentage, plus the total value of current holdings and the cash held.
 
 **Example:** QDVE is 31.42% (target 40%) and SPYD is 68.58% (target 60%). Portfolio value is 9055 EUR.
 
@@ -46,19 +46,21 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Class:** `GetRebalancedPortfolioUseCase` · **Command:** `npm run cli -- rebalance`
 
-**Intent:** restore target weights using only the money already in the portfolio, by selling overweight positions and buying underweight ones.
+**Intent:** restore target weights using only the money already in the portfolio (holdings and cash held), by selling overweight positions and buying underweight ones.
 
 **Flow:**
-1. Load the portfolio. `V = totalPrice` (equal to the current value, since nothing has changed yet).
-2. `balanceForPrice(V)`: for each security, `shares = round(V × target ÷ price)`.
+1. Load the portfolio.
+2. `allocateCash(0)`:
+   - balance to `V = holdings + cash` (for each security, `shares = round(V × target ÷ price)`);
+   - then trim until the trades and fees need no new money.
 
-**Postconditions:** proposed weights are as close to target as whole shares allow. Proposed value ≈ `V`, with a rounding difference.
+**Postconditions:** proposed weights are as close to target as whole shares allow. `cashAfterTrades ≥ 0`: the rebalance pays for its own fees.
 
-**Output:** proposed and traded shares, trade value, and fee per security, plus total fee, net traded value, and proposed portfolio value.
+**Output:** proposed and traded shares, trade value, and fee per security, plus total fee, net traded value, proposed portfolio value, and cash after trades.
 
-**Example:** buy 27 QDVE (+768.15) and sell 13 SPYD (−807.30). Fees 2 EUR, net traded value −39.15 EUR, giving 40.08% / 59.92%.
+**Example:** buy 27 QDVE (+768.15) and sell 13 SPYD (−807.30). Fees 2 EUR, net traded value −39.15 EUR, giving 40.08% / 59.92%, with 37.15 EUR cash after trades.
 
-**Notes:** rounding usually leaves a small net cash difference (here 39.15 EUR released). Fees aren't covered by the rebalance itself.
+**Notes:** rounding usually leaves a little cash over (here 39.15 EUR released, minus 2 EUR fees). If the portfolio holds cash, the rebalance invests it too.
 
 ---
 
@@ -69,17 +71,21 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 **Intent:** deploy new money while moving toward target weights.
 
 **Flow:**
-1. Load the portfolio. `V = totalPrice`.
-2. `balanceForPrice(V + investment)`.
+1. Load the portfolio.
+2. `allocateCash(investment)`:
+   - balance to `holdings + cash + investment`;
+   - then trim, cancelling buys first, until the trades and fees fit in `cash + investment`.
 
-**Postconditions:** proposed value ≈ `V + investment`, at target weights.
+**Postconditions:** proposed weights are as close to target as whole shares allow, and `cashAfterTrades ≥ 0`. The plan never needs more than the investment plus the cash held, fees included.
 
-**Example (`invest 1000`):** buy 41 QDVE (+1166.45) and **sell 3 SPYD** (−186.30). Net 980.15 EUR, fees 2 EUR, new value 10035.15 EUR.
+**Example (`invest 1000`):** buy 41 QDVE (+1166.45) and **sell 3 SPYD** (−186.30). Net 980.15 EUR, fees 2 EUR, new value 10035.15 EUR, 17.85 EUR cash after trades.
+
+**Example (`invest 2`):** rounding alone would buy 27 QDVE and sell 12 SPYD, needing 24.95 EUR. The plan cancels one QDVE buy instead: buy 26 QDVE, sell 12 SPYD, leaving 5.50 EUR.
 
 **Notes:**
 - This is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added. There's no "buy-only" mode.
-- Net cash needed is `investment` ± rounding, **plus fees**. It can be slightly above or below the amount entered.
-- Negative amounts plan a withdrawal: `invest -4055` gives the same plan as `target 5000`. A withdrawal larger than the portfolio's value fails with `Cannot withdraw <amount>: more than the portfolio value (<value>)`. Withdrawing exactly the whole value plans selling everything.
+- Cash needed (net traded + fees) is never above `investment` + cash held. What's left over is reported as cash after trades.
+- Negative amounts plan a withdrawal: `invest -4055` gives the same plan as `target 5000`. A withdrawal larger than the portfolio's value (holdings + cash) fails with `Cannot withdraw <amount>: more than the portfolio value (<value>)`. A withdrawal must also cover the sell fees, so the plan sells enough to pay for them. Withdrawing exactly the whole value plans selling everything, and cash after trades shows the fees as a shortfall (−2 EUR in the example).
 - The investment must be a finite number. The CLI rejects anything else while parsing arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`Investment.amount`).
 
 ---
@@ -90,11 +96,11 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Intent:** see what an allocation worth an absolute amount looks like, for example when building a portfolio from scratch with a fixed budget, or deciding how much to keep after a partial withdrawal.
 
-**Flow:** load the portfolio, then `balanceForPrice(price)`. Current holdings don't affect the proposed shares; they're only used to compute the trades.
+**Flow:** load the portfolio, then `allocateValue(price)`: balance to `price`, then trim the most overweight holding until the proposed value is ≤ `price`. Current holdings don't affect the proposed shares; they're only used to compute the trades. Cash after trades shows the money released (or, if negative, needed), fees included.
 
 **Example (`target 5000`):** sell 30 QDVE and 52 SPYD. Proposed value 4972.30 EUR (40.05% / 59.95%), fees 2 EUR.
 
-**Notes:** the result may differ from `price` by up to about half a share's price per security. The price must be a finite number greater than 0. `target abc` is rejected while parsing CLI arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`TargetPrice.amount`) for 0, negative, NaN or infinite values. To plan selling everything, use `invest` with minus the portfolio value.
+**Notes:** the proposed value is never above `price`, and is usually within a share's price of it. For example, `target 156` gives QDVE 2 / SPYD 1 (119 EUR), because QDVE 2 / SPYD 2 would be worth 181.10 EUR. The price must be a finite number greater than 0. `target abc` is rejected while parsing CLI arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`TargetPrice.amount`) for 0, negative, NaN or infinite values. To plan selling everything, use `invest` with minus the portfolio value.
 
 ---
 

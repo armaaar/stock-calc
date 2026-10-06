@@ -32,6 +32,17 @@ describe('GetRebalancedPortfolioUseCase', () => {
     expect(portfolio.totalTradingFee.toNumber()).toBe(2)
     expect(portfolio.totalTradedPrice.toNumber()).toBe(-39.15)
     expect(portfolio.totalPrice.toNumber()).toBe(9015.85)
+    expect(portfolio.cashAfterTrades.toNumber()).toBe(37.15)
+  })
+
+  it('invests the cash the portfolio holds', async () => {
+    repo.getPortfolio.mockImplementation(async () => buildPortfolio(undefined, 500))
+
+    const portfolio = await useCase.execute({ portfolioType: 'EUR' })
+
+    expect(portfolio.securities.map((sec) => sec.shares)).toEqual([134, 92])
+    expect(portfolio.deposit.toNumber()).toBe(0)
+    expect(portfolio.cashAfterTrades.toNumber()).toBe(27.5)
   })
 
   it('leaves an already balanced portfolio untouched and fee-free', async () => {

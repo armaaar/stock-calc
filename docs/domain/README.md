@@ -70,7 +70,12 @@ classDiagram
     initialTotalPrice: Decimal
     totalTradedPrice: Decimal
     totalTradingFee: Decimal
+    cash: Decimal
+    deposit: Decimal
+    cashAfterTrades: Decimal
     balanceForPrice(price: Decimal)
+    allocateCash(deposit: Decimal)
+    allocateValue(price: Decimal)
     clone(): Portfolio
   }
   class Security {

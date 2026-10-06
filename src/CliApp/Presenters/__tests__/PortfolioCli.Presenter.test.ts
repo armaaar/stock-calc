@@ -84,7 +84,7 @@ describe('PortfolioCliPresenter.present', () => {
         ['SPYD', 100, 6210, 68.58],
       ])
     expect(Object.keys(rows[0])).not.toContain('Traded Shares')
-    expect(printedLines(spies.log)).toEqual(['Portfolio Price: 9055 EUR', ''])
+    expect(printedLines(spies.log)).toEqual(['Portfolio Price: 9055 EUR', 'Cash: 0 EUR', ''])
   })
 
   it('ONLY_DELTA shows only the trades, their fees and the net traded price', () => {
@@ -118,6 +118,7 @@ describe('PortfolioCliPresenter.present', () => {
     expect(printedLines(spies.log)).toEqual([
       'Trading Fee: 2 EUR',
       'Trading Price: -39.15 EUR',
+      'Cash After Trades: 37.15 EUR',
       '',
     ])
   })
@@ -133,6 +134,7 @@ describe('PortfolioCliPresenter.present', () => {
     expect(printedLines(spies.log)).toEqual([
       'Trading Fee: 1 EUR',
       'Trading Price: 768.15 EUR',
+      'Cash After Trades: -769.15 EUR',
       '',
     ])
   })
@@ -157,7 +159,9 @@ describe('PortfolioCliPresenter.present', () => {
     PortfolioCliPresenter.present(buildPortfolio(), PresentMode.ONLY_DELTA)
 
     expect(tableRows(spies)).toEqual([])
-    expect(printedLines(spies.log)).toEqual(['Trading Fee: 0 EUR', 'Trading Price: 0 EUR', ''])
+    expect(printedLines(spies.log)).toEqual([
+      'Trading Fee: 0 EUR', 'Trading Price: 0 EUR', 'Cash After Trades: 0 EUR', '',
+    ])
   })
 
   it('WITH_DELTA shows the proposed portfolio together with trades and fees', () => {
@@ -197,8 +201,15 @@ describe('PortfolioCliPresenter.present', () => {
       'Trading Fee: 2 EUR',
       'Trading Price: -39.15 EUR',
       'Portfolio Price: 9015.85 EUR',
+      'Cash After Trades: 37.15 EUR',
       '',
     ])
+  })
+
+  it('shows the cash held with the current holdings', () => {
+    PortfolioCliPresenter.present(buildPortfolio(undefined, 120.5), PresentMode.ONLY_INITIAL)
+
+    expect(printedLines(spies.log)).toEqual(['Portfolio Price: 9055 EUR', 'Cash: 120.5 EUR', ''])
   })
 
   it('orders the columns consistently, skipping the ones a mode does not have', () => {
@@ -210,7 +221,8 @@ describe('PortfolioCliPresenter.present', () => {
   it('prints the title before the table when one is given', () => {
     PortfolioCliPresenter.present(buildPortfolio(), PresentMode.ONLY_INITIAL, 'My Portfolio')
 
-    expect(printedLines(spies.log)).toEqual(['My Portfolio', 'Portfolio Price: 9055 EUR', ''])
+    expect(printedLines(spies.log))
+      .toEqual(['My Portfolio', 'Portfolio Price: 9055 EUR', 'Cash: 0 EUR', ''])
     expect(spies.log.mock.invocationCallOrder[0]).toBeLessThan(
       spies.table.mock.invocationCallOrder[0],
     )
@@ -219,7 +231,7 @@ describe('PortfolioCliPresenter.present', () => {
   it('does not print an empty title', () => {
     PortfolioCliPresenter.present(buildPortfolio(), PresentMode.ONLY_INITIAL, '')
 
-    expect(printedLines(spies.log)).toEqual(['Portfolio Price: 9055 EUR', ''])
+    expect(printedLines(spies.log)).toEqual(['Portfolio Price: 9055 EUR', 'Cash: 0 EUR', ''])
   })
 
   describe('without exchange or currency', () => {
@@ -238,11 +250,20 @@ describe('PortfolioCliPresenter.present', () => {
 
     it.each([
       [PresentMode.ONLY_NEW, ['Portfolio Price: 9015.85', '']],
-      [PresentMode.ONLY_INITIAL, ['Portfolio Price: 9055', '']],
-      [PresentMode.ONLY_DELTA, ['Trading Fee: 2', 'Trading Price: -39.15', '']],
+      [PresentMode.ONLY_INITIAL, ['Portfolio Price: 9055', 'Cash: 0', '']],
+      [
+        PresentMode.ONLY_DELTA,
+        ['Trading Fee: 2', 'Trading Price: -39.15', 'Cash After Trades: 37.15', ''],
+      ],
       [
         PresentMode.WITH_DELTA,
-        ['Trading Fee: 2', 'Trading Price: -39.15', 'Portfolio Price: 9015.85', ''],
+        [
+          'Trading Fee: 2',
+          'Trading Price: -39.15',
+          'Portfolio Price: 9015.85',
+          'Cash After Trades: 37.15',
+          '',
+        ],
       ],
     ])('mode %i shows "Unknown" in the table and no currency in the totals', (mode, lines) => {
       PortfolioCliPresenter.present(buildAnonymousPortfolio(), mode)

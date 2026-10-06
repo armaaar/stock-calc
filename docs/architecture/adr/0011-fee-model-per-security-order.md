@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2023-10-08
-- **Amended by:** [ADR-0020](0020-per-security-fee-overrides.md) (per-security fee overrides; the percentage applies to sells too)
+- **Amended by:** [ADR-0020](0020-per-security-fee-overrides.md) (per-security fee overrides; the percentage applies to sells too), [ADR-0022](0022-plans-stay-within-available-cash.md) (`invest` and `rebalance` budget the fees)
 - **Introduced in:** `7b4f3a4` "feat: add trading fees"
 
 ## Context
@@ -30,4 +30,4 @@ Brokers charge per order, and different brokers (one per portfolio) use differen
 - `tradedPrice` is signed, so for **sells** the percentage part is negative and the `max` falls back to `minimumTradingFeeFlat`. In effect, sells are charged only `brokerageFeeFlat + minimumTradingFeeFlat`, regardless of order size. If sells should be charged a percentage too, the formula should use the absolute traded value. See [known gaps](../../domain/portfolio-allocation.md#known-gaps-and-open-questions).
 - `invest X` and `target X` can spend slightly more than `X` once fees (and share rounding) are included.
 
-> **Update:** [ADR-0020](0020-per-security-fee-overrides.md) lets each security override the fee parts and applies the percentage to the absolute order value, so sells now pay it too. The consequences above describe the model as it was decided here.
+> **Update:** [ADR-0020](0020-per-security-fee-overrides.md) lets each security override the fee parts and applies the percentage to the absolute order value, so sells now pay it too. The consequences above describe the model as it was decided here. [ADR-0022](0022-plans-stay-within-available-cash.md) budgets fees: `invest` and `rebalance` never need more cash than they're given, fees included.

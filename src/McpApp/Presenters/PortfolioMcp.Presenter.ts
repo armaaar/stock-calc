@@ -30,6 +30,11 @@ export const portfolioOutputSchema = {
   portfolioPrice: z.number().optional(),
   tradedPrice: z.number().optional().describe('Net cash needed (positive) or released (negative)'),
   tradingFee: z.number().optional(),
+  cash: z.number().optional().describe('Current holdings only: uninvested cash held now'),
+  cashAfterTrades: z.number().optional().describe(
+    'Cash left once the plan is carried out: cash held + money added - net traded - fees. '
+    + 'Negative: how much more money the plan needs',
+  ),
 }
 
 export type PortfolioOutput = z.infer<z.ZodObject<typeof portfolioOutputSchema>>

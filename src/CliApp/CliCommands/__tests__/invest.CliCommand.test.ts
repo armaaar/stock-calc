@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
+import Decimal from 'decimal.js'
+import { buildPortfolio } from '#src/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
 import { StubUseCases, stubUseCases } from '#src/__fixtures__/useCases'
 import { PortfolioCliPresenter, PresentMode } from '../../Presenters/PortfolioCli.Presenter'
@@ -23,11 +24,10 @@ describe('invest command', () => {
   beforeEach(() => {
     spies = spyOnConsole()
     invest = stubUseCases().invest
-    // The example portfolio after `invest 1000`: buy 41 QDVE, sell 3 SPYD.
-    invest.execute.mockResolvedValue(buildPortfolio([
-      { ...QDVE, shares: 141, initialShares: 100 },
-      { ...SPYD, shares: 97, initialShares: 100 },
-    ]))
+    // The example portfolio after `invest 1000`: buy 41 QDVE, sell 3 SPYD, 17.85 left over.
+    const planned = buildPortfolio()
+    planned.allocateCash(new Decimal(1000))
+    invest.execute.mockResolvedValue(planned)
     investCli = createInvestCli(invest)
   })
 
@@ -61,6 +61,7 @@ describe('invest command', () => {
       'Trading Fee: 2 EUR',
       'Trading Price: 980.15 EUR',
       'Portfolio Price: 10035.15 EUR',
+      'Cash After Trades: 17.85 EUR',
       '',
     ])
     expect(spies.error).not.toHaveBeenCalled()

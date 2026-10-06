@@ -32,6 +32,14 @@ describe('GetPortfolioWithPriceUseCase', () => {
     expect(portfolio.totalTradingFee.toNumber()).toBe(2)
   })
 
+  it('never allocates more than the target value', async () => {
+    // Rounding alone gives QDVE 2 / SPYD 2, worth 181.10
+    const portfolio = await useCase.execute({ portfolioType: 'EUR', targetPrice: 156 })
+
+    expect(portfolio.securities.map((sec) => sec.shares)).toEqual([2, 1])
+    expect(portfolio.totalPrice.toNumber()).toBe(119)
+  })
+
   it('ignores current holdings when computing the proposed shares', async () => {
     repo.getPortfolio.mockImplementation(async () => buildPortfolio([
       { ...QDVE, shares: 1 },

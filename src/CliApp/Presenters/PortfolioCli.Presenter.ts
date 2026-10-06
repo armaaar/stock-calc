@@ -56,6 +56,8 @@ export class PortfolioCliPresenter {
       ['Trading Fee', view.tradingFee],
       ['Trading Price', view.tradedPrice],
       ['Portfolio Price', view.portfolioPrice],
+      ['Cash', view.cash],
+      ['Cash After Trades', view.cashAfterTrades],
     ]
 
     return totals

@@ -34,7 +34,12 @@ stateDiagram-v2
 | `initialTotalPrice` | Σ security `initialTotalPrice`: the value of current holdings. |
 | `totalTradedPrice` | `totalPrice − initialTotalPrice`: net cash needed (positive) or released (negative). |
 | `totalTradingFee` | Σ security `tradingFee`: the cost of all orders. |
+| `cash` | Uninvested cash held now (≥ 0, default 0), from the settings file. |
+| `deposit` | Money the plan adds (negative: withdraws). Set only by `allocateCash`; 0 otherwise. |
+| `cashAfterTrades` | `cash + deposit − totalTradedPrice − totalTradingFee`: cash left once the plan is carried out. Negative means the plan needs that much more. |
 | `balanceForPrice(price)` | **Domain operation.** For each security: `shares = round(price × targetPercentage ÷ securityPrice)` (rounded half-up by `Decimal.round()`). Throws `Portfolio price must be a finite number of at least 0 (<price>)` before changing anything if `price` is NaN, infinite or negative. |
+| `allocateCash(deposit)` | **Domain operation** behind `invest` and `rebalance` ([ADR-0022](../architecture/adr/0022-plans-stay-within-available-cash.md)). It records `deposit` and runs `balanceForPrice(initialTotalPrice + cash + deposit)`. Then, while `cashAfterTrades < 0`, it removes one share from the most overweight security being **bought**, or from the most overweight holding once no buys are left. If selling everything still falls short, it stops there, and `cashAfterTrades` shows the shortfall. Throws `Deposit must be a finite number (<deposit>)`, or `Cannot withdraw <amount>: more than the portfolio value (<holdings + cash>)`. |
+| `allocateValue(price)` | **Domain operation** behind `target`. It runs `balanceForPrice(price)`, then removes one share at a time from the most overweight holding until `totalPrice ≤ price`. |
 | `clone()` | Deep copy through constructors, which re-validates. Not used by any command at the moment. |
 
 ### Invariants (checked at construction)
@@ -94,7 +99,7 @@ else:                  tradingFee = brokerageFeeFlat
 
 Portfolio total: `totalTradingFee = Σ tradingFee`.
 
-Fees are **reported, not budgeted**. No allocation algorithm subtracts them from the money being allocated.
+`invest` and `rebalance` **budget** fees: `allocateCash` trims the plan until the trades and their fees fit in the cash held plus the deposit ([ADR-0022](../architecture/adr/0022-plans-stay-within-available-cash.md)). `target` keeps the holdings' value at or below the target, and reports the fees separately as cash spent on top.
 
 The percentage applies to the order's absolute value, so a sell costs the same as a buy of the same value.
 
@@ -119,6 +124,7 @@ The **Portfolio Configuration** context provides the input for building the aggr
   "brokerageFeeFlat": 1,          // per order
   "tradingFeePercentage": 0,      // fraction of order value
   "minimumTradingFeeFlat": 0,     // floor for the percentage part
+  "cash": 0,                      // optional: uninvested cash held, default 0
   "securities": [
     { "tick": "QDVE", "exchange": "IBIS2", "isin": "IE00B3WJKG14", "shares": 100, "targetPercentage": 0.4 },
     // its own flat fee; the parts it doesn't set fall back to the portfolio's
@@ -136,11 +142,9 @@ The three portfolio-level fees are the default tariff. A security may set any of
 
 These are behaviors of the current model that may not be intended. They're recorded here so they get decided deliberately.
 
-1. **Allocations can overspend.** `balanceForPrice` rounds to the nearest share and ignores fees, so `invest X` may need slightly more than `X` in cash.
-2. **No cash position.** Leftover cash from rounding, or money released by sells, isn't modeled.
-3. **Security mixes identity and quote.** Quote time and source aren't recorded, so a plan can't say how fresh its prices are.
-4. **Subclasses must validate themselves.** `validateClassErrors` only validates when `object.constructor === cls`. This is by design: the most-derived constructor validates once all fields are set (ADR-0004). A subclass that doesn't call it skips validation.
-5. **Fees are in the portfolio's currency only.** Every fee value is read as an amount in the portfolio's single currency (P3). A broker fee quoted in another currency, such as 4 USD on a EUR portfolio, has to be entered as a hand-converted approximation (about 3.56 EUR). It drifts with the exchange rate, by cents. This is accepted: there's deliberately no currency conversion and no currency field on fees, because the portfolio is single-currency by design.
-6. **One currency per portfolio.** P3 rejects a portfolio whose price quotes don't all share one currency. There's no FX conversion. A security listed in another currency only works if its quote arrives in the portfolio's currency, either from a source that quotes it that way or through a price override.
-7. **No buy-only investing.** `invest` always rebalances too, so it can plan sells while money is being added. Each sell costs a fee and may have tax consequences. There's no option to only buy. See [UC-3](use-cases.md#uc-3-invest-an-additional-amount).
-8. **No warning when fees eat into an order.** Plans report each order's fee but never judge it. With a flat fee, small orders are expensive in relative terms: 3 EUR on a 500 EUR buy is 0.6%, and splitting the same 500 EUR across three holdings costs three fees, about 1.8%. A warning when an order's fee exceeds a threshold (for example 1% of the order) would show when it's better to contribute less often in bigger amounts. Fees are accurate per security and for sells since [ADR-0020](../architecture/adr/0020-per-security-fee-overrides.md), so the fee share is meaningful.
+1. **Security mixes identity and quote.** Quote time and source aren't recorded, so a plan can't say how fresh its prices are.
+2. **Subclasses must validate themselves.** `validateClassErrors` only validates when `object.constructor === cls`. This is by design: the most-derived constructor validates once all fields are set (ADR-0004). A subclass that doesn't call it skips validation.
+3. **Fees are in the portfolio's currency only.** Every fee value is read as an amount in the portfolio's single currency (P3). A broker fee quoted in another currency, such as 4 USD on a EUR portfolio, has to be entered as a hand-converted approximation (about 3.56 EUR). It drifts with the exchange rate, by cents. This is accepted: there's deliberately no currency conversion and no currency field on fees, because the portfolio is single-currency by design.
+4. **One currency per portfolio.** P3 rejects a portfolio whose price quotes don't all share one currency. There's no FX conversion. A security listed in another currency only works if its quote arrives in the portfolio's currency, either from a source that quotes it that way or through a price override.
+5. **No buy-only investing.** `invest` always rebalances too, so it can plan sells while money is being added. Each sell costs a fee and may have tax consequences. There's no option to only buy. See [UC-3](use-cases.md#uc-3-invest-an-additional-amount).
+6. **No warning when fees eat into an order.** Plans report each order's fee but never judge it. With a flat fee, small orders are expensive in relative terms: 3 EUR on a 500 EUR buy is 0.6%, and splitting the same 500 EUR across three holdings costs three fees, about 1.8%. A warning when an order's fee exceeds a threshold (for example 1% of the order) would show when it's better to contribute less often in bigger amounts. Fees are accurate per security and for sells since [ADR-0020](../architecture/adr/0020-per-security-fee-overrides.md), so the fee share is meaningful.

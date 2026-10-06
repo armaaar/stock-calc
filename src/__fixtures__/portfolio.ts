@@ -34,8 +34,10 @@ export const SPYD: IPortfolioSecurity = {
 
 export function buildPortfolio(
   securities: IPortfolioSecurity[] = [QDVE, SPYD],
+  cash?: number,
 ): Portfolio {
   return new Portfolio({
     securities: securities.map((sec) => new PortfolioSecurity(sec)),
+    cash,
   })
 }

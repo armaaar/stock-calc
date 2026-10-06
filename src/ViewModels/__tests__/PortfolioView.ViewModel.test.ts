@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
 import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
 import {
@@ -57,6 +58,7 @@ describe('toPortfolioView', () => {
     expect(toPortfolioView(rebalanced(), PresentMode.ONLY_INITIAL)).toEqual({
       currency: 'EUR',
       portfolioPrice: 9055,
+      cash: 0,
       securities: [
         { ...identity.QDVE, shares: 100, totalPrice: 2845, percent: 31.42 },
         { ...identity.SPYD, shares: 100, totalPrice: 6210, percent: 68.58 },
@@ -69,6 +71,7 @@ describe('toPortfolioView', () => {
       currency: 'EUR',
       tradedPrice: -39.15,
       tradingFee: 2,
+      cashAfterTrades: 37.15,
       securities: [
         { ...identity.QDVE, shares: 27, totalPrice: 768.15, percent: 48.76, tradingFee: 1 },
         { ...identity.SPYD, shares: -13, totalPrice: -807.3, percent: 51.24, tradingFee: 1 },
@@ -92,6 +95,7 @@ describe('toPortfolioView', () => {
       securities: [],
       tradedPrice: 0,
       tradingFee: 0,
+      cashAfterTrades: 0,
     })
   })
 
@@ -101,6 +105,7 @@ describe('toPortfolioView', () => {
       portfolioPrice: 9015.85,
       tradedPrice: -39.15,
       tradingFee: 2,
+      cashAfterTrades: 37.15,
       securities: [
         {
           ...identity.QDVE,
@@ -122,6 +127,30 @@ describe('toPortfolioView', () => {
         },
       ],
     })
+  })
+
+  it('ONLY_INITIAL: shows the cash held next to the value of the holdings', () => {
+    const view = toPortfolioView(buildPortfolio(undefined, 250.5), PresentMode.ONLY_INITIAL)
+
+    expect(view).toMatchObject({ portfolioPrice: 9055, cash: 250.5 })
+    expect(view).not.toHaveProperty('cashAfterTrades')
+  })
+
+  it('WITH_DELTA and ONLY_DELTA: the cash left counts the cash held and the money added', () => {
+    const portfolio = buildPortfolio(undefined, 100)
+    portfolio.allocateCash(new Decimal(1000))
+
+    // 100 held + 1000 added - 980.15 net bought (41 QDVE, -3 SPYD) - 2 fees
+    for (const mode of [PresentMode.WITH_DELTA, PresentMode.ONLY_DELTA]) {
+      const view = toPortfolioView(portfolio, mode)
+      expect(view.cashAfterTrades).toBeCloseTo(100 + 1000 - view.tradedPrice! - 2, 10)
+      expect(view).not.toHaveProperty('cash')
+    }
+  })
+
+  it('ONLY_NEW: leaves out cash, since a target state has no trades', () => {
+    expect(toPortfolioView(buildPortfolio(undefined, 5))).not.toHaveProperty('cash')
+    expect(toPortfolioView(buildPortfolio(undefined, 5))).not.toHaveProperty('cashAfterTrades')
   })
 
   it('keeps a missing exchange or currency undefined for the interface to fill in', () => {

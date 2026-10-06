@@ -93,6 +93,7 @@ describe('PortfolioMcpPresenter', () => {
       currency: 'EUR',
       tradedPrice: 284.5,
       tradingFee: 1,
+      cashAfterTrades: -285.5,
       securities: [{
         tick: 'QDVE',
         exchange: 'IBIS2',
@@ -134,6 +135,7 @@ describe('PortfolioMcpPresenter', () => {
       currency: 'EUR',
       tradedPrice: 0,
       tradingFee: 0,
+      cashAfterTrades: 0,
       securities: [],
     })
   })

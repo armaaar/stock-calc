@@ -22,6 +22,7 @@ A portfolio object contains:
 - `brokerageFeeFlat`: A flat amount of money the brokerage takes on each order. It's added to each order no matter what the value is.
 - `tradingFeePercentage`: The trading fee is taken as a percentage of the total order value, for buys and sells alike.
 - `minimumTradingFeeFlat`: The minimum amount of trading fee that is taken.
+- `cash`: (Optional) Uninvested cash you hold with the portfolio, in its currency (default 0). `rebalance` and `invest` spend it too.
 - `securities`: A list of securities in a portfolio.
 
 The `securities` list consists of security objects, which contains:
@@ -96,7 +97,7 @@ npm run cli:target -- [options] <price>
 ```
 
 - Arguments:
-  - `price`: target portfolio price
+  - `price`: target portfolio price (the proposed holdings are never worth more than this)
 
 ### Invest amount in portfolio
 
@@ -109,6 +110,8 @@ npm run cli:invest -- [options] <investment>
 
 - Arguments:
   - `investment`: Additional investment amount
+
+The plan never needs more than the investment plus the portfolio's `cash`, fees included. "Cash After Trades" shows what's left over.
 
 ### Rebalance portfolio
 

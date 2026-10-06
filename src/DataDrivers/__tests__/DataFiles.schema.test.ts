@@ -160,6 +160,19 @@ describe('SettingsSchema', () => {
     expect(SettingsSchema.safeParse({ ...EUR_SETTINGS, [field]: value }).success).toBe(true)
   })
 
+  it('accepts optional cash of at least 0', () => {
+    expect(SettingsSchema.parse({ ...EUR_SETTINGS, cash: 0 }).cash).toBe(0)
+    expect(SettingsSchema.parse({ ...EUR_SETTINGS, cash: 120.5 }).cash).toBe(120.5)
+    expect(SettingsSchema.parse(EUR_SETTINGS).cash).toBeUndefined()
+  })
+
+  it.each([-0.01, '100'])('rejects cash = %j', (cash) => {
+    const result = SettingsSchema.safeParse({ ...EUR_SETTINGS, cash })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual(['cash'])
+  })
+
   it('rejects an unknown top-level key, such as a misspelled fee', () => {
     const result = SettingsSchema.safeParse({ ...EUR_SETTINGS, brokerageFeeFlt: 1 })
 

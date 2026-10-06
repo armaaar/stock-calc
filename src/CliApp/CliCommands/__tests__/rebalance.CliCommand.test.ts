@@ -46,6 +46,7 @@ describe('rebalance command', () => {
       'Trading Fee: 2 EUR',
       'Trading Price: -39.15 EUR',
       'Portfolio Price: 9015.85 EUR',
+      'Cash After Trades: 37.15 EUR',
       '',
     ])
     expect(spies.error).not.toHaveBeenCalled()
