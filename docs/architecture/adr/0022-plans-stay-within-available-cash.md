@@ -19,8 +19,12 @@
 - **`allocateCash(deposit)`** is the domain operation behind `invest` and `rebalance`. Rebalance is a deposit of 0. It works like this:
   1. It records the deposit (negative to withdraw).
   2. It balances to `holdings + cash + deposit` with `balanceForPrice`.
-  3. It trims until `cashAfterTrades = cash + deposit − net traded − fees` is ≥ 0. It cancels one share of the most overweight **buy** at a time. Only when no buys are left does it sell one more share of the most overweight holding.
-  4. If even selling everything falls short, which happens when a whole-value withdrawal also has to pay fees, the plan sells everything and `cashAfterTrades` stays negative by the shortfall.
+  3. It cancels buys, most overweight first, until `cashAfterTrades = cash + deposit − net traded − fees` is ≥ 0. When it's far short, for example because of large percentage fees, it cancels several shares at a time.
+  4. If no buys are left and `cash + deposit ≥ 0`, it plans **no trades**. Sells only exist to fund buys or a withdrawal. On their own they just turn holdings into fees.
+  5. A withdrawal that is still short sells more:
+     - it first undoes any sell whose fee is at least what it raises;
+     - then it only takes steps that raise cash: more of the most overweight holding, or a whole holding when one share can't pay for a new order's fee.
+     - If nothing raises cash, for example a whole-value withdrawal that also has to pay fees, `cashAfterTrades` stays negative by the shortfall.
 - **`allocateValue(price)`** is the domain operation behind `target`. It balances, then trims the most overweight holding until the proposed value is ≤ `price`. The fees are cash paid on top of that value, and the plan reports them.
 - **Every plan reports `cashAfterTrades`** ("Cash After Trades"). `show` reports the cash held. Negative means the plan needs that much more money than it was given.
 - The planned deposit is plan state like `shares`. It can only be set through `allocateCash`, and the cash held is read-only ([ADR-0021](0021-guard-proposed-shares.md)).

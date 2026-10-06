@@ -375,6 +375,149 @@ describe('Portfolio', () => {
       expect(portfolio.deposit.toNumber()).toBe(0)
     })
 
+    describe('when cancelling buys leaves only sells', () => {
+      const two = (a: Partial<IPortfolioSecurity>, b: Partial<IPortfolioSecurity>) => (
+        new Portfolio({
+          securities: [
+            security({ tick: 'A', brokerageFeeFlat: 1, ...a }),
+            security({ tick: 'B', brokerageFeeFlat: 1, ...b }),
+          ],
+        })
+      )
+
+      it('trades nothing rather than sell everything to pay a minimum fee', () => {
+        // Balancing buys 8 A and sells 7 B; fees of 1 + minimum 10 per order make both cost more
+        // than they move. Trading nothing is free.
+        const portfolio = two(
+          { price: 1, shares: 0, targetPercentage: 0.75, minimumTradingFeeFlat: 10 },
+          { price: 1, shares: 10, targetPercentage: 0.25, minimumTradingFeeFlat: 10 },
+        )
+
+        portfolio.allocateCash(new Decimal(0))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 0, B: 10 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
+      })
+
+      it('trades nothing rather than keep sells whose buys were cancelled', () => {
+        // Balancing buys 1 A (50) with half of B (30): unaffordable, so the A buy is cancelled.
+        // Selling B on its own would only turn holdings into cash and a fee.
+        const portfolio = two(
+          { price: 50, shares: 0, targetPercentage: 0.5 },
+          { price: 0.5, shares: 120, targetPercentage: 0.5 },
+        )
+
+        portfolio.allocateCash(new Decimal(0))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 0, B: 120 })
+        expect(portfolio.totalTradingFee.toNumber()).toBe(0)
+      })
+
+      it('trades nothing rather than sell a share for less than its fee', () => {
+        const portfolio = two(
+          { price: 0.37, shares: 1, targetPercentage: 0.34 },
+          { price: 62.1, shares: 0, targetPercentage: 0.66 },
+        )
+
+        portfolio.allocateCash(new Decimal(0))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 1, B: 0 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
+      })
+    })
+
+    describe('withdrawing', () => {
+      it('undoes a sell whose fee is more than it raises, and sells more of another', () => {
+        // Withdrawing 100: balancing sells 1 A (0.50, fee 1) and 1 B (100, fee 1), raising
+        // only 98.50. Selling A loses money, so it's undone and B sells one more share.
+        const portfolio = new Portfolio({
+          securities: [
+            security({
+              tick: 'A', price: 0.5, shares: 3, targetPercentage: 0.001, brokerageFeeFlat: 1,
+            }),
+            security({
+              tick: 'B', price: 100, shares: 10, targetPercentage: 0.999, brokerageFeeFlat: 1,
+            }),
+          ],
+        })
+
+        portfolio.allocateCash(new Decimal(-100))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 3, B: 8 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(99)
+      })
+
+      it('sells a whole holding when one more share can\'t pay for the order\'s fee', () => {
+        // Withdrawing 3 from 10 × 1 with a flat fee of 5: selling 3 raises 3 for a fee of 5,
+        // and so does any single share. Only selling all 10 raises enough.
+        const portfolio = new Portfolio({
+          securities: [
+            security({ price: 1, shares: 10, targetPercentage: 1, brokerageFeeFlat: 5 }),
+          ],
+        })
+
+        portfolio.allocateCash(new Decimal(-3))
+
+        expect(portfolio.securities[0].shares).toBe(0)
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(2)
+      })
+    })
+
+    it('needs no new money whenever trading nothing is affordable (random portfolios)', () => {
+      // A small deterministic generator, so a failure is reproducible
+      let seed = 42
+      const random = () => {
+        seed = (seed * 1103515245 + 12345) % 2147483648
+        return seed / 2147483648
+      }
+      const pick = <T>(values: T[]) => values[Math.floor(random() * values.length)]
+
+      for (let run = 0; run < 400; run++) {
+        // Targets in twentieths, so they add up to exactly 1
+        const count = 1 + Math.floor(random() * 3)
+        const units = Array.from({ length: count }, () => 1)
+        for (let unit = count; unit < 20; unit++) units[Math.floor(random() * count)] += 1
+        const portfolio = new Portfolio({
+          securities: units.map((unit, i) => security({
+            tick: `S${i}`,
+            price: pick([0.37, 1, 5, 28.45, 62.1, 250]),
+            shares: Math.floor(random() * 40),
+            targetPercentage: unit / 20,
+            brokerageFeeFlat: pick([0, 1, 3]),
+            tradingFeePercentage: pick([0, 0.001, 0.01]),
+            minimumTradingFeeFlat: pick([0, 2, 10]),
+          })),
+          cash: pick([0, 0, 15, 400]),
+        })
+        const deposit = pick([0, 0, 1, 20, 100, 1000])
+
+        portfolio.allocateCash(new Decimal(deposit))
+
+        expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+        const sells = portfolio.securities.some((sec) => sec.shares < sec.initialShares)
+        const buys = portfolio.securities.some((sec) => sec.shares > sec.initialShares)
+        expect(sells && !buys).toBe(false)
+      }
+    })
+
+    it('stays fast when fees leave it far short', () => {
+      // A 1% fee on 10 million at 0.37 a share: trimming one share at a time would take
+      // hundreds of thousands of steps
+      const portfolio = new Portfolio({
+        securities: [
+          security({ tick: 'A', price: 0.37, shares: 0, targetPercentage: 0.5, tradingFeePercentage: 0.01 }),
+          security({ tick: 'B', price: 0.37, shares: 0, targetPercentage: 0.5, tradingFeePercentage: 0.01 }),
+        ],
+      })
+
+      const started = performance.now()
+      portfolio.allocateCash(new Decimal(10_000_000))
+
+      expect(performance.now() - started).toBeLessThan(1000)
+      expect(portfolio.cashAfterTrades.greaterThanOrEqualTo(0)).toBe(true)
+      expect(portfolio.cashAfterTrades.lessThan(1)).toBe(true)
+    })
+
     it.each([NaN, Infinity, -Infinity])('rejects the deposit %d', (deposit) => {
       const portfolio = buildPortfolio()
 

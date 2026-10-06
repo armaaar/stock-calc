@@ -131,16 +131,88 @@ export class Portfolio {
     this.plannedDeposit = deposit
     this.balanceForPrice(value)
 
-    // Rounding and fees can overshoot: cancel buys first, and only sell more when buying nothing
-    // still needs more cash than there is. Selling everything ends the loop: if even that falls
-    // short, cashAfterTrades stays negative and shows by how much.
+    // Rounding and fees can overshoot: cancel buys first
+    this.cancelBuysUntilAffordable()
+
+    const hasBuys = this.securities.some((sec) => sec.shares > sec.initialShares)
+    if (!hasBuys && deposit.plus(this.cash).greaterThanOrEqualTo(0)) {
+      // Sells only fund buys or a withdrawal: without either they just turn holdings into fees
+      this.resetShares()
+      return
+    }
+
+    // A withdrawal that the sells and fees don't cover yet: raise more by selling
+    this.sellUntilAffordable()
+  }
+
+  private resetShares() {
+    this.securities.forEach((sec) => {
+      sec.shares = sec.initialShares
+    })
+  }
+
+  /**
+   * Cancels buys, most overweight first, until the plan needs no more cash than it has or no
+   * buys are left. Far short, it cancels several shares at once, so large fees stay fast.
+   */
+  private cancelBuysUntilAffordable() {
     while (this.cashAfterTrades.lessThan(0)) {
       const buys = this.securities.filter((sec) => sec.shares > sec.initialShares)
-      const held = this.securities.filter((sec) => sec.shares > 0)
-      const sec = this.mostOverweight(buys.length > 0 ? buys : held)
+      const sec = this.mostOverweight(buys)
       if (!sec) return
-      sec.shares -= 1
+      sec.shares -= this.sharesToRemove(sec, buys.length, sec.shares - sec.initialShares)
     }
+  }
+
+  /**
+   * Sells until the plan is affordable. It undoes any sell that costs more in fees than it
+   * raises, and only takes steps that raise cash. If nothing does, cashAfterTrades stays
+   * negative and shows the shortfall.
+   */
+  private sellUntilAffordable() {
+    while (this.cashAfterTrades.lessThan(0)) {
+      const losing = this.securities.find((sec) => (
+        sec.shares < sec.initialShares && sec.tradingFee.greaterThanOrEqualTo(sec.tradedPrice.abs())
+      ))
+      if (losing) {
+        losing.shares = losing.initialShares
+        continue
+      }
+
+      const held = this.securities.filter((sec) => sec.shares > 0)
+      const sec = this.mostOverweight(held.filter((other) => this.raisesCash(other, 1)))
+      if (sec) {
+        // Fees grow by at most the percentage of what's sold, so if one more share raises cash,
+        // so do several
+        sec.shares -= this.sharesToRemove(sec, held.length, sec.shares)
+        continue
+      }
+
+      // One more share can't pay for a new order's fee; selling a whole holding still might
+      const sellable = held.filter((other) => this.raisesCash(other, other.shares))
+      const whole = this.mostOverweight(sellable)
+      if (!whole) return
+      whole.shares = 0
+    }
+  }
+
+  /** Whether selling `shares` more of `sec` (or buying that many fewer) leaves more cash. */
+  private raisesCash(sec: PortfolioSecurity, shares: number): boolean {
+    const before = this.cashAfterTrades
+    sec.shares -= shares
+    const after = this.cashAfterTrades
+    sec.shares += shares
+    return after.greaterThan(before)
+  }
+
+  /**
+   * How many shares of `sec` to take off at once: its share of the shortfall, split between the
+   * `among` candidates, at least 1 and at most `max`.
+   */
+  private sharesToRemove(sec: PortfolioSecurity, among: number, max: number): number {
+    const short = this.cashAfterTrades.negated()
+    const step = short.dividedBy(sec.price.times(among)).floor().toNumber()
+    return Math.min(max, Math.max(1, step))
   }
 
   /**
@@ -157,9 +229,7 @@ export class Portfolio {
       sec.targetPercentage.greaterThan(0) && sec.price.greaterThan(0)
     ))
     const level = this.fillLevel(buyable, this.cash.plus(deposit))
-    this.securities.forEach((sec) => {
-      sec.shares = sec.initialShares
-    })
+    this.resetShares()
     buyable.forEach((sec) => {
       const gap = level.times(sec.targetPercentage).minus(sec.initialTotalPrice)
       const buyValue = Decimal.max(0, gap)
@@ -167,12 +237,9 @@ export class Portfolio {
       sec.shares += buyValue.dividedBy(sec.price).floor().toNumber()
     })
 
-    // Fees can still overshoot: cancel buys of the most overweight security first
-    while (this.cashAfterTrades.lessThan(0)) {
-      const buys = this.securities.filter((sec) => sec.shares > sec.initialShares)
-      const sec = this.mostOverweight(buys) as PortfolioSecurity
-      sec.shares -= 1
-    }
+    // Fees can still overshoot: cancel buys of the most overweight security first. With no
+    // sells, cancelling every buy always fits, since cash + deposit ≥ 0.
+    this.cancelBuysUntilAffordable()
 
     // Spend what rounding left over, one share at a time, on whatever is most underweight
     let candidates = buyable
