@@ -207,7 +207,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
       // The aggregate forbids this at construction; guard against a portfolio changed afterwards.
       const loaded = buildPortfolio()
       loaded.securities.forEach((sec) => {
-        sec.targetPercentage = new Decimal(0)
+        Object.assign(sec, { targetPercentage: new Decimal(0) })
       })
       repo.getPortfolio.mockResolvedValueOnce(loaded)
 

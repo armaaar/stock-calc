@@ -142,6 +142,37 @@ describe('PortfolioSecurity', () => {
     })
   })
 
+  describe('shares', () => {
+    it('accepts a new whole number of shares, including 0', () => {
+      const sec = build()
+
+      sec.shares = 0
+      expect(sec.shares).toBe(0)
+      sec.shares = 250
+      expect(sec.shares).toBe(250)
+      expect(sec.initialShares).toBe(100)
+    })
+
+    it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+      'rejects %s, naming the security, and keeps the previous value',
+      (shares) => {
+        const sec = build({ shares: 127, initialShares: 100 })
+
+        expect(() => {
+          sec.shares = shares
+        }).toThrow(`Shares of 'QDVE' must be a whole number of at least 0 (${shares})`)
+        expect(sec.shares).toBe(127)
+      },
+    )
+
+    it('reports bad constructor shares as a validation error, not the setter message', () => {
+      const error = validationErrorOf(() => build({ shares: -1, initialShares: 0 }))
+
+      expect(error).toBeInstanceOf(ClassValidatorError)
+      expect(error.errors.map((e) => e.property)).toEqual(['shares'])
+    })
+  })
+
   describe('tradingFee', () => {
     const fees = { brokerageFeeFlat: 2, tradingFeePercentage: 0.002, minimumTradingFeeFlat: 10 }
 
@@ -259,7 +290,7 @@ describe('PortfolioSecurity', () => {
 
     it('re-validates through the constructor', () => {
       const sec = build()
-      sec.shares = -1
+      Object.assign(sec, { minimumTradingFeeFlat: new Decimal(-1) })
 
       expect(() => sec.clone()).toThrow(ClassValidatorError)
     })

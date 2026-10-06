@@ -12,7 +12,7 @@ The domain model: the `Portfolio` aggregate root, `PortfolioSecurity` entities, 
   2. target percentages sum to exactly 1 (`Decimal.equals`),
   3. a single currency,
   4. unique ticks.
-- **Validation happens only at construction.** Use cases mutate `shares` afterwards, and nothing re-validates the entities. Guard inputs instead: validate use-case parameters, and make domain operations reject bad arguments (as `balanceForPrice` rejects NaN, infinite and negative prices).
+- **Only `shares` changes after construction** (ADR-0021). Its setter throws on anything but a whole number ≥ 0, so a planning bug fails loudly. Every other field is `readonly`, and `Portfolio.securities` is a `readonly` array. Keep new fields `readonly`. Tests that need an invalid entity bypass this on purpose with `Object.assign`. Still validate use-case inputs and domain-operation arguments (as `balanceForPrice` does), so errors name the input rather than a share count.
 - `initialShares` is the current holding and is never changed. `shares` is the proposed holding. Trade and fee values are derived from the difference between the two (ADR-0010). Keep both when adding derived values.
 - `clone()` rebuilds through constructors, so validation runs again.
 - Keep the worked examples in `docs/domain/use-cases.md` and the entity tests in sync when changing the math.

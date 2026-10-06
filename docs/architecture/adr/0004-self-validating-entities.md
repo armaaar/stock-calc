@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2023-09-10
+- **Amended by:** [ADR-0021](0021-guard-proposed-shares.md) (every change to `shares` is checked; other fields are read-only)
 - **Introduced in:** `4d56948` (dependency added), `e79fe62` "feat: add more options and validations"
 
 ## Context
@@ -27,3 +28,5 @@ Aggregate-level rules that can't be expressed as a decorator, such as "percentag
 - An entity can't be constructed in an invalid state, and `clone()` re-runs validation because it goes through the constructor.
 - Validation happens **only at construction**. Later mutation of `shares` by use cases is not re-validated. For example, `target abc` yields `NaN` share counts without an error.
 - Every new entity or validated use case must follow the "validate at the end of the constructor" pattern, or its decorators have no effect.
+
+> **Update:** [ADR-0021](0021-guard-proposed-shares.md) checks every assignment to `shares` and makes the other entity fields read-only, so the "only at construction" consequence above no longer holds.

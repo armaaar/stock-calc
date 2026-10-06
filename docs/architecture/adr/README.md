@@ -11,7 +11,7 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-001
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted | 2026-10-06 |
 | [0002](0002-layered-clean-architecture.md) | Layered clean architecture | Accepted | 2023-09-09 |
 | [0003](0003-decimal-arithmetic.md) | Use arbitrary-precision decimals for money and percentages | Accepted | 2023-09-10 |
-| [0004](0004-self-validating-entities.md) | Self-validating entities with class-validator | Accepted | 2023-09-10 |
+| [0004](0004-self-validating-entities.md) | Self-validating entities with class-validator | Accepted (amended by 0021) | 2023-09-10 |
 | [0005](0005-scrape-prices-with-headless-browser.md) | Scrape live prices with a headless browser | Accepted | 2023-09-09 |
 | [0006](0006-race-multiple-price-sources.md) | Race multiple price sources, one browser per source per run | Accepted | 2023-10-07 |
 | [0007](0007-local-jsonc-portfolio-files.md) | Local JSONC portfolio files validated with typia | Accepted (validation superseded by 0012) | 2023-10-07 |
@@ -28,6 +28,7 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-001
 | [0018](0018-dependency-injection-and-composition-root.md) | Constructor injection and a composition root | Accepted | 2026-10-06 |
 | [0019](0019-interface-neutral-portfolio-view.md) | One interface-neutral portfolio view for both interfaces | Accepted | 2026-10-06 |
 | [0020](0020-per-security-fee-overrides.md) | Per-security fee overrides, charged on the order's absolute value | Accepted | 2026-10-06 |
+| [0021](0021-guard-proposed-shares.md) | Check every change to the proposed shares; the rest of the aggregate is read-only | Accepted | 2026-10-06 |
 
 ## Adding an ADR
 

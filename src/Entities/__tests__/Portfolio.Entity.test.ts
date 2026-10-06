@@ -101,7 +101,7 @@ describe('Portfolio', () => {
 
     it('validates the securities before checking the percentage sum', () => {
       const qdve = security({ targetPercentage: 0.5 })
-      qdve.shares = -1
+      Object.assign(qdve, { minimumTradingFeeFlat: new Decimal(-1) })
 
       expect(() => new Portfolio({ securities: [qdve, new PortfolioSecurity(SPYD)] }))
         .toThrow(ClassValidatorError)
@@ -128,7 +128,7 @@ describe('Portfolio', () => {
     it('reports invalid nested securities as a ClassValidatorError', () => {
       const qdve = security({})
       const spyd = new PortfolioSecurity(SPYD)
-      qdve.shares = -1
+      Object.assign(qdve, { minimumTradingFeeFlat: new Decimal(-1) })
 
       let error: unknown
       try {
@@ -143,13 +143,13 @@ describe('Portfolio', () => {
       expect(errors).toHaveLength(1)
       expect(errors[0].property).toBe('securities')
       expect(errors[0].children?.[0].property).toBe('0')
-      expect(errors[0].children?.[0].children?.[0].property).toBe('shares')
+      expect(errors[0].children?.[0].children?.[0].property).toBe('minimumTradingFeeFlatValue')
     })
 
     it('skips validation when constructed as a subclass that does not validate itself', () => {
       class UnvalidatedPortfolio extends Portfolio {}
       const qdve = security({})
-      qdve.shares = -1
+      Object.assign(qdve, { minimumTradingFeeFlat: new Decimal(-1) })
 
       // By design (ADR-0004): only the most-derived constructor validates.
       expect(() => new UnvalidatedPortfolio({
@@ -258,7 +258,7 @@ describe('Portfolio', () => {
 
     it('re-validates through the constructors', () => {
       const portfolio = buildPortfolio()
-      portfolio.securities[0].targetPercentage = new Decimal(0.5)
+      Object.assign(portfolio.securities[0], { targetPercentage: new Decimal(0.5) })
 
       expect(() => portfolio.clone()).toThrow('Portfolio percentage don\'t add up to 1 (1.1)')
     })

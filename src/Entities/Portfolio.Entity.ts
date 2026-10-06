@@ -6,16 +6,16 @@ import { validateClassErrors } from '#src/Shared/ClassValidatorError'
 import { PortfolioSecurity } from './PortfolioSecurity.Entity'
 
 export interface IPortfolio {
-  securities: PortfolioSecurity[]
+  securities: readonly PortfolioSecurity[]
 }
 
 export class Portfolio {
   @IsArray()
   @ArrayNotEmpty()
   @ValidateNested()
-  public securities: PortfolioSecurity[]
+  public readonly securities: readonly PortfolioSecurity[]
 
-  public currency?: string
+  public readonly currency?: string
 
   constructor({
     securities,

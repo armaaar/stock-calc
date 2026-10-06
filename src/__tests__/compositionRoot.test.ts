@@ -28,7 +28,7 @@ const LIVE_SETTINGS = JSON.stringify({
   ],
 })
 
-type Holdings = { securities: { tick: string, shares: number }[] }
+type Holdings = { securities: readonly { tick: string, shares: number }[] }
 
 function shares({ securities }: Holdings) {
   return securities.map(({ tick, shares: count }) => [tick, count])

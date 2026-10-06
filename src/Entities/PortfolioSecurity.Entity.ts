@@ -15,7 +15,7 @@ export interface IPortfolioSecurity extends ISecurety {
 }
 
 export class PortfolioSecurity extends Security {
-  public targetPercentage: Decimal
+  public readonly targetPercentage: Decimal
 
   @Min(0)
   @Max(1)
@@ -23,14 +23,14 @@ export class PortfolioSecurity extends Security {
     return this.targetPercentage.toNumber()
   }
 
-  public brokerageFeeFlat: Decimal
+  public readonly brokerageFeeFlat: Decimal
 
   @Min(0)
   protected get brokerageFeeFlatValue(): number {
     return this.brokerageFeeFlat.toNumber()
   }
 
-  public tradingFeePercentage: Decimal
+  public readonly tradingFeePercentage: Decimal
 
   @Min(0)
   @Max(1)
@@ -38,27 +38,40 @@ export class PortfolioSecurity extends Security {
     return this.tradingFeePercentage.toNumber()
   }
 
-  public minimumTradingFeeFlat: Decimal
+  public readonly minimumTradingFeeFlat: Decimal
 
   @Min(0)
   protected get minimumTradingFeeFlatValue(): number {
     return this.minimumTradingFeeFlat.toNumber()
   }
 
+  private proposedShares: number
+
+  /** The proposed holding. Planning changes it, so every change is checked (invariant S1). */
   @IsInt()
   @Min(0)
-  public shares: number
+  public get shares(): number {
+    return this.proposedShares
+  }
+
+  public set shares(shares: number) {
+    if (!Number.isInteger(shares) || shares < 0) {
+      throw Error(`Shares of '${this.tick}' must be a whole number of at least 0 (${shares})`)
+    }
+    this.proposedShares = shares
+  }
 
   // initialShares defaults to shares; validating an equal value again would report one
   // problem twice.
   @ValidateIf((sec: PortfolioSecurity) => sec.initialShares !== sec.shares)
   @IsInt()
   @Min(0)
-  public initialShares: number
+  public readonly initialShares: number
 
   constructor(args: IPortfolioSecurity) {
     super(args)
-    this.shares = args.shares
+    // Not through the setter: a bad value is reported with the other validation errors below
+    this.proposedShares = args.shares
     this.initialShares = args.initialShares ?? args.shares
     this.targetPercentage = new Decimal(args.targetPercentage)
 

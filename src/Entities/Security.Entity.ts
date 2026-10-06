@@ -12,20 +12,20 @@ export interface ISecurety {
 
 export class Security {
   @IsNotEmpty()
-  public tick: string
+  public readonly tick: string
 
-  public isin?: string
+  public readonly isin?: string
 
-  public price: Decimal
+  public readonly price: Decimal
 
   @Min(0)
   protected get priceValue(): number {
     return this.price.toNumber()
   }
 
-  public exchange?: string
+  public readonly exchange?: string
 
-  public currency?: string
+  public readonly currency?: string
 
   constructor({
     tick, isin, price, exchange, currency,

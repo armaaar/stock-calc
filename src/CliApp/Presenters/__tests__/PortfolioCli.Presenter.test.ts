@@ -268,7 +268,7 @@ describe('PortfolioCliPresenter.present', () => {
 
     it('throws before printing anything even when there are no securities', () => {
       const portfolio = buildPortfolio()
-      portfolio.securities = []
+      Object.assign(portfolio, { securities: [] })
 
       expect(() => PortfolioCliPresenter.present(portfolio, 99 as PresentMode, 'Title'))
         .toThrow('Unknown present mode \'99\'')
