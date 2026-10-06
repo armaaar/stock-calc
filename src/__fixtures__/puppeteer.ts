@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import type { Browser } from 'puppeteer'
 
 /**
  * What a fake `page.waitForSelector(selector)` does:
@@ -41,3 +42,14 @@ export function createFakeBrowser(page: FakePage = createFakePage()) {
 }
 
 export type FakeBrowser = ReturnType<typeof createFakeBrowser>
+
+/** A `BrowserLauncher` that resolves to the given fakes, in order, then keeps the last one. */
+export function fakeLauncher(...browsers: FakeBrowser[]) {
+  const queue = browsers.length > 0 ? browsers : [createFakeBrowser()]
+  let next = 0
+  return vi.fn(async () => {
+    const browser = queue[Math.min(next, queue.length - 1)]
+    next++
+    return browser as unknown as Browser
+  })
+}

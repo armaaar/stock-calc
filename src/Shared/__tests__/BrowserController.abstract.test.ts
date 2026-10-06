@@ -1,12 +1,8 @@
 import {
-  beforeEach, describe, expect, it, vi,
+  beforeEach, describe, expect, it,
 } from 'vitest'
-import { createFakeBrowser, FakeBrowser } from '#src/__fixtures__/puppeteer'
+import { createFakeBrowser, FakeBrowser, fakeLauncher } from '#src/__fixtures__/puppeteer'
 import { BrowserController } from '../BrowserController.abstract'
-
-const puppeteer = vi.hoisted(() => ({ launch: vi.fn() }))
-
-vi.mock('puppeteer', () => ({ launch: puppeteer.launch }))
 
 class TestController extends BrowserController {
   public currentBrowser(): FakeBrowser {
@@ -15,12 +11,16 @@ class TestController extends BrowserController {
 }
 
 describe('BrowserController', () => {
+  let first: FakeBrowser
+  let second: FakeBrowser
+  let launch: ReturnType<typeof fakeLauncher>
   let controller: TestController
 
   beforeEach(() => {
-    puppeteer.launch.mockReset()
-    puppeteer.launch.mockImplementation(async () => createFakeBrowser())
-    controller = new TestController()
+    first = createFakeBrowser()
+    second = createFakeBrowser()
+    launch = fakeLauncher(first, second)
+    controller = new TestController(launch)
   })
 
   it('getBrowser throws before the browser is launched', () => {
@@ -28,64 +28,70 @@ describe('BrowserController', () => {
       .toThrow('Can\'t use browser. Please launch the browser first.')
   })
 
-  it('launches a headless browser and exposes it through getBrowser', async () => {
+  it('does not launch anything when constructed', () => {
+    expect(launch).not.toHaveBeenCalled()
+  })
+
+  it('launches through the injected launcher and exposes its browser through getBrowser', async () => {
     await controller.launchBrowser()
 
-    expect(puppeteer.launch).toHaveBeenCalledOnce()
-    expect(puppeteer.launch).toHaveBeenCalledWith({ headless: true })
-    expect(controller.currentBrowser()).toBe(await puppeteer.launch.mock.results[0].value)
+    expect(launch).toHaveBeenCalledOnce()
+    expect(launch).toHaveBeenCalledWith()
+    expect(controller.currentBrowser()).toBe(first)
   })
 
   it('launches only once when already launched', async () => {
     await controller.launchBrowser()
-    const browser = controller.currentBrowser()
 
     await controller.launchBrowser()
 
-    expect(puppeteer.launch).toHaveBeenCalledOnce()
-    expect(controller.currentBrowser()).toBe(browser)
+    expect(launch).toHaveBeenCalledOnce()
+    expect(controller.currentBrowser()).toBe(first)
   })
 
   it('closes the browser and resets, so getBrowser throws and the next launch is fresh', async () => {
     await controller.launchBrowser()
-    const browser = controller.currentBrowser()
 
     await controller.closeBrowser()
 
-    expect(browser.close).toHaveBeenCalledOnce()
+    expect(first.close).toHaveBeenCalledOnce()
     expect(() => controller.currentBrowser()).toThrow(/launch the browser first/)
 
     await controller.launchBrowser()
 
-    expect(puppeteer.launch).toHaveBeenCalledTimes(2)
-    expect(controller.currentBrowser()).not.toBe(browser)
+    expect(launch).toHaveBeenCalledTimes(2)
+    expect(controller.currentBrowser()).toBe(second)
   })
 
   it('closing a browser that was never launched is a no-op', async () => {
     await expect(controller.closeBrowser()).resolves.toBeUndefined()
-    expect(puppeteer.launch).not.toHaveBeenCalled()
+    expect(launch).not.toHaveBeenCalled()
   })
 
-  it('each controller owns its own browser', async () => {
-    const other = new TestController()
+  it('each controller owns its own browser and launcher', async () => {
+    const otherBrowser = createFakeBrowser()
+    const otherLaunch = fakeLauncher(otherBrowser)
+    const other = new TestController(otherLaunch)
 
     await controller.launchBrowser()
     await other.launchBrowser()
 
-    expect(puppeteer.launch).toHaveBeenCalledTimes(2)
-    expect(controller.currentBrowser()).not.toBe(other.currentBrowser())
+    expect(launch).toHaveBeenCalledOnce()
+    expect(otherLaunch).toHaveBeenCalledOnce()
+    expect(controller.currentBrowser()).toBe(first)
+    expect(other.currentBrowser()).toBe(otherBrowser)
   })
 
   describe('concurrent launches', () => {
     it('share one in-flight launch, so only one browser is started', async () => {
       await Promise.all([controller.launchBrowser(), controller.launchBrowser()])
 
-      expect(puppeteer.launch).toHaveBeenCalledOnce()
-      expect(controller.currentBrowser()).toBe(await puppeteer.launch.mock.results[0].value)
+      expect(launch).toHaveBeenCalledOnce()
+      expect(controller.currentBrowser()).toBe(first)
     })
 
     it('all reject when the shared launch fails, and a later launch retries', async () => {
-      puppeteer.launch.mockRejectedValueOnce(Error('launch failed'))
+      launch.mockRejectedValueOnce(Error('launch failed'))
 
       const results = await Promise.allSettled([
         controller.launchBrowser(),
@@ -93,13 +99,13 @@ describe('BrowserController', () => {
       ])
 
       expect(results.map((r) => r.status)).toEqual(['rejected', 'rejected'])
-      expect(puppeteer.launch).toHaveBeenCalledOnce()
+      expect(launch).toHaveBeenCalledOnce()
       expect(() => controller.currentBrowser()).toThrow(/launch the browser first/)
 
       await controller.launchBrowser()
 
-      expect(puppeteer.launch).toHaveBeenCalledTimes(2)
-      expect(controller.currentBrowser()).toBeDefined()
+      expect(launch).toHaveBeenCalledTimes(2)
+      expect(controller.currentBrowser()).toBe(first)
     })
 
     it('closeBrowser waits for a launch in progress and closes that browser', async () => {
@@ -108,13 +114,13 @@ describe('BrowserController', () => {
       await controller.closeBrowser()
       await launching
 
-      const browser = await puppeteer.launch.mock.results[0].value as FakeBrowser
-      expect(browser.close).toHaveBeenCalledOnce()
+      expect(launch).toHaveBeenCalledOnce()
+      expect(first.close).toHaveBeenCalledOnce()
       expect(() => controller.currentBrowser()).toThrow(/launch the browser first/)
     })
 
     it('closeBrowser ignores a launch in progress that fails', async () => {
-      puppeteer.launch.mockRejectedValueOnce(Error('launch failed'))
+      launch.mockRejectedValueOnce(Error('launch failed'))
       const launching = controller.launchBrowser()
 
       await expect(controller.closeBrowser()).resolves.toBeUndefined()
@@ -124,15 +130,14 @@ describe('BrowserController', () => {
 
   it('resets the browser reference and propagates the error when close() rejects', async () => {
     await controller.launchBrowser()
-    const browser = controller.currentBrowser()
-    browser.close.mockRejectedValueOnce(Error('close failed'))
+    first.close.mockRejectedValueOnce(Error('close failed'))
 
     await expect(controller.closeBrowser()).rejects.toThrow('close failed')
     expect(() => controller.currentBrowser()).toThrow(/launch the browser first/)
 
     await controller.launchBrowser()
 
-    expect(puppeteer.launch).toHaveBeenCalledTimes(2)
-    expect(controller.currentBrowser()).not.toBe(browser)
+    expect(launch).toHaveBeenCalledTimes(2)
+    expect(controller.currentBrowser()).toBe(second)
   })
 })

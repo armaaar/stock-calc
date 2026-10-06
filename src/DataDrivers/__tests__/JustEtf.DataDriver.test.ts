@@ -1,15 +1,11 @@
 import {
-  beforeEach, describe, expect, it, vi,
+  beforeEach, describe, expect, it,
 } from 'vitest'
 import { QDVE_SETTING, withoutIsin } from '#src/__fixtures__/dataFiles'
 import {
-  createFakeBrowser, createFakePage, FakeBrowser, FakeSelectorResult,
+  createFakeBrowser, createFakePage, FakeBrowser, fakeLauncher, FakeSelectorResult,
 } from '#src/__fixtures__/puppeteer'
 import { JustEtfDataDriver } from '../JustEtf.DataDriver'
-
-const puppeteer = vi.hoisted(() => ({ launch: vi.fn() }))
-
-vi.mock('puppeteer', () => ({ launch: puppeteer.launch }))
 
 const PRICE_SELECTOR = '#realtime-quotes .val'
 
@@ -18,23 +14,33 @@ const NOT_REGISTERED = 'ISIN \'IE00B3WJKG14\' is not registered in justetf.com'
 describe('JustEtfDataDriver', () => {
   let driver: JustEtfDataDriver
   let browser: FakeBrowser
+  let launch: ReturnType<typeof fakeLauncher>
 
   async function launchWith(result: FakeSelectorResult) {
     browser = createFakeBrowser(createFakePage({ [PRICE_SELECTOR]: result }))
-    puppeteer.launch.mockResolvedValue(browser)
+    launch = fakeLauncher(browser)
+    driver = new JustEtfDataDriver(launch)
     await driver.launchBrowser()
   }
 
   beforeEach(() => {
-    puppeteer.launch.mockReset()
-    driver = new JustEtfDataDriver()
+    launch = fakeLauncher()
+    driver = new JustEtfDataDriver(launch)
   })
 
   it('throws when the security has no ISIN, without touching the browser', async () => {
     const noIsin = withoutIsin(QDVE_SETTING)
 
     await expect(driver.getPrice(noIsin)).rejects.toThrow('No ISIN provided to get price')
-    expect(puppeteer.launch).not.toHaveBeenCalled()
+    expect(launch).not.toHaveBeenCalled()
+  })
+
+  it('checks the ISIN before opening a page in a launched browser', async () => {
+    await launchWith({ text: 'EUR 28.45' })
+    const noIsin = withoutIsin(QDVE_SETTING)
+
+    await expect(driver.getPrice(noIsin)).rejects.toThrow('No ISIN provided to get price')
+    expect(browser.newPage).not.toHaveBeenCalled()
   })
 
   it('throws when the browser was not launched', async () => {
@@ -47,6 +53,7 @@ describe('JustEtfDataDriver', () => {
     await expect(driver.getPrice(QDVE_SETTING)).resolves.toEqual({ price: 28.45, currency: 'EUR' })
 
     const { page } = browser
+    expect(launch).toHaveBeenCalledOnce()
     expect(browser.newPage).toHaveBeenCalledOnce()
     expect(page.goto)
       .toHaveBeenCalledWith('https://www.justetf.com/en/etf-profile.html?isin=IE00B3WJKG14')

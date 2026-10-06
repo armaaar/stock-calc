@@ -1,21 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
+import { StubUseCases, stubUseCases } from '#src/__fixtures__/useCases'
 import { PortfolioCliPresenter, PresentMode } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
-import { targetCli } from '../target.CliCommand'
-
-const { UseCase, handler } = vi.hoisted(() => {
-  const handler = vi.fn()
-  const UseCase = vi.fn(function GetPortfolioWithPriceUseCase() {
-    return { handler }
-  })
-  return { UseCase, handler }
-})
-
-vi.mock('#src/UseCases/GetPortfolioWithPrice.UseCase', () => ({
-  GetPortfolioWithPriceUseCase: UseCase,
-}))
+import { createTargetCli } from '../target.CliCommand'
 
 /** Makes process.exit throw instead of exiting and captures what commander writes to stderr. */
 function interceptExit() {
@@ -28,15 +17,18 @@ function interceptExit() {
 
 describe('target command', () => {
   let spies: ConsoleSpies
+  let target: StubUseCases['target']
+  let targetCli: ReturnType<typeof createTargetCli>
 
   beforeEach(() => {
-    vi.clearAllMocks()
     spies = spyOnConsole()
+    target = stubUseCases().target
     // The example portfolio after `target 5000`: sell 30 QDVE and 52 SPYD.
-    handler.mockResolvedValue(buildPortfolio([
+    target.execute.mockResolvedValue(buildPortfolio([
       { ...QDVE, shares: 70, initialShares: 100 },
       { ...SPYD, shares: 48, initialShares: 100 },
     ]))
+    targetCli = createTargetCli(target)
   })
 
   afterEach(() => {
@@ -59,11 +51,10 @@ describe('target command', () => {
 
     await targetCli.parseAsync(['5000'], { from: 'user' })
 
-    expect(UseCase).toHaveBeenCalledTimes(1)
-    expect(UseCase).toHaveBeenCalledWith('EUR', 5000)
-    expect(handler).toHaveBeenCalledTimes(1)
+    expect(target.execute).toHaveBeenCalledTimes(1)
+    expect(target.execute).toHaveBeenCalledWith({ portfolioType: 'EUR', targetPrice: 5000 })
     expect(present).toHaveBeenCalledWith(
-      await handler.mock.results[0].value,
+      await target.execute.mock.results[0].value,
       PresentMode.WITH_DELTA,
     )
     expect(printedLines(spies.log)).toEqual([
@@ -82,7 +73,7 @@ describe('target command', () => {
   ])('uses the portfolio type given with %s', async (flag, type) => {
     await targetCli.parseAsync(['1e4', flag, type], { from: 'user' })
 
-    expect(UseCase).toHaveBeenCalledWith(type, 10000)
+    expect(target.execute).toHaveBeenCalledWith({ portfolioType: type, targetPrice: 10000 })
   })
 
   it.each(['abc', '12abc', 'NaN', 'Infinity'])(
@@ -97,18 +88,18 @@ describe('target command', () => {
         `error: command-argument value '${value}' is invalid for argument 'price'. `
         + 'Not a finite number.\n',
       )
-      expect(UseCase).not.toHaveBeenCalled()
+      expect(target.execute).not.toHaveBeenCalled()
     },
   )
 
   it('leaves the range check (price > 0) to the use case', async () => {
     await targetCli.parseAsync(['-5'], { from: 'user' })
 
-    expect(UseCase).toHaveBeenCalledWith('EUR', -5)
+    expect(target.execute).toHaveBeenCalledWith({ portfolioType: 'EUR', targetPrice: -5 })
   })
 
-  it('routes a failing handler to the error presenter and sets exit code 1', async () => {
-    handler.mockRejectedValueOnce('not an error')
+  it('routes a failing use case to the error presenter and sets exit code 1', async () => {
+    target.execute.mockRejectedValueOnce('not an error')
     const presentError = vi.spyOn(ErrorCliPresenter, 'present')
     const present = vi.spyOn(PortfolioCliPresenter, 'present')
 

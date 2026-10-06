@@ -1,67 +1,58 @@
 import {
-  beforeEach, describe, expect, it, vi,
+  beforeEach, describe, expect, it,
 } from 'vitest'
 import { buildPortfolio } from '#src/__fixtures__/portfolio'
-import { PortfolioRepository } from '#src/Repositories/Portfolio.Repository'
-import { PortfolioUserCase } from '../PortfolioUseCase.abstract'
+import { FakePortfolioRepository, fakePortfolioRepository } from '#src/__fixtures__/repository'
+import { PortfolioRequest, PortfolioUseCase } from '../PortfolioUseCase.abstract'
 
-const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
-
-vi.mock('#src/Repositories/Portfolio.Repository', () => ({
-  PortfolioRepository: class {
-    getPortfolio = getPortfolio
-  },
-}))
-
-class ProbeUseCase extends PortfolioUserCase<string> {
-  public handler() {
-    return this.portfolioType
+/** The smallest concrete use case: loads the requested portfolio and exposes the repository. */
+class ProbeUseCase extends PortfolioUseCase {
+  public async execute({ portfolioType }: PortfolioRequest) {
+    return this.portfolioRepo.getPortfolio(portfolioType)
   }
 
   public get repo() {
     return this.portfolioRepo
   }
-
-  public load() {
-    return this.getSourcePortfolio()
-  }
 }
 
-describe('PortfolioUserCase', () => {
+describe('PortfolioUseCase', () => {
+  let repo: FakePortfolioRepository
+
   beforeEach(() => {
-    getPortfolio.mockReset().mockImplementation(async () => buildPortfolio())
+    repo = fakePortfolioRepository()
   })
 
-  it('stores the portfolio type', () => {
-    expect(new ProbeUseCase('EGP').handler()).toBe('EGP')
+  it('holds the injected repository', () => {
+    expect(new ProbeUseCase(repo).repo).toBe(repo)
   })
 
-  it('owns its own repository instance', () => {
-    const a = new ProbeUseCase('EUR')
-    const b = new ProbeUseCase('EUR')
+  it('shares one repository between use cases built over it', () => {
+    const a = new ProbeUseCase(repo)
+    const b = new ProbeUseCase(repo)
 
-    expect(a.repo).toBeInstanceOf(PortfolioRepository)
-    expect(a.repo).not.toBe(b.repo)
+    expect(a.repo).toBe(b.repo)
   })
 
-  it('does not load anything until asked', () => {
-    new ProbeUseCase('EUR')
+  it('does not load anything on construction', () => {
+    new ProbeUseCase(repo)
 
-    expect(getPortfolio).not.toHaveBeenCalled()
+    expect(repo.getPortfolio).not.toHaveBeenCalled()
   })
 
-  it('loads the source portfolio from the repository by type', async () => {
+  it('loads through the injected repository by type when executed', async () => {
     const loaded = buildPortfolio()
-    getPortfolio.mockResolvedValueOnce(loaded)
+    repo.getPortfolio.mockResolvedValueOnce(loaded)
 
-    await expect(new ProbeUseCase('EGP').load()).resolves.toBe(loaded)
-    expect(getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+    await expect(new ProbeUseCase(repo).execute({ portfolioType: 'EGP' })).resolves.toBe(loaded)
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
   })
 
   it('propagates repository errors', async () => {
-    getPortfolio.mockRejectedValueOnce(new Error('no settings'))
+    repo.getPortfolio.mockRejectedValueOnce(new Error('no settings'))
 
-    await expect(new ProbeUseCase('NOPE').load()).rejects.toThrow('no settings')
-    expect(getPortfolio).toHaveBeenCalledExactlyOnceWith('NOPE')
+    await expect(new ProbeUseCase(repo).execute({ portfolioType: 'NOPE' }))
+      .rejects.toThrow('no settings')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('NOPE')
   })
 })

@@ -26,10 +26,14 @@ export function dataDirectory(): string {
   return path.resolve(configured.replace(/^~(?=$|[\\/])/, os.homedir()))
 }
 
-/** `<data folder>/<prefix>.<type>.jsonc`, after checking that `type` is a valid portfolio name. */
-export function dataFilePath(prefix: '_settings' | '_overrides', type: string): string {
+/** `<dataDir>/<prefix>.<type>.jsonc`, after checking that `type` is a valid portfolio name. */
+export function dataFilePath(
+  dataDir: string,
+  prefix: '_settings' | '_overrides',
+  type: string,
+): string {
   assertPortfolioName(type)
-  return path.resolve(dataDirectory(), `${prefix}.${type}.jsonc`)
+  return path.resolve(dataDir, `${prefix}.${type}.jsonc`)
 }
 
 /** True when the text holds nothing but whitespace and comments. */

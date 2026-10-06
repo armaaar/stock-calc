@@ -35,20 +35,24 @@ The code uses a layered "clean architecture" split ([ADR-0002](adr/0002-layered-
 | --- | --- | --- | --- |
 | Interface (CLI) | `src/CliApp` | Parse arguments (commander), call a use case, render results and errors (chalk, `console.table`). | UseCases, Entities (for presenting), Shared |
 | Interface (MCP) | `src/McpApp` | Expose each use case as an MCP tool (`@modelcontextprotocol/sdk`, zod schemas). Return structured results or tool errors ([ADR-0014](adr/0014-mcp-server-interface.md)). | UseCases, Entities (for presenting), Shared |
-| Application | `src/UseCases` | One class per user intent. Loads the portfolio and applies a domain operation. | Repositories, Entities, Shared |
-| Repository | `src/Repositories` | Builds the `Portfolio` aggregate from settings, overrides, and live prices. Acts as the anti-corruption layer between DTOs and the domain. | DataDrivers, Entities |
+| Application | `src/UseCases` | One stateless class per user intent (`execute(request)`). Loads the portfolio through the `IPortfolioRepository` port it owns and applies a domain operation. `PortfolioUseCases` is what the interfaces receive. | Entities, Shared |
+| Repository | `src/Repositories` | Implements `IPortfolioRepository`: builds the `Portfolio` aggregate from settings, overrides, and live prices, using the data drivers it's given. Acts as the anti-corruption layer between DTOs and the domain. | UseCases (its port), DataDrivers (types), Entities |
 | Infrastructure | `src/DataDrivers` | Reads and validates files (zod), scrapes web pages. Returns plain DTOs. | Shared, external libraries |
 | Domain | `src/Entities` | `Portfolio`, `PortfolioSecurity`, and `Security`: invariants, valuation, fees, rebalancing math. | Shared, `decimal.js`, `class-validator` |
 | Shared kernel | `src/Shared` | Browser lifecycle base class, validation helper and error type, numeric and object utilities. | External libraries |
+| Composition root | `src/compositionRoot.ts` | `composePortfolioUseCases(dataDir)`: the only place that picks concrete adapters, reads `$STOCK_CALC_DATA_DIR` and launches puppeteer. Called by both entry points (`CliApp/app.ts`, `McpApp/app.ts`). | Everything |
 
 ```mermaid
 flowchart TD
+  Root[compositionRoot] --> Repositories
+  Root --> DataDrivers
+  Root --> UseCases
   CliApp --> UseCases
   McpApp --> UseCases
   CliApp -.presents.-> Entities
   McpApp -.presents.-> Entities
-  UseCases --> Repositories
   UseCases --> Entities
+  Repositories -.implements IPortfolioRepository.-> UseCases
   Repositories --> DataDrivers
   Repositories --> Entities
   Entities --> Shared
@@ -57,12 +61,11 @@ flowchart TD
 
 The two interface layers never import each other. Each has its own options file and presenters.
 
+Dependencies are injected through constructors and wired once, in the composition root ([ADR-0018](adr/0018-dependency-injection-and-composition-root.md)). No layer below the entry points creates its own collaborators or reads the environment.
+
 ### Where the dependency rule is relaxed
 
-The layering is a convention. It is not strictly inverted:
-
-- There is **no dependency injection**. Each use case creates a concrete `PortfolioRepository`, and the repository creates concrete data drivers. Tests replace them with module mocks (`vi.mock`, [ADR-0015](adr/0015-vitest-with-coverage-gate.md)).
-- The port interface `IPriceDataDriver`, the DTO types, and the zod schemas they're derived from live in `src/DataDrivers`, not in an application or domain layer.
+- The data-driver ports (`ISettingsDataDriver`, `IOverridesDataDriver`, `IPriceDataDriver`), the DTO types, and the zod schemas they're derived from live in `src/DataDrivers`. The repository that consumes them is itself an infrastructure adapter, so this stays on the outer side of the application.
 - `minimal.CliCommand.ts` and `minimal.McpTool.ts` import default constants (`DEFAULT_ACCEPTABLE_PRECESION`, `DEFAULT_SHARES_STEP`) from their use case.
 
 ## Runtime flow
@@ -72,7 +75,7 @@ Every command and tool follows the same path. CLI `rebalance` is shown here; the
 ```mermaid
 sequenceDiagram
   actor U as User
-  participant C as rebalance.CliCommand
+  participant C as rebalance.CliCommand<br/>(built with its use case)
   participant UC as GetRebalancedPortfolioUseCase
   participant R as PortfolioRepository
   participant S as Settings / Overrides DataDrivers
@@ -81,7 +84,7 @@ sequenceDiagram
   participant V as PortfolioCliPresenter
 
   U->>C: npm run cli -- rebalance --pt EUR
-  C->>UC: new(portfolioType).handler()
+  C->>UC: execute({ portfolioType })
   UC->>R: getPortfolio("EUR")
   R->>S: read + zod-validate settings & overrides
   R->>P: launchBrowser() (one Chromium per driver)
@@ -158,15 +161,15 @@ When a command fails, the CLI prints the error and exits with code 1.
 - **Network and scraping fragility:** prices depend on third-party HTML (CSS selectors such as `#realtime-quotes .val` and `[data-symbol="EX:TICK"] .js-symbol-last`). Layout changes on those sites break price lookup. Overrides are the manual fallback.
 - **Performance:** each run or tool call that needs a live price launches two Chromium instances (none when every price is overridden). Runtime is dominated by page loads and the TradingView timeout. The MCP server itself starts in about a second.
 - **Protocol hygiene:** the MCP server must never write to stdout. `src/McpApp/app.ts` redirects console output to stderr.
-- **Testability:** layers are isolated in tests with module mocks. No test uses a real browser, the network, or `src/data`.
+- **Testability:** layers are isolated by injecting fakes (fake repository, use-case stubs, fake drivers, fake browser launcher, temporary data folders). `vi.mock` is used only at the process boundary. No test uses a real browser, the network, or `src/data`.
 - **Statelessness:** nothing is persisted between runs.
 
 ## Extension points
 
 | To add… | Do this |
 | --- | --- |
-| A use case | Extend `PortfolioUserCase`, implement `handler()`, and end the constructor with `validateClassErrors(this, Self)` if it has validated parameters. Expose it through **both** interfaces (next two rows). |
-| A CLI command | Add `src/CliApp/CliCommands/<name>.CliCommand.ts` with the shared `portfolioOption` and a `try/catch` that calls `ErrorCliPresenter`, register it in `src/CliApp/app.ts`, and add a `cli:<name>` npm script. |
-| An MCP tool | Add `src/McpApp/McpTools/<name>.McpTool.ts` exporting `register<Name>Tool(server)` with a zod `inputSchema` (spread `portfolioInput`), `outputSchema: portfolioOutputSchema`, `portfolioToolAnnotations`, and a `try/catch` that returns `ErrorMcpPresenter.present(e)`. Register it in `src/McpApp/server.ts`. |
-| A price source | Implement `IPriceDataDriver` (usually by extending `BrowserController`), then add it to the repository's driver list and launch/close calls. |
+| A use case | Extend `PortfolioUseCase<Request>` and implement `execute(request)`. Validate inputs first with a small value class that ends its constructor with `validateClassErrors(this, Self)`. Add it to `PortfolioUseCases` and `createPortfolioUseCases`, then expose it through **both** interfaces (next two rows). |
+| A CLI command | Add `src/CliApp/CliCommands/<name>.CliCommand.ts` exporting `create<Name>Cli(useCase)` with the shared `portfolioOption` and a `try/catch` that calls `ErrorCliPresenter`, register it in `createCli` (`src/CliApp/cli.ts`), and add a `cli:<name>` npm script. |
+| An MCP tool | Add `src/McpApp/McpTools/<name>.McpTool.ts` exporting `register<Name>Tool(server, useCase)` with a zod `inputSchema` (spread `portfolioInput`), `outputSchema: portfolioOutputSchema`, `portfolioToolAnnotations`, and a `try/catch` that returns `ErrorMcpPresenter.present(e)`. Register it in `src/McpApp/server.ts`. |
+| A price source | Implement `IPriceDataDriver` (usually by extending `BrowserController`), then add it to the `prices` list in `src/compositionRoot.ts`. |
 | A portfolio | Create `src/data/_settings.<NAME>.jsonc` (and optionally `_overrides.<NAME>.jsonc`), then run with `--pt <NAME>` or call a tool with `"portfolio": "<NAME>"`. |

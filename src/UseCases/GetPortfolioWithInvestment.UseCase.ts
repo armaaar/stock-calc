@@ -1,30 +1,34 @@
 import { IsNumber } from 'class-validator'
 import Decimal from 'decimal.js'
 import { validateClassErrors } from '#src/Shared/ClassValidatorError'
-import { PortfolioUserCase } from './PortfolioUseCase.abstract'
+import { PortfolioRequest, PortfolioUseCase } from './PortfolioUseCase.abstract'
 
-export class GetPortfolioWithInvestmentUseCase extends PortfolioUserCase {
-  private investment: Decimal
+export interface InvestmentRequest extends PortfolioRequest {
+  /** Added to the portfolio value; negative to withdraw. */
+  investment: number
+}
 
+/** A validated investment amount: any finite number. */
+export class Investment {
   @IsNumber()
-  protected get investmentValue(): number {
-    return this.investment.toNumber()
+  public readonly amount: number
+
+  constructor(amount: number) {
+    this.amount = amount
+
+    validateClassErrors(this, Investment)
   }
+}
 
-  constructor(portfolioType: string, investment: number) {
-    super(portfolioType)
-    this.investment = new Decimal(investment)
+export class GetPortfolioWithInvestmentUseCase extends PortfolioUseCase<InvestmentRequest> {
+  public async execute({ portfolioType, investment }: InvestmentRequest) {
+    const amount = new Decimal(new Investment(investment).amount)
+    const portfolio = await this.portfolioRepo.getPortfolio(portfolioType)
 
-    validateClassErrors(this, GetPortfolioWithInvestmentUseCase)
-  }
-
-  public async handler() {
-    const portfolio = await this.getSourcePortfolio()
-
-    const newTargetPrice = portfolio.totalPrice.add(this.investment)
+    const newTargetPrice = portfolio.totalPrice.add(amount)
     if (newTargetPrice.lessThan(0)) {
       throw Error(
-        `Cannot withdraw ${this.investment.negated()}: more than the portfolio value (${portfolio.totalPrice})`,
+        `Cannot withdraw ${amount.negated()}: more than the portfolio value (${portfolio.totalPrice})`,
       )
     }
     portfolio.balanceForPrice(newTargetPrice)

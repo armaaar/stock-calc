@@ -1,11 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { PortfolioUseCases } from '#src/UseCases/PortfolioUseCases.factory'
 import { registerShowTool } from './McpTools/show.McpTool'
 import { registerMinimalTool } from './McpTools/minimal.McpTool'
 import { registerTargetTool } from './McpTools/target.McpTool'
 import { registerRebalanceTool } from './McpTools/rebalance.McpTool'
 import { registerInvestTool } from './McpTools/invest.McpTool'
 
-export function createMcpServer(): McpServer {
+export function createMcpServer(useCases: PortfolioUseCases): McpServer {
   const server = new McpServer({
     name: 'stock-calc',
     title: 'Portfolio calculator',
@@ -18,11 +19,11 @@ export function createMcpServer(): McpServer {
       + 'negative traded shares or prices mean selling.',
   })
 
-  registerShowTool(server)
-  registerMinimalTool(server)
-  registerTargetTool(server)
-  registerRebalanceTool(server)
-  registerInvestTool(server)
+  registerShowTool(server, useCases.show)
+  registerMinimalTool(server, useCases.minimal)
+  registerTargetTool(server, useCases.target)
+  registerRebalanceTool(server, useCases.rebalance)
+  registerInvestTool(server, useCases.invest)
 
   return server
 }

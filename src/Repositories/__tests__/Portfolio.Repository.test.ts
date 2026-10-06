@@ -2,8 +2,8 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
 import type {
-  SecurityPriceDto, SettingsDto, SettingsSecurityDto,
-} from '#src/DataDrivers/IPriceDataDriver.type'
+  IOverridesDataDriver, IPriceDataDriver, ISettingsDataDriver, SecurityPriceDto,
+} from '#src/DataDrivers/DataDrivers.type'
 import {
   EUR_OVERRIDES, EUR_SETTINGS, QDVE_SETTING, SPYD_SETTING, withoutIsin,
 } from '#src/__fixtures__/dataFiles'
@@ -11,54 +11,33 @@ import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import { PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
 import { PortfolioRepository } from '../Portfolio.Repository'
 
-type GetPrice = (setting: SettingsSecurityDto) => Promise<SecurityPriceDto>
+/** Reads `EUR_SETTINGS` for every portfolio type. */
+function fakeSettingsDataDriver() {
+  return {
+    getPortfolioSettings: vi.fn<ISettingsDataDriver['getPortfolioSettings']>()
+      .mockResolvedValue(EUR_SETTINGS),
+  } satisfies ISettingsDataDriver
+}
 
-const dd = vi.hoisted(() => ({
-  getPortfolioSettings: vi.fn<(type: string) => Promise<SettingsDto>>(),
-  getPortfolioOverrides: vi.fn<(type: string) => Promise<Record<string, SecurityPriceDto>>>(),
-  justEtf: {
-    getPrice: vi.fn<GetPrice>(),
-    launchBrowser: vi.fn<() => Promise<void>>(),
-    closeBrowser: vi.fn<() => Promise<void>>(),
-  },
-  tradingView: {
-    getPrice: vi.fn<GetPrice>(),
-    launchBrowser: vi.fn<() => Promise<void>>(),
-    closeBrowser: vi.fn<() => Promise<void>>(),
-  },
-}))
+/** No overrides for any portfolio type. */
+function fakeOverridesDataDriver() {
+  return {
+    getPortfolioOverrides: vi.fn<IOverridesDataDriver['getPortfolioOverrides']>()
+      .mockResolvedValue({}),
+  } satisfies IOverridesDataDriver
+}
 
-vi.mock('#src/DataDrivers/Settings.DataDriver', () => ({
-  SettingsDataDriver: class {
-    getPortfolioSettings = dd.getPortfolioSettings
-  },
-}))
+/** A price source that can't price anything; its browser launches and closes fine. */
+function fakePriceDataDriver(name: string) {
+  return {
+    getPrice: vi.fn<IPriceDataDriver['getPrice']>()
+      .mockRejectedValue(Error(`${name}: not found`)),
+    launchBrowser: vi.fn<IPriceDataDriver['launchBrowser']>().mockResolvedValue(undefined),
+    closeBrowser: vi.fn<IPriceDataDriver['closeBrowser']>().mockResolvedValue(undefined),
+  } satisfies IPriceDataDriver
+}
 
-vi.mock('#src/DataDrivers/Overrides.DataDriver', () => ({
-  OverridesDataDriver: class {
-    getPortfolioOverrides = dd.getPortfolioOverrides
-  },
-}))
-
-vi.mock('#src/DataDrivers/JustEtf.DataDriver', () => ({
-  JustEtfDataDriver: class {
-    getPrice = dd.justEtf.getPrice
-
-    launchBrowser = dd.justEtf.launchBrowser
-
-    closeBrowser = dd.justEtf.closeBrowser
-  },
-}))
-
-vi.mock('#src/DataDrivers/TradingView.DataDriver', () => ({
-  TradingViewDataDriver: class {
-    getPrice = dd.tradingView.getPrice
-
-    launchBrowser = dd.tradingView.launchBrowser
-
-    closeBrowser = dd.tradingView.closeBrowser
-  },
-}))
+type FakePriceDataDriver = ReturnType<typeof fakePriceDataDriver>
 
 const EUR = (price: number): SecurityPriceDto => ({ price, currency: 'EUR' })
 
@@ -72,69 +51,82 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-const browserMocks = () => [
-  dd.justEtf.launchBrowser, dd.tradingView.launchBrowser,
-  dd.justEtf.closeBrowser, dd.tradingView.closeBrowser,
-]
-
 const firstCall = (fn: { mock: { invocationCallOrder: number[] } }) => (
   fn.mock.invocationCallOrder[0]
 )
 
-function expectBrowsersClosed() {
-  expect(dd.justEtf.closeBrowser).toHaveBeenCalledOnce()
-  expect(dd.tradingView.closeBrowser).toHaveBeenCalledOnce()
-}
-
 describe('PortfolioRepository', () => {
+  let settings: ReturnType<typeof fakeSettingsDataDriver>
+  let overrides: ReturnType<typeof fakeOverridesDataDriver>
+  let justEtf: FakePriceDataDriver
+  let tradingView: FakePriceDataDriver
   let repository: PortfolioRepository
 
+  /** A repository over the shared settings / overrides fakes and the given price drivers. */
+  const repositoryWith = (prices: IPriceDataDriver[]) => (
+    new PortfolioRepository({ settings, overrides, prices })
+  )
+
+  function expectBrowsersClosed() {
+    expect(justEtf.closeBrowser).toHaveBeenCalledOnce()
+    expect(tradingView.closeBrowser).toHaveBeenCalledOnce()
+  }
+
   beforeEach(() => {
-    vi.resetAllMocks()
-    dd.getPortfolioSettings.mockResolvedValue(EUR_SETTINGS)
-    dd.getPortfolioOverrides.mockResolvedValue({})
-    browserMocks().forEach((fn) => fn.mockResolvedValue(undefined))
-    dd.justEtf.getPrice.mockRejectedValue(Error('justetf: not found'))
-    dd.tradingView.getPrice.mockRejectedValue(Error('tradingview: not found'))
-    repository = new PortfolioRepository()
+    settings = fakeSettingsDataDriver()
+    overrides = fakeOverridesDataDriver()
+    justEtf = fakePriceDataDriver('justetf')
+    tradingView = fakePriceDataDriver('tradingview')
+    repository = repositoryWith([justEtf, tradingView])
   })
 
   describe('data files', () => {
     it('reads settings and overrides for the requested portfolio type', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
 
       await repository.getPortfolio('EGP')
 
-      expect(dd.getPortfolioSettings).toHaveBeenCalledWith('EGP')
-      expect(dd.getPortfolioOverrides).toHaveBeenCalledWith('EGP')
+      expect(settings.getPortfolioSettings).toHaveBeenCalledWith('EGP')
+      expect(overrides.getPortfolioOverrides).toHaveBeenCalledWith('EGP')
+    })
+
+    it('reads them again on every load (nothing is cached)', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+
+      const first = await repository.getPortfolio('EUR')
+      const second = await repository.getPortfolio('EGP')
+
+      expect(first).not.toBe(second)
+      expect(settings.getPortfolioSettings.mock.calls).toEqual([['EUR'], ['EGP']])
+      expect(overrides.getPortfolioOverrides.mock.calls).toEqual([['EUR'], ['EGP']])
     })
   })
 
   describe('price resolution', () => {
     it('uses overrides and never calls the scrapers for overridden ticks', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
 
       const portfolio = await repository.getPortfolio('EUR')
 
-      expect(dd.justEtf.getPrice).not.toHaveBeenCalled()
-      expect(dd.tradingView.getPrice).not.toHaveBeenCalled()
+      expect(justEtf.getPrice).not.toHaveBeenCalled()
+      expect(tradingView.getPrice).not.toHaveBeenCalled()
       expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([28.45, 62.1])
     })
 
     it('scrapes only the ticks that are not overridden', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
-      dd.tradingView.getPrice.mockResolvedValue(EUR(62.1))
+      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      tradingView.getPrice.mockResolvedValue(EUR(62.1))
 
       const portfolio = await repository.getPortfolio('EUR')
 
-      expect(dd.justEtf.getPrice.mock.calls).toEqual([[SPYD_SETTING]])
-      expect(dd.tradingView.getPrice.mock.calls).toEqual([[SPYD_SETTING]])
+      expect(justEtf.getPrice.mock.calls).toEqual([[SPYD_SETTING]])
+      expect(tradingView.getPrice.mock.calls).toEqual([[SPYD_SETTING]])
       expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([28.45, 62.1])
     })
 
     it('an override wins even when a scraper could price the security', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR(1), SPYD: EUR(2) })
-      dd.justEtf.getPrice.mockResolvedValue(EUR(999))
+      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR(1), SPYD: EUR(2) })
+      justEtf.getPrice.mockResolvedValue(EUR(999))
 
       const portfolio = await repository.getPortfolio('EUR')
 
@@ -142,36 +134,36 @@ describe('PortfolioRepository', () => {
     })
 
     it('races both scrapers with the full setting and takes the first success', async () => {
-      const justEtf = deferred<SecurityPriceDto>()
-      dd.justEtf.getPrice.mockReturnValue(justEtf.promise)
-      dd.tradingView.getPrice.mockResolvedValue(EUR(30))
+      const justEtfPrice = deferred<SecurityPriceDto>()
+      justEtf.getPrice.mockReturnValue(justEtfPrice.promise)
+      tradingView.getPrice.mockResolvedValue(EUR(30))
 
       const portfolio = await repository.getPortfolio('EUR')
-      justEtf.resolve(EUR(10))
+      justEtfPrice.resolve(EUR(10))
 
-      expect(dd.justEtf.getPrice.mock.calls).toEqual([[QDVE_SETTING], [SPYD_SETTING]])
-      expect(dd.tradingView.getPrice.mock.calls).toEqual([[QDVE_SETTING], [SPYD_SETTING]])
+      expect(justEtf.getPrice.mock.calls).toEqual([[QDVE_SETTING], [SPYD_SETTING]])
+      expect(tradingView.getPrice.mock.calls).toEqual([[QDVE_SETTING], [SPYD_SETTING]])
       expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([30, 30])
     })
 
     it('takes the first success even if the faster source failed', async () => {
-      const tradingView = deferred<SecurityPriceDto>()
-      dd.justEtf.getPrice.mockRejectedValue(Error('justetf: not found'))
-      dd.tradingView.getPrice.mockReturnValue(tradingView.promise)
+      const tradingViewPrice = deferred<SecurityPriceDto>()
+      justEtf.getPrice.mockRejectedValue(Error('justetf: not found'))
+      tradingView.getPrice.mockReturnValue(tradingViewPrice.promise)
 
       const result = repository.getPortfolio('EUR')
-      setTimeout(() => tradingView.resolve(EUR(40)), 0)
+      setTimeout(() => tradingViewPrice.resolve(EUR(40)), 0)
       const portfolio = await result
 
       expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([40, 40])
     })
 
     it('uses the first-resolving source per security', async () => {
-      dd.justEtf.getPrice.mockImplementation(async ({ tick }) => {
+      justEtf.getPrice.mockImplementation(async ({ tick }) => {
         if (tick === 'QDVE') return EUR(28.45)
         return new Promise(() => undefined) // never settles
       })
-      dd.tradingView.getPrice.mockImplementation(async ({ tick }) => {
+      tradingView.getPrice.mockImplementation(async ({ tick }) => {
         if (tick === 'SPYD') return EUR(62.1)
         throw Error('tradingview: not found')
       })
@@ -184,9 +176,11 @@ describe('PortfolioRepository', () => {
     it('rejects with an AggregateError of every source error when all sources fail', async () => {
       const justEtfError = Error('justetf: not found')
       const tradingViewError = Error('tradingview: not found')
-      dd.getPortfolioSettings.mockResolvedValue({ ...EUR_SETTINGS, securities: [QDVE_SETTING] })
-      dd.justEtf.getPrice.mockRejectedValue(justEtfError)
-      dd.tradingView.getPrice.mockRejectedValue(tradingViewError)
+      settings.getPortfolioSettings.mockResolvedValue({
+        ...EUR_SETTINGS, securities: [QDVE_SETTING],
+      })
+      justEtf.getPrice.mockRejectedValue(justEtfError)
+      tradingView.getPrice.mockRejectedValue(tradingViewError)
 
       const error = await repository.getPortfolio('EUR').catch((e: unknown) => e)
 
@@ -194,29 +188,104 @@ describe('PortfolioRepository', () => {
       expect((error as AggregateError).errors).toEqual([justEtfError, tradingViewError])
     })
 
+    it('lists the source errors in the order of the prices list', async () => {
+      const justEtfError = Error('justetf: not found')
+      const tradingViewError = Error('tradingview: not found')
+      settings.getPortfolioSettings.mockResolvedValue({
+        ...EUR_SETTINGS, securities: [QDVE_SETTING],
+      })
+      justEtf.getPrice.mockRejectedValue(justEtfError)
+      tradingView.getPrice.mockRejectedValue(tradingViewError)
+
+      const error = await repositoryWith([tradingView, justEtf]).getPortfolio('EUR')
+        .catch((e: unknown) => e)
+
+      expect((error as AggregateError).errors).toEqual([tradingViewError, justEtfError])
+    })
+
     it('one unpriceable security fails the whole portfolio', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
 
       await expect(repository.getPortfolio('EUR')).rejects.toBeInstanceOf(AggregateError)
     })
 
     it('scrapes a tick named like an Object.prototype member instead of overriding it', async () => {
-      dd.getPortfolioSettings.mockResolvedValue({
+      settings.getPortfolioSettings.mockResolvedValue({
         ...EUR_SETTINGS,
         securities: [{ ...QDVE_SETTING, tick: 'toString', targetPercentage: 1 }],
       })
-      dd.justEtf.getPrice.mockResolvedValue(EUR(28.45))
+      justEtf.getPrice.mockResolvedValue(EUR(28.45))
 
       const portfolio = await repository.getPortfolio('EUR')
 
       expect(portfolio.securities[0].price.toNumber()).toBe(28.45)
-      expect(dd.justEtf.getPrice).toHaveBeenCalledOnce()
+      expect(justEtf.getPrice).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('injected price data drivers', () => {
+    it('prices every security from a single price driver', async () => {
+      justEtf.getPrice.mockImplementation(async ({ tick }) => (
+        tick === 'QDVE' ? EUR(28.45) : EUR(62.1)
+      ))
+
+      const portfolio = await repositoryWith([justEtf]).getPortfolio('EUR')
+
+      expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([28.45, 62.1])
+      expect(justEtf.launchBrowser).toHaveBeenCalledOnce()
+      expect(justEtf.closeBrowser).toHaveBeenCalledOnce()
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.getPrice).not.toHaveBeenCalled()
+      expect(tradingView.closeBrowser).not.toHaveBeenCalled()
+    })
+
+    it('rejects with the single driver\'s error alone when it cannot price a security', async () => {
+      const justEtfError = Error('justetf: not found')
+      justEtf.getPrice.mockRejectedValue(justEtfError)
+
+      const error = await repositoryWith([justEtf]).getPortfolio('EUR').catch((e: unknown) => e)
+
+      expect(error).toBeInstanceOf(AggregateError)
+      expect((error as AggregateError).errors).toEqual([justEtfError])
+      expect(justEtf.closeBrowser).toHaveBeenCalledOnce()
+    })
+
+    it('works without any price driver when every price is overridden', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+
+      const portfolio = await repositoryWith([]).getPortfolio('EUR')
+
+      expect(portfolio.totalPrice.toNumber()).toBe(9055)
+    })
+
+    it('rejects an un-overridden security when there is no price driver', async () => {
+      // Current behaviour: Promise.any([]) rejects with an AggregateError without any errors,
+      // so the message does not say which security could not be priced.
+      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+
+      const error = await repositoryWith([]).getPortfolio('EUR').catch((e: unknown) => e)
+
+      expect(error).toBeInstanceOf(AggregateError)
+      expect((error as AggregateError).errors).toEqual([])
+    })
+
+    it('races a third price driver alongside the others', async () => {
+      const third = fakePriceDataDriver('third')
+      third.getPrice.mockResolvedValue(EUR(50))
+
+      const portfolio = await repositoryWith([justEtf, tradingView, third]).getPortfolio('EUR')
+
+      expect(portfolio.securities.map((s) => s.price.toNumber())).toEqual([50, 50])
+      expect(third.getPrice.mock.calls).toEqual([[QDVE_SETTING], [SPYD_SETTING]])
+      expect(third.launchBrowser).toHaveBeenCalledOnce()
+      expect(third.closeBrowser).toHaveBeenCalledOnce()
+      expectBrowsersClosed()
     })
   })
 
   describe('building the Portfolio', () => {
     it('returns a Portfolio with the settings and prices of every security', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
 
       const portfolio = await repository.getPortfolio('EUR')
 
@@ -241,13 +310,13 @@ describe('PortfolioRepository', () => {
     })
 
     it('copies the fee settings to every PortfolioSecurity', async () => {
-      dd.getPortfolioSettings.mockResolvedValue({
+      settings.getPortfolioSettings.mockResolvedValue({
         ...EUR_SETTINGS,
         brokerageFeeFlat: 2.5,
         tradingFeePercentage: 0.001,
         minimumTradingFeeFlat: 3,
       })
-      dd.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
 
       const portfolio = await repository.getPortfolio('EUR')
 
@@ -259,11 +328,11 @@ describe('PortfolioRepository', () => {
     })
 
     it('keeps an undefined isin for securities without one', async () => {
-      dd.getPortfolioSettings.mockResolvedValue({
+      settings.getPortfolioSettings.mockResolvedValue({
         ...EUR_SETTINGS,
         securities: [withoutIsin(QDVE_SETTING), SPYD_SETTING],
       })
-      dd.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
 
       const portfolio = await repository.getPortfolio('EUR')
 
@@ -271,7 +340,7 @@ describe('PortfolioRepository', () => {
     })
 
     it('takes the currency from the price quote', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue({
+      overrides.getPortfolioOverrides.mockResolvedValue({
         QDVE: { price: 28.45, currency: 'USD' },
         SPYD: { price: 62.1, currency: 'USD' },
       })
@@ -282,7 +351,7 @@ describe('PortfolioRepository', () => {
     })
 
     it('propagates Portfolio invariant errors (mixed currencies)', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue({
+      overrides.getPortfolioOverrides.mockResolvedValue({
         QDVE: { price: 28.45, currency: 'EUR' },
         SPYD: { price: 62.1, currency: 'USD' },
       })
@@ -295,78 +364,102 @@ describe('PortfolioRepository', () => {
 
   describe('browser lifecycle', () => {
     it('launches both browsers before fetching prices and closes them afterwards', async () => {
-      dd.justEtf.getPrice.mockResolvedValue(EUR(10))
+      justEtf.getPrice.mockResolvedValue(EUR(10))
 
       await repository.getPortfolio('EUR')
 
       const lastLaunch = Math.max(
-        firstCall(dd.justEtf.launchBrowser),
-        firstCall(dd.tradingView.launchBrowser),
+        firstCall(justEtf.launchBrowser),
+        firstCall(tradingView.launchBrowser),
       )
       const firstPrice = Math.min(
-        firstCall(dd.justEtf.getPrice),
-        firstCall(dd.tradingView.getPrice),
+        firstCall(justEtf.getPrice),
+        firstCall(tradingView.getPrice),
       )
-      const lastPrice = Math.max(...dd.justEtf.getPrice.mock.invocationCallOrder)
-      expect(dd.justEtf.launchBrowser).toHaveBeenCalledOnce()
-      expect(dd.tradingView.launchBrowser).toHaveBeenCalledOnce()
+      const lastPrice = Math.max(...justEtf.getPrice.mock.invocationCallOrder)
+      expect(justEtf.launchBrowser).toHaveBeenCalledOnce()
+      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
       expect(lastLaunch).toBeLessThan(firstPrice)
       expectBrowsersClosed()
-      expect(firstCall(dd.justEtf.closeBrowser)).toBeGreaterThan(lastPrice)
+      expect(firstCall(justEtf.closeBrowser)).toBeGreaterThan(lastPrice)
     })
 
     it('launches the browsers after reading the data files', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
-      dd.justEtf.getPrice.mockResolvedValue(EUR(62.1))
+      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      justEtf.getPrice.mockResolvedValue(EUR(62.1))
 
       await repository.getPortfolio('EUR')
 
-      expect(firstCall(dd.justEtf.launchBrowser))
-        .toBeGreaterThan(firstCall(dd.getPortfolioOverrides))
+      expect(firstCall(justEtf.launchBrowser))
+        .toBeGreaterThan(firstCall(overrides.getPortfolioOverrides))
+    })
+
+    it('launches the browsers in the order of the prices list', async () => {
+      tradingView.getPrice.mockResolvedValue(EUR(10))
+
+      await repositoryWith([tradingView, justEtf]).getPortfolio('EUR')
+
+      expect(firstCall(tradingView.launchBrowser))
+        .toBeLessThan(firstCall(justEtf.launchBrowser))
+    })
+
+    it('launches the browsers one after another, not concurrently', async () => {
+      const firstLaunch = deferred<void>()
+      justEtf.launchBrowser.mockReturnValue(firstLaunch.promise)
+      justEtf.getPrice.mockResolvedValue(EUR(10))
+
+      const result = repository.getPortfolio('EUR')
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      expect(justEtf.launchBrowser).toHaveBeenCalledOnce()
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
+      firstLaunch.resolve()
+      await result
+      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
     })
 
     it('does not launch any browser when every price is overridden (closing is a no-op)', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
 
       await repository.getPortfolio('EUR')
 
-      expect(dd.justEtf.launchBrowser).not.toHaveBeenCalled()
-      expect(dd.tradingView.launchBrowser).not.toHaveBeenCalled()
+      expect(justEtf.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
       expectBrowsersClosed()
     })
 
     it('does not launch any browser for a portfolio without securities', async () => {
-      dd.getPortfolioSettings.mockResolvedValue({ ...EUR_SETTINGS, securities: [] })
+      settings.getPortfolioSettings.mockResolvedValue({ ...EUR_SETTINGS, securities: [] })
 
       await repository.getPortfolio('EUR').catch(() => undefined)
 
-      expect(dd.justEtf.launchBrowser).not.toHaveBeenCalled()
-      expect(dd.tradingView.launchBrowser).not.toHaveBeenCalled()
+      expect(justEtf.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
       expectBrowsersClosed()
     })
 
     it('launches both browsers when a single security is not overridden', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
-      dd.tradingView.getPrice.mockResolvedValue(EUR(62.1))
+      overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
+      tradingView.getPrice.mockResolvedValue(EUR(62.1))
 
       await repository.getPortfolio('EUR')
 
-      expect(dd.justEtf.launchBrowser).toHaveBeenCalledOnce()
-      expect(dd.tradingView.launchBrowser).toHaveBeenCalledOnce()
+      expect(justEtf.launchBrowser).toHaveBeenCalledOnce()
+      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
       expectBrowsersClosed()
     })
 
     it('launches the browsers for a tick named like an Object.prototype member', async () => {
-      dd.getPortfolioSettings.mockResolvedValue({
+      settings.getPortfolioSettings.mockResolvedValue({
         ...EUR_SETTINGS,
         securities: [{ ...QDVE_SETTING, tick: 'constructor', targetPercentage: 1 }],
       })
-      dd.justEtf.getPrice.mockResolvedValue(EUR(28.45))
+      justEtf.getPrice.mockResolvedValue(EUR(28.45))
 
       await repository.getPortfolio('EUR')
 
-      expect(dd.justEtf.launchBrowser).toHaveBeenCalledOnce()
-      expect(dd.tradingView.launchBrowser).toHaveBeenCalledOnce()
+      expect(justEtf.launchBrowser).toHaveBeenCalledOnce()
+      expect(tradingView.launchBrowser).toHaveBeenCalledOnce()
     })
 
     it('closes the browsers when every source fails', async () => {
@@ -376,27 +469,37 @@ describe('PortfolioRepository', () => {
     })
 
     it('closes the browsers when reading the settings fails, without launching them', async () => {
-      dd.getPortfolioSettings.mockRejectedValue(Error('Portfolio \'X\' not found'))
+      settings.getPortfolioSettings.mockRejectedValue(Error('Portfolio \'X\' not found'))
 
       await expect(repository.getPortfolio('X')).rejects.toThrow('Portfolio \'X\' not found')
 
-      expect(dd.justEtf.launchBrowser).not.toHaveBeenCalled()
-      expect(dd.tradingView.launchBrowser).not.toHaveBeenCalled()
+      expect(justEtf.launchBrowser).not.toHaveBeenCalled()
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
       expectBrowsersClosed()
     })
 
     it('closes both browsers when launching the second one fails', async () => {
-      dd.tradingView.launchBrowser.mockRejectedValue(Error('launch failed'))
+      tradingView.launchBrowser.mockRejectedValue(Error('launch failed'))
 
       await expect(repository.getPortfolio('EUR')).rejects.toThrow('launch failed')
 
       expectBrowsersClosed()
     })
 
+    it('stops launching and closes every browser when launching the first one fails', async () => {
+      justEtf.launchBrowser.mockRejectedValue(Error('launch failed'))
+
+      await expect(repository.getPortfolio('EUR')).rejects.toThrow('launch failed')
+
+      expect(tradingView.launchBrowser).not.toHaveBeenCalled()
+      expect(justEtf.getPrice).not.toHaveBeenCalled()
+      expectBrowsersClosed()
+    })
+
     it('waits for the browsers to close before resolving', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
       const close = deferred<void>()
-      dd.justEtf.closeBrowser.mockReturnValue(close.promise)
+      justEtf.closeBrowser.mockReturnValue(close.promise)
       let settled = false
 
       const result = repository.getPortfolio('EUR').then((portfolio) => {
@@ -411,10 +514,28 @@ describe('PortfolioRepository', () => {
     })
 
     it('reports a failure to close the browsers', async () => {
-      dd.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
-      dd.justEtf.closeBrowser.mockRejectedValue(Error('close failed'))
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      justEtf.closeBrowser.mockRejectedValue(Error('close failed'))
 
       await expect(repository.getPortfolio('EUR')).rejects.toThrow('close failed')
+    })
+
+    it('still closes every other browser when one fails to close', async () => {
+      overrides.getPortfolioOverrides.mockResolvedValue(EUR_OVERRIDES)
+      justEtf.closeBrowser.mockRejectedValue(Error('close failed'))
+
+      await repository.getPortfolio('EUR').catch(() => undefined)
+
+      expectBrowsersClosed()
+    })
+
+    it('reports a close failure instead of the error that ended the load', async () => {
+      // Current behaviour: an error thrown in `finally` replaces the pending one, so a failing
+      // closeBrowser hides why the portfolio could not be loaded.
+      settings.getPortfolioSettings.mockRejectedValue(Error('Portfolio \'X\' not found'))
+      justEtf.closeBrowser.mockRejectedValue(Error('close failed'))
+
+      await expect(repository.getPortfolio('X')).rejects.toThrow('close failed')
     })
   })
 })

@@ -1,4 +1,7 @@
-import { Browser, launch } from 'puppeteer'
+import type { Browser } from 'puppeteer'
+
+/** Starts a browser. Production passes a headless puppeteer launch; tests pass a fake. */
+export type BrowserLauncher = () => Promise<Browser>
 
 export abstract class BrowserController {
   private browser?: Browser
@@ -6,10 +9,12 @@ export abstract class BrowserController {
   /** The launch in progress, shared by concurrent `launchBrowser()` calls. */
   private launching?: Promise<void>
 
+  constructor(private readonly launch: BrowserLauncher) {}
+
   public async launchBrowser(): Promise<void> {
     if (this.browser) return
 
-    this.launching ??= launch({ headless: true }).then((browser) => {
+    this.launching ??= this.launch().then((browser) => {
       this.browser = browser
     })
 

@@ -1,11 +1,14 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { GetPortfolioWithPriceUseCase } from '#src/UseCases/GetPortfolioWithPrice.UseCase'
+import type { PortfolioUseCases } from '#src/UseCases/PortfolioUseCases.factory'
 import { PortfolioMcpPresenter, PresentMode, portfolioOutputSchema } from '../Presenters/PortfolioMcp.Presenter'
 import { ErrorMcpPresenter } from '../Presenters/ErrorMcp.Presenter'
 import { portfolioInput, portfolioToolAnnotations } from '../mcpOptions'
 
-export function registerTargetTool(server: McpServer): void {
+export function registerTargetTool(
+  server: McpServer,
+  target: PortfolioUseCases['target'],
+): void {
   server.registerTool('target', {
     title: 'Target portfolio value',
     description: 'Calculates the number of shares you need to buy to satisfy your portfolio with a limited budget',
@@ -17,8 +20,7 @@ export function registerTargetTool(server: McpServer): void {
     annotations: portfolioToolAnnotations,
   }, async ({ price, portfolio: portfolioType }) => {
     try {
-      const useCase = new GetPortfolioWithPriceUseCase(portfolioType, price)
-      const portfolio = await useCase.handler()
+      const portfolio = await target.execute({ portfolioType, targetPrice: price })
       return PortfolioMcpPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       return ErrorMcpPresenter.present(e)

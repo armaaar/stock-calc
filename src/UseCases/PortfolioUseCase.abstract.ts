@@ -1,18 +1,19 @@
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
-import { PortfolioRepository } from '#src/Repositories/Portfolio.Repository'
+import { IPortfolioRepository } from './IPortfolioRepository.type'
 
-export abstract class PortfolioUserCase<R = unknown> {
-  protected portfolioRepo = new PortfolioRepository()
+/** Every request names the portfolio to load. */
+export interface PortfolioRequest {
+  portfolioType: string
+}
 
-  protected portfolioType: string
+/** What the interfaces call: one operation on a portfolio, returning the planned portfolio. */
+export interface IPortfolioUseCase<Request extends PortfolioRequest = PortfolioRequest> {
+  execute(request: Request): Promise<Portfolio>
+}
 
-  constructor(portfolioType: string) {
-    this.portfolioType = portfolioType
-  }
+export abstract class PortfolioUseCase<Request extends PortfolioRequest = PortfolioRequest>
+implements IPortfolioUseCase<Request> {
+  constructor(protected readonly portfolioRepo: IPortfolioRepository) {}
 
-  protected async getSourcePortfolio(): Promise<Portfolio> {
-    return this.portfolioRepo.getPortfolio(this.portfolioType)
-  }
-
-  abstract handler(): R
+  abstract execute(request: Request): Promise<Portfolio>
 }

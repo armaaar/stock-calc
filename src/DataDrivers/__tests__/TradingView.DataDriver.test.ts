@@ -1,15 +1,11 @@
 import {
-  beforeEach, describe, expect, it, vi,
+  beforeEach, describe, expect, it,
 } from 'vitest'
 import { QDVE_SETTING, withoutIsin } from '#src/__fixtures__/dataFiles'
 import {
-  createFakeBrowser, createFakePage, FakeBrowser, FakeSelectorResult,
+  createFakeBrowser, createFakePage, FakeBrowser, fakeLauncher, FakeSelectorResult,
 } from '#src/__fixtures__/puppeteer'
 import { TradingViewDataDriver } from '../TradingView.DataDriver'
-
-const puppeteer = vi.hoisted(() => ({ launch: vi.fn() }))
-
-vi.mock('puppeteer', () => ({ launch: puppeteer.launch }))
 
 const PRICE_SELECTOR = '[data-symbol="IBIS2:QDVE"] .js-symbol-last'
 const CURRENCY_SELECTOR = '[data-symbol="IBIS2:QDVE"] .js-symbol-currency'
@@ -19,19 +15,21 @@ const NOT_REGISTERED = 'Tick \'QDVE\' at \'IBIS2\' is not registered in tradingv
 describe('TradingViewDataDriver', () => {
   let driver: TradingViewDataDriver
   let browser: FakeBrowser
+  let launch: ReturnType<typeof fakeLauncher>
 
   async function launchWith(price: FakeSelectorResult, currency: FakeSelectorResult) {
     browser = createFakeBrowser(createFakePage({
       [PRICE_SELECTOR]: price,
       [CURRENCY_SELECTOR]: currency,
     }))
-    puppeteer.launch.mockResolvedValue(browser)
+    launch = fakeLauncher(browser)
+    driver = new TradingViewDataDriver(launch)
     await driver.launchBrowser()
   }
 
   beforeEach(() => {
-    puppeteer.launch.mockReset()
-    driver = new TradingViewDataDriver()
+    launch = fakeLauncher()
+    driver = new TradingViewDataDriver(launch)
   })
 
   it('throws when the browser was not launched', async () => {
@@ -44,6 +42,7 @@ describe('TradingViewDataDriver', () => {
     await expect(driver.getPrice(QDVE_SETTING)).resolves.toEqual({ price: 28.45, currency: 'EUR' })
 
     const { page } = browser
+    expect(launch).toHaveBeenCalledOnce()
     expect(browser.newPage).toHaveBeenCalledOnce()
     expect(page.goto).toHaveBeenCalledWith('https://www.tradingview.com/symbols/IBIS2-QDVE/')
     expect(page.setDefaultTimeout).toHaveBeenCalledWith(30000)

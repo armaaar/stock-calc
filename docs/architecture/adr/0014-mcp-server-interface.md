@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-06
+- **Amended by:** [ADR-0018](0018-dependency-injection-and-composition-root.md) (tools receive their use case)
 
 ## Context
 

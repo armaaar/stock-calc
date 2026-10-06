@@ -1,27 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { buildPortfolio } from '#src/__fixtures__/portfolio'
+import {
+  FakePortfolioRepository, fakePortfolioRepository, useCasesOver,
+} from '#src/__fixtures__/repository'
 import { createMcpServer } from '../server'
-
-const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
-
-// The real use cases run against the example portfolio; only data loading is faked
-vi.mock('#src/Repositories/Portfolio.Repository', () => ({
-  PortfolioRepository: class {
-    getPortfolio = getPortfolio
-  },
-}))
 
 type Holding = { tick: string, shares: number, tradedShares?: number, percent: number }
 
 describe('MCP server', () => {
   let client: Client
+  let repo: FakePortfolioRepository
 
   beforeEach(async () => {
-    getPortfolio.mockImplementation(async () => buildPortfolio())
+    // The real use cases run against the example portfolio; only data loading is faked
+    repo = fakePortfolioRepository()
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
-    await createMcpServer().connect(serverTransport)
+    await createMcpServer(useCasesOver(repo)).connect(serverTransport)
     client = new Client({ name: 'test-client', version: '0.0.0' })
     await client.connect(clientTransport)
   })
@@ -59,7 +54,7 @@ describe('MCP server', () => {
   it('show: returns current holdings for the default EUR portfolio', async () => {
     const { result, output } = await callTool('show')
 
-    expect(getPortfolio).toHaveBeenCalledWith('EUR')
+    expect(repo.getPortfolio).toHaveBeenCalledWith('EUR')
     expect(result.isError).toBeFalsy()
     expect(output).toMatchObject({ currency: 'EUR', portfolioPrice: 9055 })
     expect(output.securities.map(({ tick, shares, percent }) => ({ tick, shares, percent })))
@@ -73,7 +68,7 @@ describe('MCP server', () => {
   it('rebalance: returns proposed holdings with trades and fees', async () => {
     const { output } = await callTool('rebalance', { portfolio: 'EGP' })
 
-    expect(getPortfolio).toHaveBeenCalledWith('EGP')
+    expect(repo.getPortfolio).toHaveBeenCalledWith('EGP')
     expect(output).toMatchObject({ portfolioPrice: 9015.85, tradedPrice: -39.15, tradingFee: 2 })
     expect(holdings(output.securities)).toEqual([
       { tick: 'QDVE', shares: 127, tradedShares: 27 },
@@ -146,7 +141,7 @@ describe('MCP server', () => {
 
     expect(result.isError).toBe(true)
     expect((result.content as { text: string }[])[0].text).toContain('Input validation error')
-    expect(getPortfolio).not.toHaveBeenCalled()
+    expect(repo.getPortfolio).not.toHaveBeenCalled()
   })
 
   it.each(['show', 'rebalance', 'minimal', 'target', 'invest'])(
@@ -157,7 +152,7 @@ describe('MCP server', () => {
       expect(result.isError).toBe(true)
       expect((result.content as { text: string }[])[0].text)
         .toContain('Invalid portfolio name: use letters, digits, \'_\' or \'-\'')
-      expect(getPortfolio).not.toHaveBeenCalled()
+      expect(repo.getPortfolio).not.toHaveBeenCalled()
     },
   )
 
@@ -178,7 +173,7 @@ describe('MCP server', () => {
   })
 
   it.each(['show', 'rebalance', 'minimal'])('%s: returns domain errors as tool errors', async (name) => {
-    getPortfolio.mockRejectedValue(Error('Portfolio \'NOPE\' not found'))
+    repo.getPortfolio.mockRejectedValue(Error('Portfolio \'NOPE\' not found'))
 
     const { result } = await callTool(name, { portfolio: 'NOPE' })
 
@@ -190,7 +185,7 @@ describe('MCP server', () => {
     ['target', { price: 100 }],
     ['invest', { investment: 100 }],
   ])('%s: returns domain errors as tool errors', async (name, args) => {
-    getPortfolio.mockRejectedValue(Error('boom'))
+    repo.getPortfolio.mockRejectedValue(Error('boom'))
 
     const { result } = await callTool(name, args)
 

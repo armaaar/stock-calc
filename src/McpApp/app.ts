@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { composePortfolioUseCases } from '#src/compositionRoot'
 import { createMcpServer } from './server'
 
 // stdout carries the JSON-RPC stream: route anything else that logs to stderr
@@ -8,5 +9,5 @@ console.info = console.error
 console.debug = console.error
 console.table = (data: unknown) => console.error(data)
 
-const server = createMcpServer()
+const server = createMcpServer(composePortfolioUseCases())
 await server.connect(new StdioServerTransport())

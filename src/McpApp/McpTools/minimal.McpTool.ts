@@ -1,11 +1,15 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP, GetPortfolioWithMinimumSharesUseCase } from '#src/UseCases/GetPortfolioWithMinimumShares.UseCase'
+import type { PortfolioUseCases } from '#src/UseCases/PortfolioUseCases.factory'
+import { DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP } from '#src/UseCases/GetPortfolioWithMinimumShares.UseCase'
 import { PortfolioMcpPresenter, portfolioOutputSchema } from '../Presenters/PortfolioMcp.Presenter'
 import { ErrorMcpPresenter } from '../Presenters/ErrorMcp.Presenter'
 import { portfolioInput, portfolioToolAnnotations } from '../mcpOptions'
 
-export function registerMinimalTool(server: McpServer): void {
+export function registerMinimalTool(
+  server: McpServer,
+  minimal: PortfolioUseCases['minimal'],
+): void {
   server.registerTool('minimal', {
     title: 'Minimal portfolio',
     description: 'Calculates the minimum number of shares you need to buy to satisfy your portfolio',
@@ -22,12 +26,11 @@ export function registerMinimalTool(server: McpServer): void {
     annotations: portfolioToolAnnotations,
   }, async ({ precision, sharesStep, portfolio: portfolioType }) => {
     try {
-      const useCase = new GetPortfolioWithMinimumSharesUseCase(
+      const portfolio = await minimal.execute({
         portfolioType,
-        precision,
+        acceptablePrecision: precision,
         sharesStep,
-      )
-      const portfolio = await useCase.handler()
+      })
       return PortfolioMcpPresenter.present(portfolio)
     } catch (e: unknown) {
       return ErrorMcpPresenter.present(e)

@@ -1,8 +1,8 @@
-import { PortfolioUserCase } from './PortfolioUseCase.abstract'
+import { PortfolioRequest, PortfolioUseCase } from './PortfolioUseCase.abstract'
 
-export class GetRebalancedPortfolioUseCase extends PortfolioUserCase {
-  public async handler() {
-    const portfolio = await this.getSourcePortfolio()
+export class GetRebalancedPortfolioUseCase extends PortfolioUseCase {
+  public async execute({ portfolioType }: PortfolioRequest) {
+    const portfolio = await this.portfolioRepo.getPortfolio(portfolioType)
 
     portfolio.balanceForPrice(portfolio.totalPrice)
 

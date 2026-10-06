@@ -2,7 +2,7 @@
 
 This context answers one question: **what is the current price and currency of this security?** It supports the core domain, but nothing about it is specific to portfolio allocation.
 
-Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/DataDrivers/IPriceDataDriver.type.ts`, `src/Shared/BrowserController.abstract.ts`, and the `getPrice` method of `src/Repositories/Portfolio.Repository.ts`.
+Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/DataDrivers/DataDrivers.type.ts`, `src/Shared/BrowserController.abstract.ts`, and the `getPrice` method of `src/Repositories/Portfolio.Repository.ts`.
 
 ## Model
 
@@ -29,7 +29,7 @@ Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/Data
 flowchart TD
   A[security] --> B{tick in overrides?}
   B -- yes --> Q[use override quote]
-  B -- no --> C["Promise.any(JustEtf, TradingView)"]
+  B -- no --> C["Promise.any(every price source: JustEtf, TradingView)"]
   C -- first success --> Q2[use winning quote]
   C -- all rejected --> E[AggregateError → run fails]
 ```
@@ -50,7 +50,7 @@ The quote's `currency` becomes `Security.currency`. The core then enforces the *
 
 - One headless Chromium per live source per run. They are launched only when at least one security isn't overridden, and closed (awaited) afterwards. Concurrent `launchBrowser()` calls share one in-flight launch.
 - Selectors depend on third-party markup. When a site changes its layout, prices for that source fail. Add overrides until the driver is fixed.
-- Adding a source: implement `IPriceDataDriver` (extend `BrowserController` if it needs a browser), add an instance to the repository, add it to the `priceDataDrivers` list, and add it to the `launchBrowser` / `closeBrowser` calls.
+- Adding a source: implement `IPriceDataDriver` (extend `BrowserController` if it needs a browser), then add an instance to the `prices` list in `src/compositionRoot.ts`. The repository launches, races and closes every source it is given ([ADR-0018](../architecture/adr/0018-dependency-injection-and-composition-root.md)).
 
 ## Data file validation
 

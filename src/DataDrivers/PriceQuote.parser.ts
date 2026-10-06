@@ -1,4 +1,4 @@
-import { SecurityPriceDto } from './IPriceDataDriver.type'
+import { SecurityPriceDto } from './DataDrivers.type'
 
 /** Scraped text: `null` / `undefined` when the element or its text is missing. */
 type ScrapedText = string | null | undefined

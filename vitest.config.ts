@@ -4,7 +4,8 @@ export default defineConfig({
   test: {
     include: ['src/**/__tests__/**/*.test.ts'],
     restoreMocks: true,
-    // Tests expect the repository's src/data, whatever the developer's shell has set
+    unstubEnvs: true,
+    // dataDirectory() tests expect the default, whatever the developer's shell has set
     env: { STOCK_CALC_DATA_DIR: '' },
     coverage: {
       provider: 'v8',

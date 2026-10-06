@@ -1,11 +1,14 @@
 import fs from 'fs'
-import { SettingsDto } from './IPriceDataDriver.type'
+import { ISettingsDataDriver, SettingsDto } from './DataDrivers.type'
 import { parseDataFile, SettingsSchema } from './DataFiles.schema'
 import { dataFilePath, parseJsonc } from './DataFiles.reader'
 
-export class SettingsDataDriver {
+export class SettingsDataDriver implements ISettingsDataDriver {
+  /** @param dataDir the folder holding the portfolio files */
+  constructor(private readonly dataDir: string) {}
+
   public async getPortfolioSettings(type: string): Promise<SettingsDto> {
-    const filePath = dataFilePath('_settings', type)
+    const filePath = dataFilePath(this.dataDir, '_settings', type)
 
     if (!fs.existsSync(filePath)) {
       throw Error(`Portfolio '${type}' not found: no settings file at '${filePath}'`)

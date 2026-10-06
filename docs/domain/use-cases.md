@@ -2,12 +2,13 @@
 
 Each CLI command, and the MCP tool of the same name, maps to one **application service** in `src/UseCases`. Every use case:
 
-1. extends `PortfolioUserCase` and is constructed with a **portfolio type**,
-2. loads the `Portfolio` aggregate through `PortfolioRepository` (`getSourcePortfolio()`),
-3. optionally changes the proposed `shares` (the initial state is never changed),
-4. returns the aggregate for the interface to present.
+1. extends `PortfolioUseCase` and is built once with an `IPortfolioRepository` (by `createPortfolioUseCases`, wired in `src/compositionRoot.ts`),
+2. receives a request naming the **portfolio type** on each `execute({ portfolioType, … })` call, and validates the rest of the request first,
+3. loads the `Portfolio` aggregate through the repository,
+4. optionally changes the proposed `shares` (the initial state is never changed),
+5. returns the aggregate for the interface to present.
 
-Use cases hold no state between runs and persist nothing.
+Use cases hold no state between calls and persist nothing.
 
 ## Summary
 
@@ -79,7 +80,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 - This is "invest **and** rebalance". If a position is overweight enough, the plan sells it even though money is being added. There's no "buy-only" mode.
 - Net cash needed is `investment` ± rounding, **plus fees**. It can be slightly above or below the amount entered.
 - Negative amounts plan a withdrawal: `invest -4055` gives the same plan as `target 5000`. A withdrawal larger than the portfolio's value fails with `Cannot withdraw <amount>: more than the portfolio value (<value>)`. Withdrawing exactly the whole value plans selling everything.
-- The investment must be a finite number. The CLI rejects anything else while parsing arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`investmentValue`).
+- The investment must be a finite number. The CLI rejects anything else while parsing arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`Investment.amount`).
 
 ---
 
@@ -93,7 +94,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Example (`target 5000`):** sell 30 QDVE and 52 SPYD. Proposed value 4972.30 EUR (40.05% / 59.95%), fees 2 EUR.
 
-**Notes:** the result may differ from `price` by up to about half a share's price per security. The price must be a finite number greater than 0. `target abc` is rejected while parsing CLI arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`targetPriceValue`) for 0, negative, NaN or infinite values. To plan selling everything, use `invest` with minus the portfolio value.
+**Notes:** the result may differ from `price` by up to about half a share's price per security. The price must be a finite number greater than 0. `target abc` is rejected while parsing CLI arguments, the MCP schema rejects it, and the use case throws a `ClassValidatorError` (`TargetPrice.amount`) for 0, negative, NaN or infinite values. To plan selling everything, use `invest` with minus the portfolio value.
 
 ---
 
@@ -103,7 +104,7 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 
 **Intent:** find the smallest whole-share allocation whose actual weights are all within `precision` of their targets. This tells you the minimum capital needed to hold the portfolio at its intended weights.
 
-**Inputs (validated in the constructor):**
+**Inputs (validated by `MinimumSharesSearch` before the portfolio is loaded):**
 
 | Input | Default | Constraint |
 | --- | --- | --- |
@@ -123,14 +124,15 @@ Every command takes `--pt, --portfolio <type>`, and every tool takes a `portfoli
 **Notes and edge cases:**
 - The search always starts from scratch (n = step, 2·step, …), so the result never depends on current holdings. It's presented as a target state only (`ONLY_NEW`, with no trades or fees).
 - The **first security with a target above 0** drives the search. Securities with a 0 target get 0 shares.
-- Only an omitted precision or shares step gets the default. Precision must be finite, > 0 and ≤ 1, and the shares step an integer ≥ 1. Anything else throws a `ClassValidatorError` (`acceptablePrecision` / `sharesStep`).
+- Only an omitted precision or shares step gets the default. Precision must be finite, > 0 and ≤ 1, and the shares step an integer ≥ 1. Anything else throws a `ClassValidatorError` (`MinimumSharesSearch.acceptablePrecision` / `sharesStep`).
 - Smaller precision means more iterations and larger results. The search stops after `MAX_SEARCH_ITERATIONS` (100,000) with `No portfolio within precision <p> found in <n> iterations`.
 
 ---
 
 ## Adding a use case
 
-1. Create `src/UseCases/<Name>.UseCase.ts` extending `PortfolioUserCase` and implement `handler()`.
+1. Create `src/UseCases/<Name>.UseCase.ts` extending `PortfolioUseCase<<Name>Request>` and implement `execute(request)`. Load the portfolio with `this.portfolioRepo.getPortfolio(portfolioType)`.
 2. Express the calculation as a method on the `Portfolio` aggregate when possible (as `balanceForPrice` is), so use cases stay thin.
-3. If the use case takes parameters with constraints, decorate them and end the constructor with `validateClassErrors(this, <Name>UseCase)` ([ADR-0004](../architecture/adr/0004-self-validating-entities.md)).
-4. Wire up a CLI command (see the [architecture overview](../architecture/overview.md#extension-points)) and add it to this document.
+3. If the request has constrained values, put them in a small value class whose decorated fields are checked by `validateClassErrors(this, <Class>)` at the end of its constructor ([ADR-0004](../architecture/adr/0004-self-validating-entities.md)), and build it first thing in `execute`, so bad input fails before anything is loaded.
+4. Add it to `PortfolioUseCases` and `createPortfolioUseCases` (`src/UseCases/PortfolioUseCases.factory.ts`).
+5. Wire up a CLI command and an MCP tool (see the [architecture overview](../architecture/overview.md#extension-points)) and add it to this document.

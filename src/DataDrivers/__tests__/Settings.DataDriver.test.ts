@@ -1,104 +1,138 @@
+import fs from 'fs'
+import path from 'path'
 import {
-  beforeEach, describe, expect, it, vi,
+  afterEach, describe, expect, it, vi,
 } from 'vitest'
-import { EUR_SETTINGS, EUR_SETTINGS_JSONC } from '#src/__fixtures__/dataFiles'
+import {
+  createDataDir, EUR_SETTINGS, EUR_SETTINGS_JSONC,
+} from '#src/__fixtures__/dataFiles'
 import { SettingsDataDriver } from '../Settings.DataDriver'
 
-const fsMock = vi.hoisted(() => ({
-  existsSync: vi.fn<(p: string) => boolean>(),
-  readFileSync: vi.fn<(p: string) => Buffer>(),
-}))
-
-vi.mock('fs', () => ({ default: fsMock }))
-
-const toPosix = (p: string) => p.replace(/\\/g, '/')
-
-function givenFile(content: string | undefined) {
-  fsMock.existsSync.mockReturnValue(content !== undefined)
-  fsMock.readFileSync.mockReturnValue(Buffer.from(content ?? ''))
-}
-
 describe('SettingsDataDriver', () => {
-  const driver = new SettingsDataDriver()
+  let dataDir: string
 
-  beforeEach(() => {
-    fsMock.existsSync.mockReset()
-    fsMock.readFileSync.mockReset()
+  /** A driver over a fresh data folder holding only `_settings.<type>.jsonc` (if given). */
+  function givenFile(content: string | undefined, type = 'EUR') {
+    dataDir = createDataDir(content === undefined ? {} : { [`_settings.${type}.jsonc`]: content })
+    return new SettingsDataDriver(dataDir)
+  }
+
+  const settingsPath = (type: string) => path.join(dataDir, `_settings.${type}.jsonc`)
+
+  async function errorOf(promise: Promise<unknown>): Promise<Error> {
+    const error = await promise.then(() => undefined, (e: unknown) => e)
+    expect(error).toBeInstanceOf(Error)
+    return error as Error
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    fs.rmSync(dataDir, { recursive: true, force: true })
   })
 
-  it('reads src/data/_settings.<TYPE>.jsonc', async () => {
-    givenFile(EUR_SETTINGS_JSONC)
+  it('reads <dataDir>/_settings.<TYPE>.jsonc', async () => {
+    const driver = givenFile(EUR_SETTINGS_JSONC, 'EGP')
+    const existsSync = vi.spyOn(fs, 'existsSync')
+    const readFileSync = vi.spyOn(fs, 'readFileSync')
 
-    await driver.getPortfolioSettings('EUR')
+    await expect(driver.getPortfolioSettings('EGP')).resolves.toEqual(EUR_SETTINGS)
 
-    const checkedPath = toPosix(fsMock.existsSync.mock.calls[0][0])
-    expect(checkedPath).toMatch(/\/src\/data\/_settings\.EUR\.jsonc$/)
-    expect(fsMock.readFileSync).toHaveBeenCalledWith(fsMock.existsSync.mock.calls[0][0])
+    expect(existsSync).toHaveBeenCalledWith(settingsPath('EGP'))
+    expect(readFileSync).toHaveBeenCalledWith(settingsPath('EGP'))
   })
 
   it('returns the parsed settings, accepting JSONC comments', async () => {
-    givenFile(EUR_SETTINGS_JSONC)
+    const driver = givenFile(EUR_SETTINGS_JSONC)
 
     await expect(driver.getPortfolioSettings('EUR')).resolves.toEqual(EUR_SETTINGS)
   })
 
-  it('throws "Portfolio \'X\' not found" when the settings file is missing', async () => {
-    givenFile(undefined)
+  it('does not read a settings file from another portfolio', async () => {
+    const driver = givenFile(EUR_SETTINGS_JSONC, 'EUR')
 
-    await expect(driver.getPortfolioSettings('XYZ'))
-      .rejects.toThrow(/^Portfolio 'XYZ' not found: no settings file at '.*_settings\.XYZ\.jsonc'$/)
-    expect(fsMock.readFileSync).not.toHaveBeenCalled()
+    await expect(driver.getPortfolioSettings('EGP')).rejects.toThrow(/^Portfolio 'EGP' not found/)
+  })
+
+  it('throws "Portfolio \'X\' not found" when the settings file is missing', async () => {
+    const driver = givenFile(undefined)
+    const readFileSync = vi.spyOn(fs, 'readFileSync')
+
+    const error = await errorOf(driver.getPortfolioSettings('XYZ'))
+
+    expect(error.message)
+      .toBe(`Portfolio 'XYZ' not found: no settings file at '${settingsPath('XYZ')}'`)
+    expect(readFileSync).not.toHaveBeenCalled()
   })
 
   it('throws an "Invalid data file" error with the field path for an invalid shape', async () => {
-    givenFile('{ "brokerageFeeFlat": 1, "tradingFeePercentage": 0, "minimumTradingFeeFlat": 0, '
-      + '"securities": [{ "tick": "QDVE", "exchange": "IBIS2", "shares": "100", '
-      + '"targetPercentage": 1 }] }')
+    const driver = givenFile('{ "brokerageFeeFlat": 1, "tradingFeePercentage": 0, '
+      + '"minimumTradingFeeFlat": 0, "securities": [{ "tick": "QDVE", "exchange": "IBIS2", '
+      + '"shares": "100", "targetPercentage": 1 }] }')
 
-    const error = await driver.getPortfolioSettings('EUR').catch((e: Error) => e)
+    const error = await errorOf(driver.getPortfolioSettings('EUR'))
 
-    expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toMatch(/^Invalid data file '.*_settings\.EUR\.jsonc':/)
-    expect((error as Error).message).toContain('securities[0].shares')
+    expect(error.message.startsWith(`Invalid data file '${settingsPath('EUR')}':`)).toBe(true)
+    expect(error.message).toContain('securities[0].shares')
   })
 
   it('throws "Invalid data file" for an empty file', async () => {
-    givenFile('')
-
-    await expect(driver.getPortfolioSettings('EUR')).rejects.toThrow(/Invalid data file/)
-  })
-
-  it('reports JSONC syntax errors with the code and line:column instead of recovering', async () => {
-    givenFile(EUR_SETTINGS_JSONC.replace('"brokerageFeeFlat": 1,', '"brokerageFeeFlat": 1,,'))
+    const driver = givenFile('')
 
     await expect(driver.getPortfolioSettings('EUR')).rejects.toThrow(
-      /^Invalid data file '.*_settings\.EUR\.jsonc': JSONC syntax error: PropertyNameExpected at 3:25/,
+      `Invalid data file '${settingsPath('EUR')}': JSONC syntax error: ValueExpected at 1:1`,
     )
   })
 
+  it('reports JSONC syntax errors with the code and line:column instead of recovering', async () => {
+    const driver = givenFile(
+      EUR_SETTINGS_JSONC.replace('"brokerageFeeFlat": 1,', '"brokerageFeeFlat": 1,,'),
+    )
+
+    const error = await errorOf(driver.getPortfolioSettings('EUR'))
+
+    expect(error.message.startsWith(
+      `Invalid data file '${settingsPath('EUR')}': `
+      + 'JSONC syntax error: PropertyNameExpected at 3:25',
+    )).toBe(true)
+  })
+
   it('accepts trailing commas', async () => {
-    givenFile(EUR_SETTINGS_JSONC.replace('"targetPercentage": 0.6 }', '"targetPercentage": 0.6, },'))
+    const driver = givenFile(
+      EUR_SETTINGS_JSONC.replace('"targetPercentage": 0.6 }', '"targetPercentage": 0.6, },'),
+    )
 
     await expect(driver.getPortfolioSettings('EUR')).resolves.toEqual(EUR_SETTINGS)
   })
 
   it('reports out-of-range values with the file and field path', async () => {
-    givenFile(EUR_SETTINGS_JSONC.replace('"shares": 100', '"shares": -1'))
+    const driver = givenFile(EUR_SETTINGS_JSONC.replace('"shares": 100', '"shares": -1'))
 
-    const error = await driver.getPortfolioSettings('EUR').catch((e: Error) => e)
+    const error = await errorOf(driver.getPortfolioSettings('EUR'))
 
-    expect((error as Error).message).toMatch(/^Invalid data file '.*_settings\.EUR\.jsonc':\n/)
-    expect((error as Error).message).toContain('securities[0].shares')
+    expect(error.message.startsWith(`Invalid data file '${settingsPath('EUR')}':\n`)).toBe(true)
+    expect(error.message).toContain('securities[0].shares')
   })
 
   it.each(['../../../x', 'EUR/../EGP', 'a b', ''])(
     'rejects the portfolio name %j before touching the file system',
     async (type) => {
+      const driver = givenFile(undefined)
+      const existsSync = vi.spyOn(fs, 'existsSync')
+      const readFileSync = vi.spyOn(fs, 'readFileSync')
+
       await expect(driver.getPortfolioSettings(type)).rejects.toThrow(
         `Invalid portfolio name '${type}': use letters, digits, '_' or '-'`,
       )
-      expect(fsMock.existsSync).not.toHaveBeenCalled()
-      expect(fsMock.readFileSync).not.toHaveBeenCalled()
+      expect(existsSync).not.toHaveBeenCalled()
+      expect(readFileSync).not.toHaveBeenCalled()
     },
   )
+
+  it('rejects a name that would resolve to an existing file outside the settings files', async () => {
+    // 'EUR/../EGP' would resolve to <dataDir>/EGP.jsonc
+    dataDir = createDataDir({ 'EGP.jsonc': EUR_SETTINGS_JSONC })
+    const driver = new SettingsDataDriver(dataDir)
+
+    await expect(driver.getPortfolioSettings('EUR/../EGP')).rejects.toThrow(/^Invalid portfolio name/)
+  })
 })

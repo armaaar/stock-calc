@@ -1,26 +1,23 @@
 import {
-  beforeEach, describe, expect, it, vi,
+  beforeEach, describe, expect, it,
 } from 'vitest'
 import { buildPortfolio } from '#src/__fixtures__/portfolio'
+import { FakePortfolioRepository, fakePortfolioRepository } from '#src/__fixtures__/repository'
 import { GetCurrentPortfolioUseCase } from '../GetCurrentPortfolio.UseCase'
 
-const { getPortfolio } = vi.hoisted(() => ({ getPortfolio: vi.fn() }))
-
-vi.mock('#src/Repositories/Portfolio.Repository', () => ({
-  PortfolioRepository: class {
-    getPortfolio = getPortfolio
-  },
-}))
-
 describe('GetCurrentPortfolioUseCase', () => {
+  let repo: FakePortfolioRepository
+  let useCase: GetCurrentPortfolioUseCase
+
   beforeEach(() => {
-    getPortfolio.mockReset().mockImplementation(async () => buildPortfolio())
+    repo = fakePortfolioRepository()
+    useCase = new GetCurrentPortfolioUseCase(repo)
   })
 
   it('returns the loaded portfolio unchanged', async () => {
-    const portfolio = await new GetCurrentPortfolioUseCase('EUR').handler()
+    const portfolio = await useCase.execute({ portfolioType: 'EUR' })
 
-    expect(getPortfolio).toHaveBeenCalledExactlyOnceWith('EUR')
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EUR')
     expect(portfolio.securities.map((sec) => [sec.tick, sec.shares, sec.initialShares]))
       .toEqual([['QDVE', 100, 100], ['SPYD', 100, 100]])
     expect(portfolio.totalPrice.toNumber()).toBe(9055)
@@ -29,9 +26,23 @@ describe('GetCurrentPortfolioUseCase', () => {
 
   it('returns exactly the instance the repository built', async () => {
     const loaded = buildPortfolio()
-    getPortfolio.mockResolvedValueOnce(loaded)
+    repo.getPortfolio.mockResolvedValueOnce(loaded)
 
-    await expect(new GetCurrentPortfolioUseCase('EGP').handler()).resolves.toBe(loaded)
-    expect(getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+    await expect(useCase.execute({ portfolioType: 'EGP' })).resolves.toBe(loaded)
+    expect(repo.getPortfolio).toHaveBeenCalledExactlyOnceWith('EGP')
+  })
+
+  it('propagates repository errors', async () => {
+    repo.getPortfolio.mockRejectedValueOnce(new Error('no settings'))
+
+    await expect(useCase.execute({ portfolioType: 'NOPE' })).rejects.toThrow('no settings')
+  })
+
+  it('loads the portfolio again on every execution (the use case keeps no state)', async () => {
+    const first = await useCase.execute({ portfolioType: 'EUR' })
+    const second = await useCase.execute({ portfolioType: 'EGP' })
+
+    expect(first).not.toBe(second)
+    expect(repo.getPortfolio.mock.calls).toEqual([['EUR'], ['EGP']])
   })
 })

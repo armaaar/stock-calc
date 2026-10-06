@@ -14,7 +14,7 @@ Upgrading every dependency to its latest version raised these problems with typi
 
 ## Decision
 
-We will describe the data-file shapes as zod schemas in `src/DataDrivers/DataFiles.schema.ts` (`SettingsSchema`, `OverridesSchema`) and derive the DTO types from them with `z.infer` in `IPriceDataDriver.type.ts`. Drivers validate with `parseDataFile(schema, data, filePath)`. It throws `Invalid data file '<path>':` followed by zod's readable issue list.
+We will describe the data-file shapes as zod schemas in `src/DataDrivers/DataFiles.schema.ts` (`SettingsSchema`, `OverridesSchema`) and derive the DTO types from them with `z.infer` in `DataDrivers.type.ts`. Drivers validate with `parseDataFile(schema, data, filePath)`. It throws `Invalid data file '<path>':` followed by zod's readable issue list.
 
 The settings driver also checks that the file exists, and throws `Portfolio '<type>' not found` instead of a raw `ENOENT`.
 

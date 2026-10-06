@@ -55,7 +55,6 @@ describe('dataDirectory', () => {
     vi.stubEnv(DATA_DIR_ENV, ` ${folder} `)
 
     expect(dataDirectory()).toBe(path.resolve(folder))
-    expect(dataFilePath('_settings', 'EUR')).toBe(path.join(folder, '_settings.EUR.jsonc'))
   })
 
   it.each([
@@ -76,13 +75,32 @@ describe('dataDirectory', () => {
 })
 
 describe('dataFilePath', () => {
-  it.each(['_settings', '_overrides'] as const)('resolves %s files inside src/data', (prefix) => {
-    expect(toPosix(dataFilePath(prefix, 'EUR')))
-      .toMatch(new RegExp(`/src/data/${prefix}\\.EUR\\.jsonc$`))
+  const dataDir = path.join(os.tmpdir(), 'portfolios')
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
-  it('rejects a portfolio name that would leave src/data', () => {
-    expect(() => dataFilePath('_settings', '../../../x'))
+  it.each(['_settings', '_overrides'] as const)('resolves %s files inside the data folder', (
+    prefix,
+  ) => {
+    expect(dataFilePath(dataDir, prefix, 'EUR')).toBe(path.join(dataDir, `${prefix}.EUR.jsonc`))
+  })
+
+  it('resolves a relative data folder against the working directory', () => {
+    expect(dataFilePath('portfolios', '_settings', 'EUR'))
+      .toBe(path.resolve('portfolios', '_settings.EUR.jsonc'))
+  })
+
+  it('uses the given data folder, not STOCK_CALC_DATA_DIR', () => {
+    vi.stubEnv(DATA_DIR_ENV, path.join(os.tmpdir(), 'elsewhere'))
+
+    expect(dataFilePath(dataDir, '_settings', 'EUR'))
+      .toBe(path.join(dataDir, '_settings.EUR.jsonc'))
+  })
+
+  it('rejects a portfolio name that would leave the data folder', () => {
+    expect(() => dataFilePath(dataDir, '_settings', '../../../x'))
       .toThrow('Invalid portfolio name \'../../../x\': use letters, digits, \'_\' or \'-\'')
   })
 })

@@ -1,38 +1,45 @@
-import { IPriceDataDriver, SecurityPriceDto, SettingsSecurityDto } from '#src/DataDrivers/IPriceDataDriver.type'
-import { JustEtfDataDriver } from '#src/DataDrivers/JustEtf.DataDriver'
-import { OverridesDataDriver } from '#src/DataDrivers/Overrides.DataDriver'
-import { SettingsDataDriver } from '#src/DataDrivers/Settings.DataDriver'
-import { TradingViewDataDriver } from '#src/DataDrivers/TradingView.DataDriver'
+import {
+  IOverridesDataDriver,
+  IPriceDataDriver,
+  ISettingsDataDriver,
+  OverridesDto,
+  SecurityPriceDto,
+  SettingsSecurityDto,
+} from '#src/DataDrivers/DataDrivers.type'
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import { IPortfolioSecurity, PortfolioSecurity } from '#src/Entities/PortfolioSecurity.Entity'
+import { IPortfolioRepository } from '#src/UseCases/IPortfolioRepository.type'
 
-type Overrides = Record<string, SecurityPriceDto>
+/** Where the repository reads a portfolio from. */
+export interface PortfolioDataDrivers {
+  settings: ISettingsDataDriver
+  overrides: IOverridesDataDriver
+  /** Raced for every price that isn't overridden: the first to answer wins. */
+  prices: IPriceDataDriver[]
+}
 
 /** Own keys only, so a tick like 'toString' isn't "overridden" by Object.prototype. */
-function isOverridden(tick: string, overrides: Overrides): boolean {
+function isOverridden(tick: string, overrides: OverridesDto): boolean {
   return Object.hasOwn(overrides, tick)
 }
 
-export class PortfolioRepository {
-  private justEtfDD = new JustEtfDataDriver()
-
-  private tradingViewDD = new TradingViewDataDriver()
-
-  private settingsDD = new SettingsDataDriver()
-
-  private overridesDD = new OverridesDataDriver()
+export class PortfolioRepository implements IPortfolioRepository {
+  constructor(private readonly dataDrivers: PortfolioDataDrivers) {}
 
   public async getPortfolio(type: string): Promise<Portfolio> {
+    const { settings, overrides: overridesDD, prices } = this.dataDrivers
+
     try {
       const {
         brokerageFeeFlat, tradingFeePercentage, minimumTradingFeeFlat, securities,
-      } = await this.settingsDD.getPortfolioSettings(type)
-      const overrides = await this.overridesDD.getPortfolioOverrides(type)
+      } = await settings.getPortfolioSettings(type)
+      const overrides = await overridesDD.getPortfolioOverrides(type)
 
       // Only start the browsers when at least one price has to be scraped
       if (securities.some(({ tick }) => !isOverridden(tick, overrides))) {
-        await this.justEtfDD.launchBrowser()
-        await this.tradingViewDD.launchBrowser()
+        for (const priceDD of prices) {
+          await priceDD.launchBrowser()
+        }
       }
 
       const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
@@ -61,30 +68,16 @@ export class PortfolioRepository {
       })
     } finally {
       // Closing a browser that was never launched is a no-op
-      await Promise.all([
-        this.justEtfDD.closeBrowser(),
-        this.tradingViewDD.closeBrowser(),
-      ])
+      await Promise.all(prices.map((priceDD) => priceDD.closeBrowser()))
     }
   }
 
   private async getPrice(
     setting: SettingsSecurityDto,
-    overrides: Overrides,
+    overrides: OverridesDto,
   ): Promise<SecurityPriceDto> {
     if (isOverridden(setting.tick, overrides)) return overrides[setting.tick]
 
-    const priceDataDrivers: IPriceDataDriver[] = [
-      this.justEtfDD,
-      this.tradingViewDD,
-    ]
-
-    const prices: Promise<SecurityPriceDto>[] = []
-
-    for (let i = 0; i < priceDataDrivers.length; i++) {
-      prices.push(priceDataDrivers[i].getPrice(setting))
-    }
-
-    return Promise.any(prices)
+    return Promise.any(this.dataDrivers.prices.map((priceDD) => priceDD.getPrice(setting)))
   }
 }

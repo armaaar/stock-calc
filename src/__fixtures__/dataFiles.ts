@@ -1,6 +1,9 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import type {
   SecurityPriceDto, SettingsDto, SettingsSecurityDto,
-} from '#src/DataDrivers/IPriceDataDriver.type'
+} from '#src/DataDrivers/DataDrivers.type'
 import { QDVE, SPYD } from './portfolio'
 
 /**
@@ -65,3 +68,15 @@ export const EUR_OVERRIDES_JSONC = `{
   "SPYD": { "price": 62.10, "currency": "EUR" }
 }
 `
+
+/**
+ * A fresh temporary data folder holding the given files (name → content), for the file data
+ * drivers. Tests never write to `src/data`. Remove it with `fs.rmSync(dir, { recursive: true })`.
+ */
+export function createDataDir(files: Record<string, string> = {}): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stock-calc-'))
+  for (const [name, content] of Object.entries(files)) {
+    fs.writeFileSync(path.join(dir, name), content)
+  }
+  return dir
+}

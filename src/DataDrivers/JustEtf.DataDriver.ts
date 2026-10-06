@@ -1,5 +1,5 @@
 import { BrowserController } from '#src/Shared/BrowserController.abstract'
-import { IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto } from './IPriceDataDriver.type'
+import { IPriceDataDriver, SettingsSecurityDto, SecurityPriceDto } from './DataDrivers.type'
 import { parsePriceQuote } from './PriceQuote.parser'
 
 export class JustEtfDataDriver extends BrowserController implements IPriceDataDriver {

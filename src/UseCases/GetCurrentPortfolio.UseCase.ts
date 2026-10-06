@@ -1,7 +1,7 @@
-import { PortfolioUserCase } from './PortfolioUseCase.abstract'
+import { PortfolioRequest, PortfolioUseCase } from './PortfolioUseCase.abstract'
 
-export class GetCurrentPortfolioUseCase extends PortfolioUserCase {
-  public async handler() {
-    return this.getSourcePortfolio()
+export class GetCurrentPortfolioUseCase extends PortfolioUseCase {
+  public async execute({ portfolioType }: PortfolioRequest) {
+    return this.portfolioRepo.getPortfolio(portfolioType)
   }
 }

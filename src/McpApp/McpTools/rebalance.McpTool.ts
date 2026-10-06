@@ -1,10 +1,13 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { GetRebalancedPortfolioUseCase } from '#src/UseCases/GetRebalancedPortfolio.UseCase'
+import type { PortfolioUseCases } from '#src/UseCases/PortfolioUseCases.factory'
 import { PortfolioMcpPresenter, PresentMode, portfolioOutputSchema } from '../Presenters/PortfolioMcp.Presenter'
 import { ErrorMcpPresenter } from '../Presenters/ErrorMcp.Presenter'
 import { portfolioInput, portfolioToolAnnotations } from '../mcpOptions'
 
-export function registerRebalanceTool(server: McpServer): void {
+export function registerRebalanceTool(
+  server: McpServer,
+  rebalance: PortfolioUseCases['rebalance'],
+): void {
   server.registerTool('rebalance', {
     title: 'Rebalance portfolio',
     description: 'Rebalance the current portfolio',
@@ -13,8 +16,7 @@ export function registerRebalanceTool(server: McpServer): void {
     annotations: portfolioToolAnnotations,
   }, async ({ portfolio: portfolioType }) => {
     try {
-      const useCase = new GetRebalancedPortfolioUseCase(portfolioType)
-      const portfolio = await useCase.handler()
+      const portfolio = await rebalance.execute({ portfolioType })
       return PortfolioMcpPresenter.present(portfolio, PresentMode.WITH_DELTA)
     } catch (e: unknown) {
       return ErrorMcpPresenter.present(e)

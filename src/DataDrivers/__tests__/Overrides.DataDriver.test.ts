@@ -1,68 +1,79 @@
+import fs from 'fs'
+import path from 'path'
 import {
-  beforeEach, describe, expect, it, vi,
+  afterEach, describe, expect, it, vi,
 } from 'vitest'
-import { EUR_OVERRIDES, EUR_OVERRIDES_JSONC } from '#src/__fixtures__/dataFiles'
+import {
+  createDataDir, EUR_OVERRIDES, EUR_OVERRIDES_JSONC,
+} from '#src/__fixtures__/dataFiles'
 import { OverridesDataDriver } from '../Overrides.DataDriver'
 
-const fsMock = vi.hoisted(() => ({
-  existsSync: vi.fn<(p: string) => boolean>(),
-  readFileSync: vi.fn<(p: string) => Buffer>(),
-}))
-
-vi.mock('fs', () => ({ default: fsMock }))
-
-const toPosix = (p: string) => p.replace(/\\/g, '/')
-
-function givenFile(content: string | undefined) {
-  fsMock.existsSync.mockReturnValue(content !== undefined)
-  fsMock.readFileSync.mockReturnValue(Buffer.from(content ?? ''))
-}
-
 describe('OverridesDataDriver', () => {
-  const driver = new OverridesDataDriver()
+  let dataDir: string
 
-  beforeEach(() => {
-    fsMock.existsSync.mockReset()
-    fsMock.readFileSync.mockReset()
+  /** A driver over a fresh data folder holding only `_overrides.<type>.jsonc` (if given). */
+  function givenFile(content: string | undefined, type = 'EUR') {
+    dataDir = createDataDir(content === undefined ? {} : { [`_overrides.${type}.jsonc`]: content })
+    return new OverridesDataDriver(dataDir)
+  }
+
+  const overridesPath = (type: string) => path.join(dataDir, `_overrides.${type}.jsonc`)
+
+  async function errorOf(promise: Promise<unknown>): Promise<Error> {
+    const error = await promise.then(() => undefined, (e: unknown) => e)
+    expect(error).toBeInstanceOf(Error)
+    return error as Error
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    fs.rmSync(dataDir, { recursive: true, force: true })
   })
 
-  it('reads src/data/_overrides.<TYPE>.jsonc', async () => {
-    givenFile(EUR_OVERRIDES_JSONC)
+  it('reads <dataDir>/_overrides.<TYPE>.jsonc', async () => {
+    const driver = givenFile(EUR_OVERRIDES_JSONC, 'EGP')
+    const existsSync = vi.spyOn(fs, 'existsSync')
+    const readFileSync = vi.spyOn(fs, 'readFileSync')
 
-    await driver.getPortfolioOverrides('EGP')
+    await expect(driver.getPortfolioOverrides('EGP')).resolves.toEqual(EUR_OVERRIDES)
 
-    const checkedPath = toPosix(fsMock.existsSync.mock.calls[0][0])
-    expect(checkedPath).toMatch(/\/src\/data\/_overrides\.EGP\.jsonc$/)
-    expect(fsMock.readFileSync).toHaveBeenCalledWith(fsMock.existsSync.mock.calls[0][0])
+    expect(existsSync).toHaveBeenCalledWith(overridesPath('EGP'))
+    expect(readFileSync).toHaveBeenCalledWith(overridesPath('EGP'))
   })
 
   it('returns the parsed overrides, accepting JSONC comments', async () => {
-    givenFile(EUR_OVERRIDES_JSONC)
+    const driver = givenFile(EUR_OVERRIDES_JSONC)
 
     await expect(driver.getPortfolioOverrides('EUR')).resolves.toEqual(EUR_OVERRIDES)
   })
 
   it('returns {} when the overrides file is missing', async () => {
-    givenFile(undefined)
+    const driver = givenFile(undefined)
+    const readFileSync = vi.spyOn(fs, 'readFileSync')
 
     await expect(driver.getPortfolioOverrides('EUR')).resolves.toEqual({})
-    expect(fsMock.readFileSync).not.toHaveBeenCalled()
+    expect(readFileSync).not.toHaveBeenCalled()
+  })
+
+  it('does not read the overrides file of another portfolio', async () => {
+    const driver = givenFile(EUR_OVERRIDES_JSONC, 'EUR')
+
+    await expect(driver.getPortfolioOverrides('EGP')).resolves.toEqual({})
   })
 
   it('returns {} for a file with an empty object', async () => {
-    givenFile('{ /* nothing overridden */ }')
+    const driver = givenFile('{ /* nothing overridden */ }')
 
     await expect(driver.getPortfolioOverrides('EUR')).resolves.toEqual({})
   })
 
   it('throws an "Invalid data file" error with the field path for an invalid shape', async () => {
-    givenFile('{ "QDVE": { "price": "28.45", "currency": "EUR" } }')
+    const driver = givenFile('{ "QDVE": { "price": "28.45", "currency": "EUR" } }')
 
-    const error = await driver.getPortfolioOverrides('EUR').catch((e: Error) => e)
+    const error = await errorOf(driver.getPortfolioOverrides('EUR'))
 
-    expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toMatch(/^Invalid data file '.*_overrides\.EUR\.jsonc':/)
-    expect((error as Error).message).toContain('QDVE.price')
+    expect(error.message.startsWith(`Invalid data file '${overridesPath('EUR')}':`)).toBe(true)
+    expect(error.message).toContain('QDVE.price')
   })
 
   it.each([
@@ -70,32 +81,39 @@ describe('OverridesDataDriver', () => {
     ['whitespace-only', '  \n\t\r\n'],
     ['comments-only', '// no overrides yet\n/* "QDVE": { "price": 1, "currency": "EUR" } */\n'],
   ])('returns {} for an %s file, like a missing one', async (_case, content) => {
-    givenFile(content)
+    const driver = givenFile(content)
 
     await expect(driver.getPortfolioOverrides('EUR')).resolves.toEqual({})
   })
 
   it('reports JSONC syntax errors with the code and line:column instead of recovering', async () => {
-    givenFile('{\n  "QDVE": { "price": 28.45 "currency": "EUR" }\n}')
+    const driver = givenFile('{\n  "QDVE": { "price": 28.45 "currency": "EUR" }\n}')
 
-    await expect(driver.getPortfolioOverrides('EUR')).rejects.toThrow(
-      /^Invalid data file '.*_overrides\.EUR\.jsonc': JSONC syntax error: CommaExpected at 2:28$/,
+    const error = await errorOf(driver.getPortfolioOverrides('EUR'))
+
+    expect(error.message).toBe(
+      `Invalid data file '${overridesPath('EUR')}': JSONC syntax error: CommaExpected at 2:28`,
     )
   })
 
   it('rejects a non-positive override price with the file and field path', async () => {
-    givenFile('{ "QDVE": { "price": 0, "currency": "EUR" } }')
+    const driver = givenFile('{ "QDVE": { "price": 0, "currency": "EUR" } }')
 
-    const error = await driver.getPortfolioOverrides('EUR').catch((e: Error) => e)
+    const error = await errorOf(driver.getPortfolioOverrides('EUR'))
 
-    expect((error as Error).message).toMatch(/^Invalid data file '.*_overrides\.EUR\.jsonc':\n/)
-    expect((error as Error).message).toContain('QDVE.price')
+    expect(error.message.startsWith(`Invalid data file '${overridesPath('EUR')}':\n`)).toBe(true)
+    expect(error.message).toContain('QDVE.price')
   })
 
   it('rejects an invalid portfolio name before touching the file system', async () => {
+    const driver = givenFile(undefined)
+    const existsSync = vi.spyOn(fs, 'existsSync')
+    const readFileSync = vi.spyOn(fs, 'readFileSync')
+
     await expect(driver.getPortfolioOverrides('../../x')).rejects.toThrow(
       'Invalid portfolio name \'../../x\': use letters, digits, \'_\' or \'-\'',
     )
-    expect(fsMock.existsSync).not.toHaveBeenCalled()
+    expect(existsSync).not.toHaveBeenCalled()
+    expect(readFileSync).not.toHaveBeenCalled()
   })
 })

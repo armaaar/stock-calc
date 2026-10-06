@@ -1,31 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildPortfolio } from '#src/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
+import { StubUseCases, stubUseCases } from '#src/__fixtures__/useCases'
 import { PortfolioCliPresenter, PresentMode } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
-import { rebalanceCli } from '../rebalance.CliCommand'
-
-const { UseCase, handler } = vi.hoisted(() => {
-  const handler = vi.fn()
-  const UseCase = vi.fn(function GetRebalancedPortfolioUseCase() {
-    return { handler }
-  })
-  return { UseCase, handler }
-})
-
-vi.mock('#src/UseCases/GetRebalancedPortfolio.UseCase', () => ({
-  GetRebalancedPortfolioUseCase: UseCase,
-}))
+import { createRebalanceCli } from '../rebalance.CliCommand'
 
 describe('rebalance command', () => {
   let spies: ConsoleSpies
+  let rebalance: StubUseCases['rebalance']
+  let rebalanceCli: ReturnType<typeof createRebalanceCli>
 
   beforeEach(() => {
-    vi.clearAllMocks()
     spies = spyOnConsole()
+    rebalance = stubUseCases().rebalance
     const portfolio = buildPortfolio()
     portfolio.balanceForPrice(portfolio.totalPrice)
-    handler.mockResolvedValue(portfolio)
+    rebalance.execute.mockResolvedValue(portfolio)
+    rebalanceCli = createRebalanceCli(rebalance)
   })
 
   afterEach(() => {
@@ -44,11 +36,10 @@ describe('rebalance command', () => {
 
     await rebalanceCli.parseAsync([], { from: 'user' })
 
-    expect(UseCase).toHaveBeenCalledTimes(1)
-    expect(UseCase).toHaveBeenCalledWith('EUR')
-    expect(handler).toHaveBeenCalledTimes(1)
+    expect(rebalance.execute).toHaveBeenCalledTimes(1)
+    expect(rebalance.execute).toHaveBeenCalledWith({ portfolioType: 'EUR' })
     expect(present).toHaveBeenCalledWith(
-      await handler.mock.results[0].value,
+      await rebalance.execute.mock.results[0].value,
       PresentMode.WITH_DELTA,
     )
     expect(printedLines(spies.log)).toEqual([
@@ -67,12 +58,12 @@ describe('rebalance command', () => {
   ])('uses the portfolio type given with %s', async (flag, type) => {
     await rebalanceCli.parseAsync([flag, type], { from: 'user' })
 
-    expect(UseCase).toHaveBeenCalledWith(type)
+    expect(rebalance.execute).toHaveBeenCalledWith({ portfolioType: type })
   })
 
-  it('routes a failing handler to the error presenter and sets exit code 1', async () => {
+  it('routes a failing use case to the error presenter and sets exit code 1', async () => {
     const error = new AggregateError([new Error('JustEtf failed'), new Error('TradingView failed')])
-    handler.mockRejectedValueOnce(error)
+    rebalance.execute.mockRejectedValueOnce(error)
     const presentError = vi.spyOn(ErrorCliPresenter, 'present')
     const present = vi.spyOn(PortfolioCliPresenter, 'present')
 

@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2023-09-09
 - **Introduced in:** `4d56948` "refactor: refactor code to be domain driven"
+- **Amended by:** [ADR-0018](0018-dependency-injection-and-composition-root.md) (dependencies are injected; the repository implements a use-case port)
 
 ## Context
 
@@ -27,4 +28,4 @@ Dependencies point inward, from the CLI toward Entities. Imports across layers u
 - The domain math in `Entities` doesn't depend on Puppeteer, the file system, or the CLI.
 - The file suffix makes each file's layer obvious from its name.
 - There is no dependency injection: use cases create the concrete repository, and the repository creates concrete drivers. This keeps the code short but makes isolated testing hard. Adding constructor injection is a likely follow-up if tests are introduced.
-- Port interfaces and DTOs live with the drivers (`DataDrivers/IPriceDataDriver.type.ts`), so the inward dependency rule holds only by convention.
+- Port interfaces and DTOs live with the drivers (`DataDrivers/DataDrivers.type.ts`), so the inward dependency rule holds only by convention.

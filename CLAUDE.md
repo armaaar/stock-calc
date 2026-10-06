@@ -30,27 +30,31 @@ npx vitest run -t "rebalance"                          # tests whose name matche
 Clean-architecture layers under `src/`. Imports across layers use the `#src/*` → `src/*.ts` alias, defined once in the `imports` field of `package.json` (Node subpath imports, ADR-0017). Node, tsx, tsc and Vitest all read it. Node rejects `#/`, so the prefix is `#src/`. Read `docs/architecture/overview.md` for the full picture.
 
 ```
-CliApp | McpApp  (interfaces; never import each other)
-  → UseCases     (one class per operation, extend PortfolioUserCase)
-    → Repositories/PortfolioRepository   (anti-corruption layer: DTOs → Portfolio aggregate)
-      → DataDrivers                      (zod-validated JSONC files, Puppeteer scrapers)
-  Entities       (Portfolio aggregate, PortfolioSecurity, Security: rules + validation)
+compositionRoot.ts   (the only place that picks adapters, reads the env, launches puppeteer)
+CliApp | McpApp      (interfaces; never import each other; receive PortfolioUseCases)
+  → UseCases         (stateless, execute(request); own the IPortfolioRepository port)
+  Repositories/PortfolioRepository   (implements IPortfolioRepository; DTOs → Portfolio aggregate)
+    → DataDrivers                    (zod-validated JSONC files, Puppeteer scrapers)
+  Entities           (Portfolio aggregate, PortfolioSecurity, Security: rules + validation)
 ```
 
-- A use case loads the `Portfolio`, changes `shares` (usually via `Portfolio.balanceForPrice`), and returns it. `initialShares` keeps the original holdings, so presenters can show trades and fees.
-- Every operation exists in **both** interfaces: `CliCommands/<name>.CliCommand.ts` ↔ `McpTools/<name>.McpTool.ts`. A new use case needs both (see `src/McpApp/CLAUDE.md`).
+- Dependencies are injected through constructors and wired once in `src/compositionRoot.ts` (`composePortfolioUseCases(dataDir)`, ADR-0018). Nothing below the entry points does `new` on a collaborator, reads `process.env`, or imports puppeteer's `launch`.
+- A use case validates its request with a small value class (`Investment`, `TargetPrice`, `MinimumSharesSearch`), loads the `Portfolio`, changes `shares` (usually via `Portfolio.balanceForPrice`), and returns it. `initialShares` keeps the original holdings, so presenters can show trades and fees.
+- Every operation exists in **both** interfaces: `CliCommands/<name>.CliCommand.ts` (`create<Name>Cli(useCase)`) ↔ `McpTools/<name>.McpTool.ts` (`register<Name>Tool(server, useCase)`). A new use case needs both, plus an entry in `PortfolioUseCases` (see `src/McpApp/CLAUDE.md`).
 - Folder-specific rules are in nested CLAUDE.md files: `src/Entities/`, `src/DataDrivers/`, `src/McpApp/`.
 
 ## Tests
 
 - Vitest. Tests live in a `__tests__/` folder next to the code they cover (`src/DataDrivers/__tests__/Settings.DataDriver.test.ts` tests `src/DataDrivers/Settings.DataDriver.ts`). Never put `*.test.ts` beside the sources: Vitest only collects `src/**/__tests__/**/*.test.ts`. Shared builders are in `src/__fixtures__/` (excluded from coverage):
   - `portfolio.ts`: `buildPortfolio()`, the example portfolio QDVE 28.45 × 100 @ 40% and SPYD 62.10 × 100 @ 60%, 1 EUR flat fee.
-  - `dataFiles.ts`, `puppeteer.ts` (`createFakePage`), `console.ts` (`spyOnConsole`, `printedLines`).
-- There is no dependency injection, so isolate layers with `vi.mock` on module paths, using `vi.hoisted` for shared mock functions:
-  - interface and use-case tests mock `#src/Repositories/Portfolio.Repository`,
-  - repository tests mock the data-driver modules,
-  - driver tests mock `puppeteer` / `fs`.
-  Never launch a browser, hit the network, or write to `src/data` in tests.
+  - `repository.ts`, `useCases.ts`, `dataFiles.ts` (`createDataDir`), `puppeteer.ts` (`createFakePage`, `fakeLauncher`), `console.ts` (`spyOnConsole`, `printedLines`).
+- Isolate layers by injecting fakes, not with `vi.mock`:
+  - use-case and MCP-server tests: `fakePortfolioRepository()` / `useCasesOver(repo)` (`src/__fixtures__/repository.ts`), so the real use cases and domain run;
+  - CLI command and program tests: `stubUseCases()` (`src/__fixtures__/useCases.ts`);
+  - repository tests: plain fake driver objects;
+  - scraper and `BrowserController` tests: `fakeLauncher(...)` (`src/__fixtures__/puppeteer.ts`);
+  - file-driver tests: real files in a temporary folder from `createDataDir(files)` (`src/__fixtures__/dataFiles.ts`).
+  `vi.mock` is only for process boundaries: the stdio transport in `McpApp/__tests__/app.test.ts`, and puppeteer in `__tests__/compositionRoot.test.ts`. Never launch a browser, hit the network, or write to `src/data` in tests.
 - Tests pin current behaviour. Questionable behaviour gets a `// Current behaviour:` comment and an entry under "Known gaps" in `docs/domain/portfolio-allocation.md`.
 - Worked numbers for the example portfolio, which tests assert:
   - rebalance → 127 / 87
@@ -66,4 +70,4 @@ CliApp | McpApp  (interfaces; never import each other)
 
 - No semicolons, single quotes, 2-space indent, trailing commas, max line length 100 (ESLint enforces these).
 - File naming: `<Name>.<Role>.ts`, for example `Portfolio.Entity.ts`, `GetRebalancedPortfolio.UseCase.ts`, `TradingView.DataDriver.ts`, `show.CliCommand.ts`, `show.McpTool.ts`, and `*.abstract.ts` / `*.type.ts` / `*.schema.ts`.
-- New CLI commands: create `src/CliApp/CliCommands/<name>.CliCommand.ts`, add the shared `portfolioOption`, wrap the action in a try/catch that calls `ErrorCliPresenter.present`, register it in `src/CliApp/app.ts`, and add a `cli:<name>` script.
+- New CLI commands: create `src/CliApp/CliCommands/<name>.CliCommand.ts` exporting `create<Name>Cli(useCase)`, add the shared `portfolioOption`, wrap the action in a try/catch that calls `ErrorCliPresenter.present`, register it in `createCli` (`src/CliApp/cli.ts`), and add a `cli:<name>` script.
