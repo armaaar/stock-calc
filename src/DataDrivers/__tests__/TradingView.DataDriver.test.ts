@@ -212,6 +212,8 @@ describe('symbolOfUrl', () => {
     ['https://www.tradingview.com/symbols/FX_IDC-USDEUR/', 'FX_IDC:USDEUR'],
     ['https://www.tradingview.com/symbols/EURONEXT-GOLD-ETFP/?x=1', 'EURONEXT:GOLD-ETFP'],
     ['https://www.tradingview.com/symbols/LSE-ICOM', 'LSE:ICOM'],
+    ['https://www.tradingview.com/symbols/EGX-A%20B/', 'EGX:A B'],
+    ['https://www.tradingview.com/symbols/EGX-%C3%89T/', 'EGX:ÉT'],
   ])('reads %s as %s', (url, symbol) => {
     expect(symbolOfUrl(url)).toBe(symbol)
   })

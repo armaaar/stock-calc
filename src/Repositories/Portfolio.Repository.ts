@@ -40,6 +40,17 @@ function isOverridden(key: string, overrides: Record<string, unknown>): boolean 
   return Object.hasOwn(overrides, key)
 }
 
+/** A rate override that doesn't convert into the portfolio's currency could never be used. */
+function assertRatesConvertInto(currency: string | undefined, overrides: OverridesDto): void {
+  const unused = Object.keys(overrides.rates).filter((pair) => !pair.endsWith(`/${currency}`))
+  if (unused.length > 0) {
+    throw Error(
+      `The rate override ${unused.join(', ')} doesn't convert into the portfolio's currency `
+      + `(${currency ?? 'not set'}): rates are keyed <FROM>/${currency ?? '<portfolio currency>'}`,
+    )
+  }
+}
+
 export class PortfolioRepository implements IPortfolioRepository {
   /** @param now the clock that time-stamps live prices and rates */
   constructor(
@@ -80,6 +91,8 @@ export class PortfolioRepository implements IPortfolioRepository {
       cash, feeWarningPercentage, securities,
     } = await settings.getPortfolioSettings(portfolioId)
     const overrides = await overridesDD.getPortfolioOverrides(portfolioId)
+    // Before anything is scraped, so a mistyped key fails fast and isn't hidden by a price error
+    assertRatesConvertInto(currency, overrides)
 
     // Only start the browsers when at least one price has to be scraped. They start together,
     // so a cold start costs the slowest launch, not the sum. If one fails, closing them waits
@@ -182,13 +195,6 @@ export class PortfolioRepository implements IPortfolioRepository {
     currency: string | undefined,
     overrides: OverridesDto,
   ): Promise<Map<string, IExchangeRate>> {
-    const unused = Object.keys(overrides.rates).filter((pair) => !pair.endsWith(`/${currency}`))
-    if (unused.length > 0) {
-      throw Error(
-        `The rate override ${unused.join(', ')} doesn't convert into the portfolio's currency `
-        + `(${currency ?? 'not set'}): rates are keyed <FROM>/${currency ?? '<portfolio currency>'}`,
-      )
-    }
     if (currency === undefined) return new Map()
     const listed = [...new Set(quotes.map((quote) => quote.currency as string))]
       .filter((from) => from !== currency)

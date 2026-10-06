@@ -650,12 +650,20 @@ describe('PortfolioRepository', () => {
 
     it('rejects an overridden rate into another currency, which would never be used', async () => {
       givenUsdSpyd({ 'USD/EUR': { rate: 0.9 }, 'EUR/USD': { rate: 1.1 }, 'USD/GBP': { rate: 0.75 } })
+      // Some price has to be scraped: the check still comes first
+      overrides.getPortfolioOverrides.mockResolvedValue({
+        prices: { QDVE: EUR_OVERRIDES.prices.QDVE },
+        rates: { 'USD/EUR': { rate: 0.9 }, 'EUR/USD': { rate: 1.1 }, 'USD/GBP': { rate: 0.75 } },
+      })
 
       await expect(clockedRepository().getPortfolio('ibkr/eur')).rejects.toThrow(
         'The rate override EUR/USD, USD/GBP doesn\'t convert into the portfolio\'s currency (EUR): '
         + 'rates are keyed <FROM>/EUR',
       )
+      expect(justEtf.launchBrowser).not.toHaveBeenCalled()
+      expect(justEtf.getPrice).not.toHaveBeenCalled()
       expect(tradingView.getRate).not.toHaveBeenCalled()
+      expectBrowsersClosed()
     })
 
     it('rejects an overridden rate when the portfolio sets no currency', async () => {

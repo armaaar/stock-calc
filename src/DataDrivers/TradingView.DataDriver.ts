@@ -14,7 +14,8 @@ export const FX_EXCHANGE = 'FX_IDC'
  */
 export function symbolOfUrl(url: string): string | undefined {
   const match = /\/symbols\/([^/-]+)-([^/]+)\/?$/.exec(new URL(url).pathname)
-  return match ? `${match[1]}:${match[2]}` : undefined
+  // The URL is percent-encoded; the page's data-symbol isn't
+  return match ? `${match[1]}:${decodeURIComponent(match[2])}` : undefined
 }
 
 export class TradingViewDataDriver extends BrowserController
