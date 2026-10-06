@@ -5,7 +5,7 @@ import { buildPortfolio, QDVE, SPYD } from '#src/__fixtures__/portfolio'
 import { ConsoleSpies, printedLines, spyOnConsole } from '#src/__fixtures__/console'
 import { StubUseCases, stubUseCases } from '#src/__fixtures__/useCases'
 import {
-  DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP,
+  DEFAULT_ACCEPTABLE_PRECISION, DEFAULT_SHARES_STEP,
 } from '#src/UseCases/GetPortfolioWithMinimumShares.UseCase'
 import { PortfolioCliPresenter } from '../../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../../Presenters/ErrorCliPresenter.Presenter'
@@ -48,7 +48,7 @@ describe('minimal command', () => {
     expect(minimalCli.registeredArguments).toHaveLength(0)
     expect(minimalCli.options.map((option) => [option.short, option.long, option.defaultValue]))
       .toEqual([
-        ['-p', '--precision', DEFAULT_ACCEPTABLE_PRECESION],
+        ['-p', '--precision', DEFAULT_ACCEPTABLE_PRECISION],
         ['-s', '--shares-step', DEFAULT_SHARES_STEP],
         ['--pt', '--portfolio', 'EUR'],
       ])

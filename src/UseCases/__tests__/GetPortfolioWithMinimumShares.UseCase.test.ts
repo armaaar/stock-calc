@@ -7,7 +7,7 @@ import { FakePortfolioRepository, fakePortfolioRepository } from '#src/__fixture
 import { Portfolio } from '#src/Entities/Portfolio.Entity'
 import { ClassValidatorError } from '#src/Shared/ClassValidatorError'
 import {
-  DEFAULT_ACCEPTABLE_PRECESION,
+  DEFAULT_ACCEPTABLE_PRECISION,
   DEFAULT_SHARES_STEP,
   GetPortfolioWithMinimumSharesUseCase,
   MAX_SEARCH_ITERATIONS,
@@ -48,7 +48,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
   })
 
   it('exports a default precision of 0.01, shares step of 1 and an iteration cap', () => {
-    expect(DEFAULT_ACCEPTABLE_PRECESION).toBe(0.01)
+    expect(DEFAULT_ACCEPTABLE_PRECISION).toBe(0.01)
     expect(DEFAULT_SHARES_STEP).toBe(1)
     expect(MAX_SEARCH_ITERATIONS).toBe(100_000)
   })
@@ -56,7 +56,7 @@ describe('GetPortfolioWithMinimumSharesUseCase', () => {
   describe('MinimumSharesSearch', () => {
     it('defaults the values that were not given', () => {
       expect(new MinimumSharesSearch()).toMatchObject({
-        acceptablePrecision: DEFAULT_ACCEPTABLE_PRECESION,
+        acceptablePrecision: DEFAULT_ACCEPTABLE_PRECISION,
         sharesStep: DEFAULT_SHARES_STEP,
       })
       expect(new MinimumSharesSearch(0.5))

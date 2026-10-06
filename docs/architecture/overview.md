@@ -68,7 +68,7 @@ Dependencies are injected through constructors and wired once, in the compositio
 ### Where the dependency rule is relaxed
 
 - The data-driver ports (`ISettingsDataDriver`, `IOverridesDataDriver`, `IPriceDataDriver`), the DTO types, and the zod schemas they're derived from live in `src/DataDrivers`. The repository that consumes them is itself an infrastructure adapter, so this stays on the outer side of the application.
-- `minimal.CliCommand.ts` and `minimal.McpTool.ts` import default constants (`DEFAULT_ACCEPTABLE_PRECESION`, `DEFAULT_SHARES_STEP`) from their use case.
+- `minimal.CliCommand.ts` and `minimal.McpTool.ts` import default constants (`DEFAULT_ACCEPTABLE_PRECISION`, `DEFAULT_SHARES_STEP`) from their use case.
 
 ## Runtime flow
 

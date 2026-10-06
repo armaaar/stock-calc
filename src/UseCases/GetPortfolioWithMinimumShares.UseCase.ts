@@ -7,7 +7,7 @@ import { roundToClosestMultiply } from '#src/Shared/utils'
 import { validateClassErrors } from '#src/Shared/ClassValidatorError'
 import { PortfolioRequest, PortfolioUseCase } from './PortfolioUseCase.abstract'
 
-export const DEFAULT_ACCEPTABLE_PRECESION = 0.01
+export const DEFAULT_ACCEPTABLE_PRECISION = 0.01
 export const DEFAULT_SHARES_STEP = 1
 export const MAX_SEARCH_ITERATIONS = 100_000
 
@@ -30,7 +30,7 @@ export class MinimumSharesSearch {
   public readonly sharesStep: number
 
   constructor(acceptablePrecision?: number, sharesStep?: number) {
-    this.acceptablePrecision = acceptablePrecision ?? DEFAULT_ACCEPTABLE_PRECESION
+    this.acceptablePrecision = acceptablePrecision ?? DEFAULT_ACCEPTABLE_PRECISION
     this.sharesStep = sharesStep ?? DEFAULT_SHARES_STEP
 
     validateClassErrors(this, MinimumSharesSearch)
@@ -59,7 +59,7 @@ export class GetPortfolioWithMinimumSharesUseCase extends PortfolioUseCase<Minim
 
       const totalPrice = portfolio.totalPrice
       const isPrecise = (sec: PortfolioSecurity) => (
-        this.areSharesPercise(sec, totalPrice, search.acceptablePrecision)
+        this.areSharesPrecise(sec, totalPrice, search.acceptablePrecision)
       )
       if (portfolio.securities.every(isPrecise)) {
         return portfolio
@@ -81,7 +81,7 @@ export class GetPortfolioWithMinimumSharesUseCase extends PortfolioUseCase<Minim
       .toNumber()
   }
 
-  private areSharesPercise(
+  private areSharesPrecise(
     sec: PortfolioSecurity,
     totalPrice: Decimal,
     acceptablePrecision: number,

@@ -1,6 +1,6 @@
 import { Command } from '@commander-js/extra-typings'
 import type { PortfolioUseCases } from '#src/UseCases/PortfolioUseCases.factory'
-import { DEFAULT_ACCEPTABLE_PRECESION, DEFAULT_SHARES_STEP } from '#src/UseCases/GetPortfolioWithMinimumShares.UseCase'
+import { DEFAULT_ACCEPTABLE_PRECISION, DEFAULT_SHARES_STEP } from '#src/UseCases/GetPortfolioWithMinimumShares.UseCase'
 import { PortfolioCliPresenter } from '../Presenters/PortfolioCli.Presenter'
 import { ErrorCliPresenter } from '../Presenters/ErrorCliPresenter.Presenter'
 import { parseFiniteNumber, portfolioOption } from '../cliOptions'
@@ -13,7 +13,7 @@ export function createMinimalCli(minimal: PortfolioUseCases['minimal']) {
       '-p, --precision <precision>',
       'how much can your securities percentage deviate from target (> 0 and <= 1)',
       parseFiniteNumber,
-      DEFAULT_ACCEPTABLE_PRECESION,
+      DEFAULT_ACCEPTABLE_PRECISION,
     )
     .option(
       '-s, --shares-step <step>',
