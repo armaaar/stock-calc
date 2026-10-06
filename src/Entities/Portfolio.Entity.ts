@@ -154,6 +154,9 @@ export class Portfolio {
 
     this.plannedDeposit = deposit
     this.balanceForPrice(value)
+    // Before sizing any shortfall: a sell that pays its fee for nothing would be covered by
+    // selling more elsewhere
+    this.dropLosingSells()
 
     // Rounding and fees can overshoot: cancel buys, or sell a little more, whichever lands closer
     this.fitToCash()
@@ -166,7 +169,10 @@ export class Portfolio {
 
     // A withdrawal still short: sell more, only what it needs
     this.sellUntilAffordable()
-    // A sell whose fee eats what it raises only loses money; dropping it leaves more cash
+  }
+
+  /** Undoes every sell whose fee is at least what it raises: it only loses money. */
+  private dropLosingSells() {
     this.securities
       .filter((sec) => sec.shares < sec.initialShares)
       .filter((sec) => sec.tradingFee.greaterThanOrEqualTo(sec.tradedPrice.abs()))

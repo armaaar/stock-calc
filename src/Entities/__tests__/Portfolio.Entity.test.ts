@@ -469,6 +469,23 @@ describe('Portfolio', () => {
         expect(portfolio.cashAfterTrades.toNumber()).toBe(26.45)
       })
 
+      it('still buys what it can afford when the sell funding it would cost more than it raises', () => {
+        // Balancing buys 8 A and sells 2 B, but B's 50 minimum fee eats the sale. Dropping that
+        // sell and buying 5 A with the 5 deposited is affordable and closer to target.
+        const portfolio = two(
+          { price: 1, shares: 0, targetPercentage: 0.5, brokerageFeeFlat: 0 },
+          {
+            price: 1, shares: 10, targetPercentage: 0.5,
+            brokerageFeeFlat: 0, tradingFeePercentage: 0.2, minimumTradingFeeFlat: 50,
+          },
+        )
+
+        portfolio.allocateCash(new Decimal(5))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 5, B: 10 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(0)
+      })
+
       it('trades nothing rather than sell a share for less than its fee', () => {
         const portfolio = two(
           { price: 0.37, shares: 1, targetPercentage: 0.34 },
@@ -582,6 +599,29 @@ describe('Portfolio', () => {
 
         expect(sharesOf(portfolio)).toEqual({ A: 0, B: 0 })
         expect(portfolio.cashAfterTrades.toNumber()).toBe(-4)
+      })
+
+      it('doesn\'t sell more to pay for a losing sell that is then dropped', () => {
+        // Balancing sells 1 C (28.45) for a 50 minimum fee. Sizing the withdrawal of 1 with that
+        // fee still in the plan would sell all of B; without it, one B (5) covers 1.
+        const portfolio = new Portfolio({
+          securities: [
+            security({
+              tick: 'A', price: 1, shares: 5, targetPercentage: 0.45,
+              brokerageFeeFlat: 0, tradingFeePercentage: 0.05, minimumTradingFeeFlat: 10,
+            }),
+            security({ tick: 'B', price: 5, shares: 5, targetPercentage: 0.4, brokerageFeeFlat: 0 }),
+            security({
+              tick: 'C', price: 28.45, shares: 1, targetPercentage: 0.15,
+              brokerageFeeFlat: 0.5, tradingFeePercentage: 0.2, minimumTradingFeeFlat: 50,
+            }),
+          ],
+        })
+
+        portfolio.allocateCash(new Decimal(-1))
+
+        expect(sharesOf(portfolio)).toEqual({ A: 5, B: 4, C: 1 })
+        expect(portfolio.cashAfterTrades.toNumber()).toBe(4)
       })
 
       it('keeps only the sells a withdrawal needs when a buy it funded is cancelled', () => {
