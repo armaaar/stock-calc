@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-TypeScript portfolio calculator (show, rebalance, invest an amount, hit a target value, find the minimal share set), with two interfaces over the same use cases: a CLI (`src/CliApp`) and an MCP server (`src/McpApp`, registered for this repo in `.mcp.json`). It gets live prices by scraping justetf.com and tradingview.com with Puppeteer. README.md has the user-facing command reference and the portfolio file format.
+TypeScript portfolio calculator (show, rebalance, invest an amount, hit a target value, find the minimal share set), with two interfaces over the same use cases: a CLI (`src/CliApp`) and an MCP server (`src/McpApp`, registered for this repo in `.mcp.json`). It gets live prices by scraping justetf.com and tradingview.com with Puppeteer, and mutual fund NAVs from snduk.com over plain HTTP. README.md has the user-facing command reference and the portfolio file format.
 
 ## Commands
 

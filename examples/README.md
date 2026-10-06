@@ -30,7 +30,7 @@ examples/
 | `ibkr/eur.jsonc` | The smallest portfolio: just `securities`. Its fees come from the broker. |
 | `ibkr/mixed.jsonc` | `currency` (what orders are paid in), and a security's own `currency` (what it trades in). CSPX is converted from USD, and its orders pay the FX fee. |
 | `ibkr/mixed.overrides.jsonc` | Price overrides by tick, and a rate override by `<FROM>/<TO>`. Remove the rate to fetch it live. |
-| `thndr/egp.jsonc` | `cash`, a mutual fund (BMM) no source lists, priced by override, and a fee part set on one security. |
-| `thndr/egp.overrides.jsonc` | `asOf`: when a price, here the fund's NAV, was looked up. |
+| `thndr/egp.jsonc` | `cash`, a mutual fund (BMM) with its `snduk` page, which prices its NAV, and a fee part set on one security. |
+| `thndr/egp.overrides.jsonc` | `asOf`: when a price, here the fund's NAV, was looked up. Remove BMM's entry to read it live from snduk.com. |
 
 The [README](../README.md#portfolio) describes every field.

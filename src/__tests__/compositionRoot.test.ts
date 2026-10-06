@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { Browser } from 'puppeteer'
 import { createDataDir, exampleFiles } from '#src/__fixtures__/dataFiles'
 import { createFakeBrowser, FakeBrowser } from '#src/__fixtures__/puppeteer'
+import { BMM_FUND, sndukFundPage } from '#src/__fixtures__/snduk'
 import { composePortfolioUseCases } from '../compositionRoot'
 
 const { launch } = vi.hoisted(() => ({ launch: vi.fn<() => Promise<Browser>>() }))
@@ -90,19 +91,49 @@ describe('composePortfolioUseCases', () => {
     }
   })
 
+  it('prices a mutual fund from its snduk.com page with the global fetch', async () => {
+    // The network is the process boundary: no test makes a real request
+    const fetchPage = vi.fn(async () => new Response(sndukFundPage(BMM_FUND)))
+    vi.stubGlobal('fetch', fetchPage)
+    launch.mockImplementation(async () => createFakeBrowser() as unknown as Browser)
+    const funds = createDataDir({
+      'thndr/funds.jsonc': JSON.stringify({
+        securities: [{
+          tick: 'BMM', exchange: 'EGX', snduk: 'beltone-meya-100', shares: 10, targetPercentage: 1,
+        }],
+      }),
+    })
+
+    try {
+      const [bmm] = (await composePortfolioUseCases(funds).show.execute({})).securities
+
+      expect(bmm.price.toNumber()).toBe(2.4326)
+      expect(bmm.quote).toMatchObject({ source: 'snduk.com', quotedAt: '2026-10-06' })
+      expect(fetchPage).toHaveBeenCalledWith(
+        'https://snduk.com/eg/funds/beltone-meya-100?lang=en',
+        expect.objectContaining({ headers: expect.any(Object) }),
+      )
+    } finally {
+      vi.unstubAllGlobals()
+      fs.rmSync(funds, { recursive: true })
+    }
+  })
+
   it('launches headless browsers for live prices and closes them afterwards', async () => {
     const browsers: FakeBrowser[] = [createFakeBrowser(), createFakeBrowser()]
     for (const browser of browsers) {
       launch.mockResolvedValueOnce(browser as unknown as Browser)
     }
 
-    // The fake pages never show a price, so both scrapers fail
+    // The fake pages never show a price, so both scrapers fail. XYZ names no fund page, so
+    // snduk.com, asked first, gives up without a request
     const error = await composePortfolioUseCases(dataDir).show
       .execute({ portfolio: 'ibkr/live' })
       .catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(AggregateError)
     expect((error as AggregateError).errors.map((e: Error) => e.message)).toEqual([
+      'No snduk.com fund page set',
       'ISIN \'IE0000000000\' is not registered in justetf.com',
       'Tick \'XYZ\' at \'IBIS2\' is not registered in tradingview.com',
     ])

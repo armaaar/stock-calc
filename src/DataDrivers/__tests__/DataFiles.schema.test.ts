@@ -167,6 +167,23 @@ describe('SettingsSchema', () => {
     expect(BrokerSchema.safeParse({ fxFeePercentage }).success).toBe(false)
   })
 
+  it('accepts the snduk.com page of a fund', () => {
+    const security = { ...EUR_SETTINGS.securities[0], snduk: 'azimut-usd-az-30-Fund' }
+
+    expect(SettingsSecuritySchema.parse(security).snduk).toBe('azimut-usd-az-30-Fund')
+  })
+
+  it.each(['', '-fund', 'beltone/../x', 'beltone meya', 'https://snduk.com/eg/funds/x'])(
+    'rejects the snduk.com page %j',
+    (snduk) => {
+      const result = SettingsSecuritySchema.safeParse({ ...EUR_SETTINGS.securities[0], snduk })
+
+      expect(result.success).toBe(false)
+      expect(result.error?.issues[0].message)
+        .toBe('Must be the fund\'s slug in its snduk.com address, such as beltone-meya-100')
+    },
+  )
+
   it('accepts the currency a security is traded in', () => {
     const security = { ...EUR_SETTINGS.securities[0], currency: 'USD' }
 

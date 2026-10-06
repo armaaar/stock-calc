@@ -36,6 +36,7 @@ ADR-0002 through ADR-0011 were **recorded retroactively** on 2026-10-06. ADR-001
 | [0026](0026-single-currency-portfolios.md) | Portfolios are single-currency, with fees in that currency and no FX conversion | Superseded by 0028 | 2026-10-06 |
 | [0027](0027-portfolios-grouped-by-broker.md) | Portfolios live in a folder per broker | Accepted | 2026-10-06 |
 | [0028](0028-multi-currency-portfolios.md) | Securities listed in another currency are converted at an exchange rate, with an FX fee | Accepted | 2026-10-06 |
+| [0029](0029-mutual-fund-navs-from-snduk.md) | Mutual funds are priced at their NAV from snduk.com | Accepted | 2026-10-06 |
 
 ## Adding an ADR
 

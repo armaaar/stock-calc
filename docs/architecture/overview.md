@@ -22,6 +22,7 @@ flowchart LR
 
 | External system | Used for | Lookup key | Notes |
 | --- | --- | --- | --- |
+| snduk.com | Egyptian mutual fund NAVs | `snduk` (fund page slug) + `tick` | Plain HTTP, no browser. 15 s timeout. Asked first ([ADR-0029](adr/0029-mutual-fund-navs-from-snduk.md)). |
 | justetf.com | ETF quotes | `isin` | Only works for securities with an ISIN. 2 s selector timeout. |
 | tradingview.com | Any listed symbol, and exchange rates | `exchange` + `tick`; `FX_IDC:<FROM><TO>` for rates | 30 s selector timeout. |
 | Local JSONC files | Broker fees, portfolio definition and price overrides | Portfolio id `<broker>/<portfolio>` (`--pt`/`--portfolio` or the `portfolio` tool input; optional with one portfolio) | Git-ignored. The tracked examples are the `ibkr` and `thndr` brokers in `examples/`. |
@@ -121,7 +122,7 @@ Over MCP, the client calls the `rebalance` tool with `{ "portfolio": "ibkr/eur" 
 For each security, independently and in parallel ([ADR-0006](adr/0006-race-multiple-price-sources.md), [ADR-0008](adr/0008-manual-price-overrides.md)):
 
 1. If the security's `tick` is a key in the overrides file, that `{ price, currency }` is used and no scraping happens.
-2. Otherwise both scrapers run concurrently, and the answers are taken in list order: the first source that can price the security wins (JustEtf before TradingView, ADR-0025). The quote records that source and the time. When the security sets the `currency` it's traded in, an answer in another currency (another listing) counts as a failure, so the next source is used ([ADR-0028](adr/0028-multi-currency-portfolios.md)).
+2. Otherwise every source runs concurrently, and the answers are taken in list order: the first source that can price the security wins (Snduk, then JustEtf, then TradingView, ADR-0025 and ADR-0029). The quote records that source, and the time, or the date the source gives (a fund's NAV date). The quote records that source and the time. When the security sets the `currency` it's traded in, an answer in another currency (another listing) counts as a failure, so the next source is used ([ADR-0028](adr/0028-multi-currency-portfolios.md)).
 3. If both reject, the repository rejects with an `AggregateError` (`No price source could price '<tick>': check its tick, exchange and isin, or add its price to the overrides`), and the presenter shows each driver's error. Each driver error keeps the underlying Puppeteer error as its `cause`.
 4. Once every price is known, each quote currency other than the portfolio's `currency` gets one exchange rate: a `<FROM>/<TO>` override, or the first rate source (TradingView's `FX_IDC` pairs) that can give it. The browsers for rates launch only if some rate isn't overridden.
 

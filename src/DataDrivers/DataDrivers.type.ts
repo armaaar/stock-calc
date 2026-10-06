@@ -12,6 +12,12 @@ export type SettingsDto = z.infer<typeof SettingsSchema>
 
 export type SecurityPriceDto = z.infer<typeof SecurityPriceSchema>
 
+/**
+ * A quote from a live source. `quotedAt` (ISO 8601) is when the source's price is from, when it
+ * says: a fund's NAV date. Without it, the quote is from the moment it was read.
+ */
+export type LiveQuoteDto = SecurityPriceDto & { quotedAt?: string }
+
 export type OverridePriceDto = z.infer<typeof OverridePriceSchema>
 
 export type OverrideRateDto = z.infer<typeof OverrideRateSchema>
@@ -41,7 +47,7 @@ export interface IPriceDataDriver {
   readonly name: string
   launchBrowser(): Promise<void>
   closeBrowser(): Promise<void>
-  getPrice(setting: SettingsSecurityDto): Promise<SecurityPriceDto>
+  getPrice(setting: SettingsSecurityDto): Promise<LiveQuoteDto>
 }
 
 /** A live exchange-rate source. Its browser must be launched before `getRate` and closed after. */

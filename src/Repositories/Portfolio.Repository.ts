@@ -182,7 +182,8 @@ export class PortfolioRepository implements IPortfolioRepository {
       price: value.price,
       currency: value.currency,
       priceSource: source,
-      pricedAt: this.now().toISOString(),
+      // When the source dates its price (a fund's NAV date), the plan shows that date
+      pricedAt: value.quotedAt ?? this.now().toISOString(),
     }
   }
 

@@ -6,6 +6,8 @@
   "BMM": {
     "price": 2.4326,
     "currency": "EGP",
-    "asOf": "2026-10-06" // optional: when the price (here, the fund's NAV) was looked up
+    // optional: when the price (here, the fund's NAV) was looked up. Remove BMM to read
+    // its NAV from snduk.com
+    "asOf": "2026-10-06"
   }
 }

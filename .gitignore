@@ -6,3 +6,6 @@ src/data/*
 
 # Personal Claude Code settings
 .claude/settings.local.json
+
+# Playwright MCP snapshots and logs
+.playwright-mcp/

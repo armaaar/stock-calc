@@ -9,10 +9,11 @@
       "targetPercentage": 0.8
     },
     {
-      // Beltone Meya Meya, a mutual fund tracking the EGX100. It isn't exchange-traded, so no
-      // source lists it: its daily NAV goes in egp.overrides.jsonc
+      // Beltone Meya Meya, a mutual fund tracking the EGX100. It isn't exchange-traded: its daily
+      // NAV comes from its snduk.com page (here overridden, so the example runs offline)
       "tick": "BMM",
       "exchange": "EGX",
+      "snduk": "beltone-meya-100",
       "shares": 150,
       "targetPercentage": 0.2,
       // Optional: this security's own fees. Each part set here replaces the portfolio's and the

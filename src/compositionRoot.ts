@@ -3,6 +3,7 @@ import { dataDirectory } from '#src/DataDrivers/DataFiles.reader'
 import { JustEtfDataDriver } from '#src/DataDrivers/JustEtf.DataDriver'
 import { OverridesDataDriver } from '#src/DataDrivers/Overrides.DataDriver'
 import { SettingsDataDriver } from '#src/DataDrivers/Settings.DataDriver'
+import { SndukDataDriver } from '#src/DataDrivers/Snduk.DataDriver'
 import { TradingViewDataDriver } from '#src/DataDrivers/TradingView.DataDriver'
 import { PortfolioRepository } from '#src/Repositories/Portfolio.Repository'
 import { createPortfolioUseCases, PortfolioUseCases } from '#src/UseCases/PortfolioUseCases.factory'
@@ -21,7 +22,9 @@ export function composePortfolioUseCases(dataDir: string = dataDirectory()): Por
   const portfolioRepo = new PortfolioRepository({
     settings: new SettingsDataDriver(dataDir),
     overrides: new OverridesDataDriver(dataDir),
-    prices: [new JustEtfDataDriver(launchBrowser), tradingView],
+    // Snduk answers at once for a security that doesn't name a fund page, so it goes first:
+    // a fund is then priced without waiting for the exchanges' sources to give up
+    prices: [new SndukDataDriver(fetch), new JustEtfDataDriver(launchBrowser), tradingView],
     rates: [tradingView],
   })
 

@@ -216,6 +216,22 @@ describe('PortfolioRepository', () => {
       expect(portfolio.securities.map((s) => s.quote.source)).toEqual(['justetf', 'tradingview'])
     })
 
+    it('dates a live price by the source\'s own date when it gives one, such as a NAV\'s', async () => {
+      justEtf.getPrice.mockImplementation(async ({ tick }) => (
+        tick === 'QDVE' ? { ...EUR(10), quotedAt: '2026-10-05' } : EUR(20)
+      ))
+
+      const portfolio = await new PortfolioRepository(
+        {
+          settings, overrides, prices: [justEtf], rates: [],
+        },
+        () => new Date('2026-10-06T09:30:00Z'),
+      ).getPortfolio('ibkr/eur')
+
+      expect(portfolio.securities.map((s) => s.quote.quotedAt))
+        .toEqual(['2026-10-05', '2026-10-06T09:30:00.000Z'])
+    })
+
     it('time-stamps live prices with the injected clock', async () => {
       const now = new Date('2026-10-06T09:30:00Z')
       justEtf.getPrice.mockResolvedValue(EUR(10))

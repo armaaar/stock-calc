@@ -2,14 +2,14 @@
 
 This context answers one question: **what is the current price and currency of this security?** It supports the core domain, but nothing about it is specific to portfolio allocation.
 
-Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/DataDrivers/DataDrivers.type.ts`, `src/Shared/BrowserController.abstract.ts`, and the `getPrice` method of `src/Repositories/Portfolio.Repository.ts`.
+Code: `src/DataDrivers/{Snduk,JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/DataDrivers/SndukFund.parser.ts`, `src/DataDrivers/DataDrivers.type.ts`, `src/Shared/BrowserController.abstract.ts`, and the `getPrice` method of `src/Repositories/Portfolio.Repository.ts`.
 
 ## Model
 
 | Concept | Shape | Notes |
 | --- | --- | --- |
 | **Security identity** (lookup request) | `SettingsSecurityDto`: `tick`, `exchange`, `isin?` (plus `shares` and `targetPercentage`, which drivers ignore) | Each source uses a different part of the identity. |
-| **Price quote** | `SecurityPriceDto`: `{ price: number, currency: string }` from a source; in the core, the `PriceQuote` value object (price, currency, `source`, `quotedAt`) | The repository adds the source's `name` and the time it was quoted ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md)). |
+| **Price quote** | `LiveQuoteDto`: `{ price: number, currency: string, quotedAt? }` from a source (`quotedAt` when the source dates its price, such as a NAV); in the core, the `PriceQuote` value object (price, currency, `source`, `quotedAt`) | The repository adds the source's `name` and the time it was quoted ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md)). |
 | **Price source** | `IPriceDataDriver`: a `name` and `getPrice(identity) → Promise<SecurityPriceDto>` | Rejects when the source can't price the security. |
 | **Exchange rate** | `IExchangeRateDataDriver.getRate(from, to) → Promise<number>` from a source; `{ rate, asOf? }` keyed `<FROM>/<TO>` in the overrides file; in the core, the `ExchangeRate` value object | One per listing currency other than the portfolio's, sourced and stamped like prices ([ADR-0028](../architecture/adr/0028-multi-currency-portfolios.md)). TradingView reads `FX_IDC:<FROM><TO>`. |
 | **Price override** | `prices: Record<tick, { price, currency, asOf? }>` from `<broker>/<portfolio>.overrides.jsonc` | Per portfolio. Optional file. Sourced `override`, dated by `asOf` (`YYYY-MM-DD`) when given. |
@@ -18,6 +18,7 @@ Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/Data
 
 | Source | Identity used | How | Fails when |
 | --- | --- | --- | --- |
+| **Snduk** | `snduk` (the fund page slug) and `tick` | Fetches `snduk.com/eg/funds/<slug>?lang=en` over plain HTTP (15 s) and reads the fund records the page streams for Next.js; uses the one whose `code` is the tick. Gives the NAV, its currency and its date ([ADR-0029](../architecture/adr/0029-mutual-fund-navs-from-snduk.md)). | No `snduk` page in settings (no request is made), an HTTP error or timeout, no fund record in the page, a record for another fund, or no valid NAV. |
 | **JustEtf** | `isin` | Loads `justetf.com/en/etf-profile.html?isin=<ISIN>` and reads `#realtime-quotes .val` (text `"<CUR> <price>"`). | No ISIN in settings, the page doesn't load within 10 s, no quote within 2 s, or the text isn't a valid quote. |
 | **TradingView** | `exchange` + `tick` | Loads `tradingview.com/symbols/<EXCHANGE>-<TICK>/` and reads `.js-symbol-last` and `.js-symbol-currency` under `[data-symbol="<EXCHANGE>:<TICK>"]`, or under the symbol the page redirected to when TradingView renamed the listing. | Navigation fails, symbol unknown, nothing visible within 30 s, or the text isn't a valid quote. |
 | **Override** | `tick` | Own-key lookup (`Object.hasOwn`) in the overrides map. | Never: it either matches or doesn't apply. |
@@ -30,13 +31,13 @@ Code: `src/DataDrivers/{JustEtf,TradingView,Overrides}.DataDriver.ts`, `src/Data
 flowchart TD
   A[security] --> B{tick in overrides?}
   B -- yes --> Q[use override quote]
-  B -- no --> C["ask every price source at once: JustEtf, TradingView"]
+  B -- no --> C["ask every price source at once: Snduk, JustEtf, TradingView"]
   C -- first source in list order that succeeds --> Q2[use its quote, stamped with its name and the time]
   C -- all rejected --> E[AggregateError → run fails]
 ```
 
 1. **Overrides take precedence** over live sources ([ADR-0008](../architecture/adr/0008-manual-price-overrides.md)).
-2. **Live sources answer in priority order** (the order of the `prices` list in `src/compositionRoot.ts`: JustEtf, then TradingView). They are all asked at once, but the first source in the list that can price the security wins, however fast the others are. The same inputs therefore always give the same prices ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md), amending the race of [ADR-0006](../architecture/adr/0006-race-multiple-price-sources.md)). If all fail, the run fails with `No price source could price '<tick>'` and every source's error.
+2. **Live sources answer in priority order** (the order of the `prices` list in `src/compositionRoot.ts`: Snduk, JustEtf, then TradingView; Snduk rejects at once for a security without a fund page). They are all asked at once, but the first source in the list that can price the security wins, however fast the others are. The same inputs therefore always give the same prices ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md), amending the race of [ADR-0006](../architecture/adr/0006-race-multiple-price-sources.md)). If all fail, the run fails with `No price source could price '<tick>'` and every source's error.
 3. **One unpriceable security fails the whole run.** The aggregate can't be built without every price.
 
 All securities are resolved in parallel (`Promise.all` in the repository).

@@ -41,6 +41,14 @@ export const SettingsSecuritySchema = z.object({
    * quote in another currency is then skipped, so the next source prices this listing.
    */
   currency: CurrencyCode.optional(),
+  /**
+   * A mutual fund's page on snduk.com, which prices it at its NAV: the `<slug>` in
+   * `snduk.com/eg/funds/<slug>`, such as `beltone-meya-100`.
+   */
+  snduk: z.string().regex(
+    /^[A-Za-z0-9][A-Za-z0-9-]*$/,
+    'Must be the fund\'s slug in its snduk.com address, such as beltone-meya-100',
+  ).optional(),
   ...FeesShape,
 }).strict() // a misspelled optional fee would otherwise be dropped silently
 
