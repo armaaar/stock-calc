@@ -135,6 +135,9 @@ describe('composePortfolioUseCases', () => {
       const error = await composePortfolioUseCases(funds).show.execute({})
         .catch((e: unknown) => e)
 
+      expect((error as AggregateError).message).toBe(
+        'No price source could price \'BMM\': check its snduk page, or add its price to the overrides',
+      )
       expect((error as AggregateError).errors.map((e: Error) => e.message))
         .toEqual(['Fund \'no-such-fund\' is not registered in snduk.com'])
       expect(launch).not.toHaveBeenCalled()

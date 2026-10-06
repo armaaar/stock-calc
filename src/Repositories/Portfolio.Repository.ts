@@ -3,6 +3,7 @@ import {
   IOverridesDataDriver,
   IPriceDataDriver,
   ISettingsDataDriver,
+  isMutualFund,
   OverridesDto,
   SettingsSecurityDto,
 } from '#src/DataDrivers/DataDrivers.type'
@@ -180,7 +181,9 @@ export class PortfolioRepository implements IPortfolioRepository {
       },
       `No price source could price '${setting.tick}'`
       + (setting.currency === undefined ? '' : ` in ${setting.currency}`)
-      + ': check its tick, exchange and isin, or add its price to the overrides',
+      + (isMutualFund(setting)
+        ? ': check its snduk page, or add its price to the overrides'
+        : ': check its tick, exchange and isin, or add its price to the overrides'),
     )
     return {
       price: value.price,

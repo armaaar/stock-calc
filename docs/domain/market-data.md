@@ -18,8 +18,8 @@ Code: `src/DataDrivers/{Snduk,JustEtf,TradingView,Overrides}.DataDriver.ts`, `sr
 
 | Source | Identity used | How | Fails when |
 | --- | --- | --- | --- |
-| **Snduk** | `snduk` (the fund page slug) and `tick` | Fetches `snduk.com/eg/funds/<slug>?lang=en` over plain HTTP (15 s) and reads the fund records the page streams for Next.js; uses the one whose `code` is the tick. Gives the NAV, its currency and its date ([ADR-0029](../architecture/adr/0029-mutual-fund-navs-from-snduk.md)). | No `snduk` page in settings (no request is made), an HTTP error or timeout, no fund record in the page, a record for another fund, or no valid NAV. |
-| **JustEtf** | `isin` | Loads `justetf.com/en/etf-profile.html?isin=<ISIN>`, checks it's an ETF profile (`#realtime-quotes`), and reads `#realtime-quotes .val` (text `"<CUR> <price>"`), which the page fetches after loading. | No ISIN in settings, the page doesn't load within 10 s, the page isn't an ETF profile (an unknown ISIN redirects to a search: fails at once), no quote within 10 s, or the text isn't a valid quote. |
+| **Snduk** | `snduk` (the fund page slug) and `tick` | Fetches `snduk.com/eg/funds/<slug>?lang=en` over plain HTTP (15 s) and reads the fund records the page streams for Next.js; uses the one whose `code` is the tick. Gives the NAV, its currency and its date ([ADR-0029](../architecture/adr/0029-mutual-fund-navs-from-snduk.md)). | An HTTP error or timeout, no fund record in the page, a record for another fund, or no valid NAV. |
+| **JustEtf** | `isin` | Loads `justetf.com/en/etf-profile.html?isin=<ISIN>`, checks it's an ETF profile (`#realtime-quotes`), and reads `#realtime-quotes .val` (text `"<CUR> <price>"`), which the page fetches after loading. | The page doesn't load within 10 s, the page isn't an ETF profile (an unknown ISIN redirects to a search: fails at once), no quote within 10 s, or the text isn't a valid quote. |
 | **TradingView** | `exchange` + `tick` | Loads `tradingview.com/symbols/<EXCHANGE>-<TICK>/` and reads `.js-symbol-last` and `.js-symbol-currency` under `[data-symbol="<EXCHANGE>:<TICK>"]`, or under the symbol the page redirected to when TradingView renamed the listing. | Navigation fails, symbol unknown, nothing visible within 30 s, or the text isn't a valid quote. |
 | **Override** | `tick` | Own-key lookup (`Object.hasOwn`) in the overrides map. | Never: it either matches or doesn't apply. |
 
@@ -31,13 +31,13 @@ Code: `src/DataDrivers/{Snduk,JustEtf,TradingView,Overrides}.DataDriver.ts`, `sr
 flowchart TD
   A[security] --> B{tick in overrides?}
   B -- yes --> Q[use override quote]
-  B -- no --> C["ask every price source at once: Snduk, JustEtf, TradingView"]
+  B -- no --> C["ask every source that can price it at once: Snduk for a fund; JustEtf, TradingView otherwise"]
   C -- first source in list order that succeeds --> Q2[use its quote, stamped with its name and the time]
   C -- all rejected --> E[AggregateError → run fails]
 ```
 
 1. **Overrides take precedence** over live sources ([ADR-0008](../architecture/adr/0008-manual-price-overrides.md)).
-2. **Live sources answer in priority order** (the order of the `prices` list in `src/compositionRoot.ts`: Snduk, JustEtf, then TradingView). Only the sources that can price the security are asked (`canPrice`): Snduk for a security with a `snduk` page and nothing else for it, JustEtf for one with an ISIN, TradingView for any other ([ADR-0029](../architecture/adr/0029-mutual-fund-navs-from-snduk.md)). They are all asked at once, but the first source in the list that can price the security wins, however fast the others are. The same inputs therefore always give the same prices ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md), amending the race of [ADR-0006](../architecture/adr/0006-race-multiple-price-sources.md)). If all fail, the run fails with `No price source could price '<tick>'` and every source's error.
+2. **Live sources answer in priority order** (the order of the `prices` list in `src/compositionRoot.ts`: Snduk, JustEtf, then TradingView). Only the sources that can price the security are asked (`canPrice`): Snduk for a security with a `snduk` page and nothing else for it, JustEtf for one with an ISIN, TradingView for any security that isn't a fund ([ADR-0029](../architecture/adr/0029-mutual-fund-navs-from-snduk.md)). They are all asked at once, but the first source in the list that can price the security wins, however fast the others are. The same inputs therefore always give the same prices ([ADR-0025](../architecture/adr/0025-price-quotes-with-source-and-priority.md), amending the race of [ADR-0006](../architecture/adr/0006-race-multiple-price-sources.md)). If all fail, the run fails with `No price source could price '<tick>'` and every source's error.
 3. **One unpriceable security fails the whole run.** The aggregate can't be built without every price.
 
 All securities are resolved in parallel (`Promise.all` in the repository).
