@@ -57,7 +57,7 @@ A holding of one security within a portfolio. It extends `Security`, so it carri
 | --- | --- |
 | `shares` / `initialShares` | Proposed and current whole-share counts. `initialShares` defaults to `shares`. |
 | `targetPercentage` | Target weight in [0, 1]. |
-| `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat` | The portfolio's broker fee settings, copied onto each security. |
+| `brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat` | The fee settings for this security's orders. Today the repository always copies the portfolio-level settings here (see [gap 5](#known-gaps-and-open-questions)). |
 | `isBeingTraded` | `shares !== initialShares` |
 | `totalPrice` / `initialTotalPrice` | `price × shares` / `price × initialShares` |
 | `tradedPrice` | `totalPrice − initialTotalPrice` (signed: + buy, − sell) |
@@ -128,10 +128,17 @@ The **Portfolio Configuration** context provides the input for building the aggr
 
 These are behaviors of the current model that may not be intended. They're recorded here so they get decided deliberately.
 
-1. **Sells pay no percentage fee.** `tradedPrice` is negative for sells, so `max(percentage × tradedPrice, minimum)` always picks the minimum. Using `|tradedPrice|` would charge sells like buys.
+1. **Sells pay no percentage fee.** Confirmed, and pinned by a `// Current behaviour:` test in `src/Entities/__tests__/PortfolioSecurity.Entity.test.ts`. `tradedPrice` is negative for sells, so `max(percentage × tradedPrice, minimum)` always picks the minimum. Using `|tradedPrice|` would charge sells like buys. It has no effect while `tradingFeePercentage` is 0. With a percentage tariff, every plan that sells (rebalance, and often invest) understates its cost. Fix it together with gap 5, since both change the fee calculation.
 2. **Invariants aren't re-checked after planning.** Use cases change `shares` directly and the entities aren't re-validated. Inputs are guarded instead: use-case parameters are validated, and `balanceForPrice` rejects NaN, infinite and negative prices, so the planning paths can no longer produce `NaN` or negative share counts.
 3. **Allocations can overspend.** `balanceForPrice` rounds to the nearest share and ignores fees, so `invest X` may need slightly more than `X` in cash.
 4. **No cash position.** Leftover cash from rounding, or money released by sells, isn't modeled.
-5. **Fee settings are duplicated per security.** They belong to the portfolio (broker) but are copied onto each `PortfolioSecurity`.
+5. **One fee for every security.** Real brokers charge different fees for different listings. For example, one broker charges a flat 3 EUR per order on EUR-listed ETFs but 4 USD on a USD-listed one. The settings file only has portfolio-level fees, and `PortfolioRepository` copies them onto every security, so any holding with a different tariff gets the wrong cost.
+   - **The domain already supports per-security fees.** `PortfolioSecurity` takes all three fee values per security (each optional, defaulting to 0). Only the file schema and the repository's copying force one global value.
+   - **Intended model:** keep the portfolio-level fees as the default, and let each security override any of the three parts (`brokerageFeeFlat`, `tradingFeePercentage`, `minimumTradingFeeFlat`) on its own. A part a security doesn't override falls back to the portfolio's value.
+   - The fee stays per order, not per share ([ADR-0011](../architecture/adr/0011-fee-model-per-security-order.md)).
 6. **Security mixes identity and quote.** Quote time and source aren't recorded, so a plan can't say how fresh its prices are.
 7. **Subclasses must validate themselves.** `validateClassErrors` only validates when `object.constructor === cls`. This is by design: the most-derived constructor validates once all fields are set (ADR-0004). A subclass that doesn't call it skips validation.
+8. **Fees are in the portfolio's currency only.** Every fee value is read as an amount in the portfolio's single currency (P3). A broker fee quoted in another currency, such as 4 USD on a EUR portfolio, has to be entered as a hand-converted approximation (about 3.56 EUR). It drifts with the exchange rate, by cents. This is accepted: there's deliberately no currency conversion and no currency field on fees, because the portfolio is single-currency by design.
+9. **One currency per portfolio.** P3 rejects a portfolio whose price quotes don't all share one currency. There's no FX conversion. A security listed in another currency only works if its quote arrives in the portfolio's currency, either from a source that quotes it that way or through a price override.
+10. **No buy-only investing.** `invest` always rebalances too, so it can plan sells while money is being added. Each sell costs a fee and may have tax consequences. There's no option to only buy. See [UC-3](use-cases.md#uc-3-invest-an-additional-amount).
+11. **No warning when fees eat into an order.** Plans report each order's fee but never judge it. With a flat fee, small orders are expensive in relative terms: 3 EUR on a 500 EUR buy is 0.6%, and splitting the same 500 EUR across three holdings costs three fees, about 1.8%. A warning when an order's fee exceeds a threshold (for example 1% of the order) would show when it's better to contribute less often in bigger amounts. This is only worth adding once fees are accurate (gaps 1 and 5).
