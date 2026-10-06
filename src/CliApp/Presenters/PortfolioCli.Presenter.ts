@@ -51,7 +51,7 @@ export class PortfolioCliPresenter {
       console.log(`Trading Price: ${portfolio.totalTradedPrice} ${portfolio.currency ?? ''}`)
       console.log(`Portfolio Price: ${portfolio.totalPrice} ${portfolio.currency ?? ''}`)
     } else {
-      throw Error(`Unknown present mode '${mode}`)
+      throw Error(`Unknown present mode '${mode}'`)
     }
     console.log()
   }
@@ -103,7 +103,7 @@ export class PortfolioCliPresenter {
             'Trading Fee': sec.tradingFee.toNumber(),
           }
         } else {
-          throw Error(`Unknown present mode '${mode}`)
+          throw Error(`Unknown present mode '${mode}'`)
         }
 
         return sortObjectByKey<PortfolioSecurityTableData>({
