@@ -1,13 +1,11 @@
-[
-  {
-    "tick": "ACTF",
-    "price": 2.90,
-    "currency": "EGP"
+{
+  // Keyed by tick. A matching security skips live price fetching.
+  "QDVE": {
+    "price": 28.45,
+    "currency": "EUR"
   },
-  {
-    "tick": "CI30",
-    "price": 19.54,
-    "currency": "EGP"
+  "SPYD": {
+    "price": 62.10,
+    "currency": "EUR"
   }
-]
-
+}
