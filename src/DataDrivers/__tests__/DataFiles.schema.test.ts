@@ -1,11 +1,11 @@
 import fs from 'fs'
 import path from 'path'
-import { parse } from 'jsonc-parser'
 import { describe, expect, it } from 'vitest'
 import { EUR_OVERRIDES, EUR_SETTINGS, withoutIsin } from '@/__fixtures__/dataFiles'
 import {
   OverridesSchema, parseDataFile, SecurityPriceSchema, SettingsSchema, SettingsSecuritySchema,
-} from '.././DataFiles.schema'
+} from '../DataFiles.schema'
+import { parseJsonc } from '../DataFiles.reader'
 
 const FILE = '/data/_settings.TEST.jsonc'
 
@@ -69,12 +69,73 @@ describe('SettingsSecuritySchema', () => {
     expect(parsed).not.toHaveProperty('note')
   })
 
-  // Current behaviour: no range checks; negative shares and percentages pass the file schema
-  // and are only caught later (if at all) by the entity validators.
-  it('does not range-check numbers', () => {
-    const security = { ...EUR_SETTINGS.securities[0], shares: -1, targetPercentage: 7 }
+  it.each([
+    ['tick', ''],
+    ['tick', '   '],
+    ['exchange', ''],
+    ['shares', -1],
+    ['shares', 1.5],
+    ['targetPercentage', -0.1],
+    ['targetPercentage', 1.01],
+    ['targetPercentage', 40],
+  ])('rejects %s = %j', (field, value) => {
+    const security = { ...EUR_SETTINGS.securities[0], [field]: value }
+
+    const result = SettingsSecuritySchema.safeParse(security)
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual([field])
+  })
+
+  it.each([
+    ['shares', 0],
+    ['targetPercentage', 0],
+    ['targetPercentage', 1],
+  ])('accepts the boundary %s = %j', (field, value) => {
+    const security = { ...EUR_SETTINGS.securities[0], [field]: value }
 
     expect(SettingsSecuritySchema.safeParse(security).success).toBe(true)
+  })
+
+  it('trims tick and exchange', () => {
+    const parsed = SettingsSecuritySchema.parse({
+      ...EUR_SETTINGS.securities[0], tick: ' QDVE ', exchange: ' IBIS2',
+    })
+
+    expect(parsed).toMatchObject({ tick: 'QDVE', exchange: 'IBIS2' })
+  })
+})
+
+describe('SettingsSchema', () => {
+  it.each([
+    ['brokerageFeeFlat', -1],
+    ['minimumTradingFeeFlat', -0.01],
+    ['tradingFeePercentage', -0.001],
+    ['tradingFeePercentage', 1.5],
+  ])('rejects %s = %j', (field, value) => {
+    const result = SettingsSchema.safeParse({ ...EUR_SETTINGS, [field]: value })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual([field])
+  })
+
+  it.each([
+    ['brokerageFeeFlat', 0],
+    ['minimumTradingFeeFlat', 0],
+    ['tradingFeePercentage', 0],
+    ['tradingFeePercentage', 1],
+  ])('accepts the boundary %s = %j', (field, value) => {
+    expect(SettingsSchema.safeParse({ ...EUR_SETTINGS, [field]: value }).success).toBe(true)
+  })
+
+  it('reports a range error with the file path and the field path', () => {
+    const data = {
+      ...EUR_SETTINGS,
+      securities: [{ ...EUR_SETTINGS.securities[0], targetPercentage: 40 }],
+    }
+
+    expect(() => parseDataFile(SettingsSchema, data, FILE))
+      .toThrow(/^Invalid data file '\/data\/_settings\.TEST\.jsonc':\n[\s\S]*<=1[\s\S]*securities\[0\]\.targetPercentage/)
   })
 })
 
@@ -97,11 +158,29 @@ describe('OverridesSchema', () => {
   it('rejects a string price', () => {
     expect(SecurityPriceSchema.safeParse({ price: '1', currency: 'EUR' }).success).toBe(false)
   })
+
+  it.each([0, -1])('rejects the price %j', (price) => {
+    const result = OverridesSchema.safeParse({ QDVE: { price, currency: 'EUR' } })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual(['QDVE', 'price'])
+  })
+
+  it.each(['', ' '])('rejects the currency %j', (currency) => {
+    const result = OverridesSchema.safeParse({ QDVE: { price: 1, currency } })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].path).toEqual(['QDVE', 'currency'])
+  })
 })
 
 describe('tracked example data files', () => {
   const dataDir = path.resolve(import.meta.dirname, '../../data')
-  const read = (name: string) => parse(fs.readFileSync(path.join(dataDir, name)).toString())
+  // parseJsonc also rejects JSONC syntax errors, like the data drivers do
+  const read = (name: string) => parseJsonc(
+    fs.readFileSync(path.join(dataDir, name)).toString(),
+    name,
+  )
 
   it('_settings.EUR.jsonc.example matches SettingsSchema', () => {
     const file = '_settings.EUR.jsonc.example'
@@ -113,5 +192,17 @@ describe('tracked example data files', () => {
     const file = '_overrides.EUR.jsonc.example'
 
     expect(parseDataFile(OverridesSchema, read(file), file)).toEqual(EUR_OVERRIDES)
+  })
+
+  it('_settings.EGP.jsonc.example matches SettingsSchema', () => {
+    const file = '_settings.EGP.jsonc.example'
+
+    expect(() => parseDataFile(SettingsSchema, read(file), file)).not.toThrow()
+  })
+
+  it('_overrides.EGP.jsonc.example matches OverridesSchema', () => {
+    const file = '_overrides.EGP.jsonc.example'
+
+    expect(() => parseDataFile(OverridesSchema, read(file), file)).not.toThrow()
   })
 })

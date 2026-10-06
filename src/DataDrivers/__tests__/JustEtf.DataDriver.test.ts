@@ -5,13 +5,15 @@ import { QDVE_SETTING, withoutIsin } from '@/__fixtures__/dataFiles'
 import {
   createFakeBrowser, createFakePage, FakeBrowser, FakeSelectorResult,
 } from '@/__fixtures__/puppeteer'
-import { JustEtfDataDriver } from '.././JustEtf.DataDriver'
+import { JustEtfDataDriver } from '../JustEtf.DataDriver'
 
 const puppeteer = vi.hoisted(() => ({ launch: vi.fn() }))
 
 vi.mock('puppeteer', () => ({ launch: puppeteer.launch }))
 
 const PRICE_SELECTOR = '#realtime-quotes .val'
+
+const NOT_REGISTERED = 'ISIN \'IE00B3WJKG14\' is not registered in justetf.com'
 
 describe('JustEtfDataDriver', () => {
   let driver: JustEtfDataDriver
@@ -59,44 +61,55 @@ describe('JustEtfDataDriver', () => {
     const error = await driver.getPrice(QDVE_SETTING).catch((e: Error) => e)
 
     expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toBe('ISIN \'IE00B3WJKG14\' is not registered in justetf.com')
+    expect((error as Error).message).toBe(NOT_REGISTERED)
     expect((error as Error).cause).toBe(timeout)
   })
 
-  // Current behaviour: navigation happens outside the try block, so a goto failure is not
-  // wrapped in the "not registered" error.
-  it('propagates a navigation failure unwrapped', async () => {
+  it('wraps a navigation failure in a "not registered" error with the cause set', async () => {
     await launchWith({ text: 'EUR 28.45' })
-    browser.page.goto.mockRejectedValueOnce(Error('net::ERR_NAME_NOT_RESOLVED'))
+    const navigation = Error('net::ERR_NAME_NOT_RESOLVED')
+    browser.page.goto.mockRejectedValueOnce(navigation)
 
-    await expect(driver.getPrice(QDVE_SETTING)).rejects.toThrow(/^net::ERR_NAME_NOT_RESOLVED$/)
+    const error = await driver.getPrice(QDVE_SETTING).catch((e: Error) => e)
+
+    expect((error as Error).message).toBe(NOT_REGISTERED)
+    expect((error as Error).cause).toBe(navigation)
+    expect(browser.page.waitForSelector).not.toHaveBeenCalled()
   })
 
-  // Current behaviour: the scraped text isn't validated, so a missing element/text resolves to
-  // a NaN price and an undefined currency instead of rejecting.
-  it('resolves to a NaN price when the selector returns no element', async () => {
-    await launchWith(null)
+  it.each([
+    ['no element', null, 'No price text found'],
+    ['an element without text', { text: null }, 'No price text found'],
+    ['an empty text', { text: '  ' }, 'No price text found'],
+    ['a currency only', { text: 'EUR' }, 'No price text found'],
+    ['a zero price', { text: 'EUR 0.00' }, 'Price \'0.00\' is not a positive number'],
+    ['a non-numeric price', { text: 'EUR n/a' }, 'Price \'n/a\' is not a positive number'],
+  ] as const)('rejects %s with a "not registered" error caused by the parser', async (
+    _case,
+    result,
+    cause,
+  ) => {
+    await launchWith(result)
+
+    const error = await driver.getPrice(QDVE_SETTING).catch((e: Error) => e)
+
+    expect((error as Error).message).toBe(NOT_REGISTERED)
+    expect(((error as Error).cause as Error).message).toBe(cause)
+  })
+
+  it.each([
+    ['a thousands separator', 'EUR 1,234.56'],
+    ['a no-break space', 'EUR\u00a01,234.56'],
+    ['a narrow no-break space as thousands separator', 'EUR 1\u202f234.56'],
+    ['surrounding whitespace', '\n  EUR   1234.56 \n'],
+  ])('parses a price with %s', async (_case, text) => {
+    await launchWith({ text })
 
     await expect(driver.getPrice(QDVE_SETTING))
-      .resolves.toEqual({ price: Number.NaN, currency: undefined })
+      .resolves.toEqual({ price: 1234.56, currency: 'EUR' })
   })
 
-  it('resolves to a NaN price when the element has no text', async () => {
-    await launchWith({ text: null })
-
-    await expect(driver.getPrice(QDVE_SETTING))
-      .resolves.toEqual({ price: Number.NaN, currency: undefined })
-  })
-
-  // Current behaviour: thousands separators are not handled, so large prices become NaN.
-  it('resolves to a NaN price for a price with a thousands separator', async () => {
-    await launchWith({ text: 'EUR 1,234.56' })
-
-    await expect(driver.getPrice(QDVE_SETTING))
-      .resolves.toEqual({ price: Number.NaN, currency: 'EUR' })
-  })
-
-  // Current behaviour: pages are never closed; they're cleaned up when the browser closes.
+  // By design (ADR-0006): pages are never closed; they're cleaned up when the browser closes.
   it('does not close the page it opened', async () => {
     await launchWith({ text: 'EUR 28.45' })
 

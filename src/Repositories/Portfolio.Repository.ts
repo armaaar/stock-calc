@@ -6,6 +6,13 @@ import { TradingViewDataDriver } from '@/DataDrivers/TradingView.DataDriver'
 import { Portfolio } from '@/Entities/Portfolio.Entity'
 import { IPortfolioSecurity, PortfolioSecurity } from '@/Entities/PortfolioSecurity.Entity'
 
+type Overrides = Record<string, SecurityPriceDto>
+
+/** Own keys only, so a tick like 'toString' isn't "overridden" by Object.prototype. */
+function isOverridden(tick: string, overrides: Overrides): boolean {
+  return Object.hasOwn(overrides, tick)
+}
+
 export class PortfolioRepository {
   private justEtfDD = new JustEtfDataDriver()
 
@@ -22,8 +29,11 @@ export class PortfolioRepository {
       } = await this.settingsDD.getPortfolioSettings(type)
       const overrides = await this.overridesDD.getPortfolioOverrides(type)
 
-      await this.justEtfDD.launchBrowser()
-      await this.tradingViewDD.launchBrowser()
+      // Only start the browsers when at least one price has to be scraped
+      if (securities.some(({ tick }) => !isOverridden(tick, overrides))) {
+        await this.justEtfDD.launchBrowser()
+        await this.tradingViewDD.launchBrowser()
+      }
 
       const PortfolioSecurities: IPortfolioSecurity[] = await Promise.all(
         securities.map(async (security) => {
@@ -50,6 +60,7 @@ export class PortfolioRepository {
         securities: PortfolioSecurities.map((s) => new PortfolioSecurity(s)),
       })
     } finally {
+      // Closing a browser that was never launched is a no-op
       await Promise.all([
         this.justEtfDD.closeBrowser(),
         this.tradingViewDD.closeBrowser(),
@@ -59,9 +70,9 @@ export class PortfolioRepository {
 
   private async getPrice(
     setting: SettingsSecurityDto,
-    overrides: Record<string, SecurityPriceDto>,
+    overrides: Overrides,
   ): Promise<SecurityPriceDto> {
-    if (Object.hasOwn(overrides, setting.tick)) return overrides[setting.tick]
+    if (isOverridden(setting.tick, overrides)) return overrides[setting.tick]
 
     const priceDataDrivers: IPriceDataDriver[] = [
       this.justEtfDD,

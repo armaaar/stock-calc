@@ -2,7 +2,7 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
 import { EUR_OVERRIDES, EUR_OVERRIDES_JSONC } from '@/__fixtures__/dataFiles'
-import { OverridesDataDriver } from '.././Overrides.DataDriver'
+import { OverridesDataDriver } from '../Overrides.DataDriver'
 
 const fsMock = vi.hoisted(() => ({
   existsSync: vi.fn<(p: string) => boolean>(),
@@ -65,10 +65,37 @@ describe('OverridesDataDriver', () => {
     expect((error as Error).message).toContain('QDVE.price')
   })
 
-  // Current behaviour: unlike a missing file, an existing but empty file is an error.
-  it('throws "Invalid data file" for an empty file', async () => {
-    givenFile('')
+  it.each([
+    ['empty', ''],
+    ['whitespace-only', '  \n\t\r\n'],
+    ['comments-only', '// no overrides yet\n/* "QDVE": { "price": 1, "currency": "EUR" } */\n'],
+  ])('returns {} for an %s file, like a missing one', async (_case, content) => {
+    givenFile(content)
 
-    await expect(driver.getPortfolioOverrides('EUR')).rejects.toThrow(/Invalid data file/)
+    await expect(driver.getPortfolioOverrides('EUR')).resolves.toEqual({})
+  })
+
+  it('reports JSONC syntax errors with the code and line:column instead of recovering', async () => {
+    givenFile('{\n  "QDVE": { "price": 28.45 "currency": "EUR" }\n}')
+
+    await expect(driver.getPortfolioOverrides('EUR')).rejects.toThrow(
+      /^Invalid data file '.*_overrides\.EUR\.jsonc': JSONC syntax error: CommaExpected at 2:28$/,
+    )
+  })
+
+  it('rejects a non-positive override price with the file and field path', async () => {
+    givenFile('{ "QDVE": { "price": 0, "currency": "EUR" } }')
+
+    const error = await driver.getPortfolioOverrides('EUR').catch((e: Error) => e)
+
+    expect((error as Error).message).toMatch(/^Invalid data file '.*_overrides\.EUR\.jsonc':\n/)
+    expect((error as Error).message).toContain('QDVE.price')
+  })
+
+  it('rejects an invalid portfolio name before touching the file system', async () => {
+    await expect(driver.getPortfolioOverrides('../../x')).rejects.toThrow(
+      'Invalid portfolio name \'../../x\': use letters, digits, \'_\' or \'-\'',
+    )
+    expect(fsMock.existsSync).not.toHaveBeenCalled()
   })
 })

@@ -1,16 +1,18 @@
-import { parse } from 'jsonc-parser'
 import fs from 'fs'
-import path from 'path'
 import { SecurityPriceDto } from './IPriceDataDriver.type'
 import { OverridesSchema, parseDataFile } from './DataFiles.schema'
+import { dataFilePath, isBlankJsonc, parseJsonc } from './DataFiles.reader'
 
 export class OverridesDataDriver {
   public async getPortfolioOverrides(type: string): Promise<Record<string, SecurityPriceDto>> {
-    const filePath = path.resolve(import.meta.dirname, '../data', `_overrides.${type}.jsonc`)
+    const filePath = dataFilePath('_overrides', type)
 
     if (!fs.existsSync(filePath)) return {}
 
     const jsoncString = fs.readFileSync(filePath).toString()
-    return parseDataFile(OverridesSchema, parse(jsoncString), filePath)
+    // An empty (or comments-only) file means no overrides, just like a missing one
+    if (isBlankJsonc(jsoncString)) return {}
+
+    return parseDataFile(OverridesSchema, parseJsonc(jsoncString, filePath), filePath)
   }
 }

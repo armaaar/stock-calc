@@ -3,17 +3,32 @@ import { Browser, launch } from 'puppeteer'
 export abstract class BrowserController {
   private browser?: Browser
 
+  /** The launch in progress, shared by concurrent `launchBrowser()` calls. */
+  private launching?: Promise<void>
+
   public async launchBrowser(): Promise<void> {
-    if (!this.browser) {
-      this.browser = await launch({ headless: true })
+    if (this.browser) return
+
+    this.launching ??= launch({ headless: true }).then((browser) => {
+      this.browser = browser
+    })
+
+    try {
+      await this.launching
+    } finally {
+      this.launching = undefined
     }
   }
 
   public async closeBrowser(): Promise<void> {
-    if (this.browser) {
-      await this.browser.close()
+    // Let a launch in progress finish, so its browser gets closed too
+    await this.launching?.catch(() => undefined)
+
+    try {
+      await this.browser?.close()
+    } finally {
+      this.browser = undefined
     }
-    this.browser = undefined
   }
 
   protected getBrowser(): Browser {

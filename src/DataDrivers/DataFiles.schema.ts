@@ -1,23 +1,30 @@
 import { z } from 'zod'
 
+const NonEmptyString = z.string().trim().min(1, 'Must not be empty')
+
+/** A fraction between 0 and 1 (e.g. 0.4 = 40%). */
+const Fraction = z.number().min(0).max(1)
+
+const NonNegative = z.number().min(0)
+
 export const SettingsSecuritySchema = z.object({
-  tick: z.string(),
-  exchange: z.string(),
+  tick: NonEmptyString,
+  exchange: NonEmptyString,
   isin: z.string().optional(),
-  shares: z.number(),
-  targetPercentage: z.number(),
+  shares: z.number().int().min(0),
+  targetPercentage: Fraction,
 })
 
 export const SettingsSchema = z.object({
-  brokerageFeeFlat: z.number(),
-  tradingFeePercentage: z.number(),
-  minimumTradingFeeFlat: z.number(),
+  brokerageFeeFlat: NonNegative,
+  tradingFeePercentage: Fraction,
+  minimumTradingFeeFlat: NonNegative,
   securities: z.array(SettingsSecuritySchema),
 })
 
 export const SecurityPriceSchema = z.object({
-  price: z.number(),
-  currency: z.string(),
+  price: z.number().positive(),
+  currency: NonEmptyString,
 })
 
 export const OverridesSchema = z.record(z.string(), SecurityPriceSchema)

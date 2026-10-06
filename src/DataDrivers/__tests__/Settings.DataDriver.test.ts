@@ -2,7 +2,7 @@ import {
   beforeEach, describe, expect, it, vi,
 } from 'vitest'
 import { EUR_SETTINGS, EUR_SETTINGS_JSONC } from '@/__fixtures__/dataFiles'
-import { SettingsDataDriver } from '.././Settings.DataDriver'
+import { SettingsDataDriver } from '../Settings.DataDriver'
 
 const fsMock = vi.hoisted(() => ({
   existsSync: vi.fn<(p: string) => boolean>(),
@@ -68,22 +68,37 @@ describe('SettingsDataDriver', () => {
     await expect(driver.getPortfolioSettings('EUR')).rejects.toThrow(/Invalid data file/)
   })
 
-  // Current behaviour: jsonc-parser is lenient and its parse errors are ignored, so a
-  // syntactically broken file is accepted as long as what it could recover matches the schema.
-  it('silently tolerates JSON syntax errors', async () => {
+  it('reports JSONC syntax errors with the code and line:column instead of recovering', async () => {
     givenFile(EUR_SETTINGS_JSONC.replace('"brokerageFeeFlat": 1,', '"brokerageFeeFlat": 1,,'))
+
+    await expect(driver.getPortfolioSettings('EUR')).rejects.toThrow(
+      /^Invalid data file '.*_settings\.EUR\.jsonc': JSONC syntax error: PropertyNameExpected at 3:25/,
+    )
+  })
+
+  it('accepts trailing commas', async () => {
+    givenFile(EUR_SETTINGS_JSONC.replace('"targetPercentage": 0.6 }', '"targetPercentage": 0.6, },'))
 
     await expect(driver.getPortfolioSettings('EUR')).resolves.toEqual(EUR_SETTINGS)
   })
 
-  // Current behaviour: the portfolio type is interpolated into the path unsanitised, so it can
-  // point outside src/data.
-  it('does not sanitise the portfolio type', async () => {
-    givenFile(undefined)
+  it('reports out-of-range values with the file and field path', async () => {
+    givenFile(EUR_SETTINGS_JSONC.replace('"shares": 100', '"shares": -1'))
 
-    await driver.getPortfolioSettings('../../../x').catch(() => undefined)
+    const error = await driver.getPortfolioSettings('EUR').catch((e: Error) => e)
 
-    // '_settings.../../../x.jsonc' resolves to src/x.jsonc
-    expect(toPosix(fsMock.existsSync.mock.calls[0][0])).toMatch(/\/src\/x\.jsonc$/)
+    expect((error as Error).message).toMatch(/^Invalid data file '.*_settings\.EUR\.jsonc':\n/)
+    expect((error as Error).message).toContain('securities[0].shares')
   })
+
+  it.each(['../../../x', 'EUR/../EGP', 'a b', ''])(
+    'rejects the portfolio name %j before touching the file system',
+    async (type) => {
+      await expect(driver.getPortfolioSettings(type)).rejects.toThrow(
+        `Invalid portfolio name '${type}': use letters, digits, '_' or '-'`,
+      )
+      expect(fsMock.existsSync).not.toHaveBeenCalled()
+      expect(fsMock.readFileSync).not.toHaveBeenCalled()
+    },
+  )
 })
