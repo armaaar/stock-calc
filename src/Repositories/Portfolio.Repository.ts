@@ -92,6 +92,12 @@ export class PortfolioRepository implements IPortfolioRepository {
   ): Promise<SecurityPriceDto> {
     if (isOverridden(setting.tick, overrides)) return overrides[setting.tick]
 
-    return Promise.any(this.dataDrivers.prices.map((priceDD) => priceDD.getPrice(setting)))
+    const { prices } = this.dataDrivers
+    // Promise.any([]) would reject with an empty AggregateError that names no security
+    if (prices.length === 0) {
+      throw Error(`No price source for '${setting.tick}': add its price to the overrides`)
+    }
+
+    return Promise.any(prices.map((priceDD) => priceDD.getPrice(setting)))
   }
 }

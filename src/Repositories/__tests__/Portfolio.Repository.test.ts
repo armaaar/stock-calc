@@ -258,15 +258,11 @@ describe('PortfolioRepository', () => {
       expect(portfolio.totalPrice.toNumber()).toBe(9055)
     })
 
-    it('rejects an un-overridden security when there is no price driver', async () => {
-      // Current behaviour: Promise.any([]) rejects with an AggregateError without any errors,
-      // so the message does not say which security could not be priced.
+    it('names the un-overridden security when there is no price driver', async () => {
       overrides.getPortfolioOverrides.mockResolvedValue({ QDVE: EUR_OVERRIDES.QDVE })
 
-      const error = await repositoryWith([]).getPortfolio('EUR').catch((e: unknown) => e)
-
-      expect(error).toBeInstanceOf(AggregateError)
-      expect((error as AggregateError).errors).toEqual([])
+      await expect(repositoryWith([]).getPortfolio('EUR'))
+        .rejects.toThrow('No price source for \'SPYD\': add its price to the overrides')
     })
 
     it('races a third price driver alongside the others', async () => {
